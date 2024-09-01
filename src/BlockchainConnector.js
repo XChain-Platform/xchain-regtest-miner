@@ -380,7 +380,12 @@ class BlockchainConnector {
 			const data = {
 				jsonrpc: '2.0',
 				method: 'sendtoaddress',
-				params: [address, amount],
+				//params: [address, amount],
+				params: {
+					"address":address, 
+					"amount":amount,
+					"verbose":true
+				},
 				id: 1,
 			}
 
@@ -394,7 +399,7 @@ class BlockchainConnector {
 
 			// Verify if there is a result and return it
 			if (response.data.result){
-				return response.data.result;
+				return response.data.result["txid"];
 			} else {
 				console.log(response.data.error)
 				throw new Error('Error sending funds to address');
@@ -402,7 +407,37 @@ class BlockchainConnector {
 		} catch (error) {
 			console.error('Error:', error.message);
 			throw error;
-		}	
+		}
+	}
+	
+	async sendRawTransaction(txHex){
+		try {
+			const data = {
+				jsonrpc: '2.0',
+				method: 'sendrawtransaction',
+				params: [txHex],
+				id: 1,
+			}
+
+			// Make the request to the node
+			const response = await axios.post(this.url, data, {
+				auth: {
+					username: this.rpcUser,
+					password: this.rpcPassword,
+				}
+			})
+
+			// Verify if there is a result and return it
+			if (response.data.result){
+				return response.data.result
+			} else {
+				console.log(response.data.error)
+				throw new Error('Error sending raw transaction')
+			}
+		} catch (error) {
+			console.error('Error:', error.message)
+			throw error;
+		}
 	}
 }
 

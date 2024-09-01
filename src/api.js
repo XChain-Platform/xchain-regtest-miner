@@ -38,11 +38,39 @@ async function startApi(){
 
 		// Function to send funds to any address
 		async send_funds({address, amount}) {
+			let txid = null
+		
 			try {
-				await miner.sendFundsToAddress(address, amount)
+				txid = await miner.sendFundsToAddress(address, amount)
 			} catch(err){
 				console.log(err)
 				return {"error":"There was a problem sending "+amount+" to "+address}
+			}
+
+			// Return ok
+			return {"result":txid}
+		},
+		
+		// Function to fill the mempool with a specific number of transactions randomly created
+		async fill_mempool({tx_quantity}) {
+			try {
+				await miner.fillMempool(tx_quantity)
+			} catch(err){
+				console.log(err)
+				return {"error":"There was a problem trying to fill mempool with "+tx_quantity+" transactions"}
+			}
+
+			// Return ok
+			return {"result":"ok"}
+		},
+		
+		// Function to fill the mempool with a specific number of transactions randomly created
+		async continue_mining({}) {
+			try {
+				await miner.continueMining()
+			} catch(err){
+				console.log(err)
+				return {"error":"There was a problem trying to continue the mining"}
 			}
 
 			// Return ok

@@ -6,22 +6,172 @@ const SATOSHI_UNIT = 100000000.0
 const MAX_TIME_TO_MINE_TXS = 30000 //max 30 seconds to mine a block after the first tx is found in the mempool
 const ADDED_TIME_TO_MINE_TXS = 5000 //5 seconds extra before mining a block every time a new tx appears in the mempool
 
+
+//This is useful only for filling the mempool
+const { BIP32Factory } = require('bip32')
+const ecc = require('tiny-secp256k1')
+const bip32 = BIP32Factory(ecc)
+const bip39 = require('bip39')
+const bitcoin = require('bitcoinjs-lib');
+const psbtutils = require('bitcoinjs-lib/src/psbt/psbtutils');
+const {ECPairFactory} = require('ecpair')
+
 class XChainRegtestMiner {
 	constructor(network, nodeUrl, nodePort, nodeUser, nodePassword) {
       this.connector = new BlockchainConnector(nodeUrl, nodePort, nodeUser, nodePassword)
 	  this.walletNameParam = "xchain_regtest_wallet"
+	  this.keepMining = false
     }
 	
 	async sleep(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 	
+	async fillMempool(txQuantity){
+		return new Promise(async (resolve, reject) => {
+			this.keepMining = false //Stop the mining so the txs stay in mempool
+			
+			console.log("Filling mempool with "+txQuantity+" transactions")
+			//let AMOUNT_FOR_EACH_ADDRESS = 0.000001
+			//let FEE = 0.00001
+			
+			let AMOUNT_FOR_EACH_ADDRESS = 1000
+			let FEE = 1000
+			
+			
+			//Create a seed
+			var network = bitcoin.networks.regtest
+			var mnemonic = bip39.generateMnemonic()
+			var seed = bip39.mnemonicToSeedSync(mnemonic)
+			var root = bip32.fromSeed(seed, )
+			var account = root.derivePath("m/44'/0'/0'/0")
+			var address = account.derive(0).derive(0)
+			var mainAddress = bitcoin.payments.p2pkh({ pubkey: address.publicKey, network }).address
+			console.log("Main address to fill the mempool: "+mainAddress)
+
+			
+			console.log("Creating "+txQuantity+" addresses")
+			//Create txQuantity different addresses
+			let addresses = []
+			for (let i=0;i<txQuantity;i++){
+				let nextAddress = account.derive(i+1).derive(0)
+				addresses.push(nextAddress)
+			}
+
+			console.log("Sending funds to the main address")
+			//Ask for bitcoins
+			let totalAmount = 
+				AMOUNT_FOR_EACH_ADDRESS*txQuantity + //Amount for every address
+				FEE*txQuantity + //Fee that every address must pay to send the amount
+				50*txQuantity //Estimated fee to send the first tx with txQuantity outputs
+			let txid = await this.sendFundsToAddress(mainAddress, totalAmount/SATOSHI_UNIT)
+			await this.generateBlocks(1)
+			let rawTransaction = await this.connector.getRawTransaction(txid)
+			
+			
+			//Find the utxo
+			let transaction = bitcoin.Transaction.fromHex(rawTransaction)
+			let utxoIndex = 0
+			
+			for (let nextOutputIndex in transaction.outs){
+				let nextOutput = transaction.outs[nextOutputIndex]
+				let addressFromScript = bitcoin.address.fromOutputScript(nextOutput.script, network)
+			
+				if (addressFromScript == mainAddress){
+					break
+				} else {
+					utxoIndex++
+				}
+			}
+			
+			console.log("Creating a single transaction to send funds to those addresses")
+			console.log("Using utxo: "+txid+" with the index "+utxoIndex)
+			//Create a single transaction with txQuantity outputs
+			let psbt = new bitcoin.Psbt({ network: network})
+			
+			
+			psbt.addInput({
+				hash: txid,
+				index: utxoIndex,
+				sequence: transaction.outs[utxoIndex].sequence,
+				nonWitnessUtxo: Buffer.from(rawTransaction, 'hex')
+			})
+			
+			for (let nextAddressIndex in addresses){
+				let nextAddress = addresses[nextAddressIndex]
+				let nextAddressPayment = bitcoin.payments.p2pkh({ pubkey: nextAddress.publicKey, network }).address
+				let paymentAmount = AMOUNT_FOR_EACH_ADDRESS + FEE
+				
+				psbt.addOutput({
+					address: nextAddressPayment,
+					value: paymentAmount
+				})
+			}
+			
+			var ECPair = ECPairFactory(ecc)
+			let keyToSign = ECPair.fromPrivateKey(address.privateKey, { network })
+
+			for (let nextInputIndex=0;nextInputIndex < psbt.data.inputs.length;nextInputIndex++){
+				psbt.signInput(parseInt(nextInputIndex), keyToSign)
+			}
+			
+			psbt.finalizeAllInputs()
+			let extractedTransaction = psbt.extractTransaction()
+			let txVirtualSize = extractedTransaction.virtualSize()
+			let txHex = extractedTransaction.toHex()
+			
+			//console.log("TX size------------->")
+			//console.log(txVirtualSize)
+			
+			let txIdSource = await this.connector.sendRawTransaction(txHex)
+			
+			//Mine a block
+			await this.generateBlocks(1)
+			
+			//Create txQuantity transactions to stress the mempool
+			let outputIndex = 0
+			for (let nextAddressIndex in addresses){
+				let nextAddress = addresses[nextAddressIndex]
+				let psbt = new bitcoin.Psbt({ network: bitcoin.networks.regtest})
+				let paymentAmount = AMOUNT_FOR_EACH_ADDRESS
+				
+				psbt.addInput({
+					hash: txIdSource,
+					index: outputIndex,
+					sequence: 0xffffffff,
+					nonWitnessUtxo: Buffer.from(txHex, 'hex')
+				})
+				
+				psbt.addOutput({
+					address: mainAddress,
+					value: paymentAmount
+				})
+				
+				keyToSign = ECPair.fromPrivateKey(nextAddress.privateKey, { network })
+				psbt.signInput(0, keyToSign)
+				psbt.finalizeAllInputs()
+				let outputTxHex = psbt.extractTransaction().toHex()
+				
+				
+				await this.connector.sendRawTransaction(outputTxHex)
+				
+				outputIndex++
+			}
+			
+			resolve(true)
+		})
+	}
+	
+	async continueMining(){
+		this.keepMining = true
+	}
+	
 	async sendFundsToAddress(address, amount){
 		return new Promise(async (resolve, reject) => {
 			try{
-				await this.connector.sendToAddress(address, amount)
+				let txid = await this.connector.sendToAddress(address, amount)
 				
-				resolve(true)
+				resolve(txid)
 			} catch(err){
 				reject(err)
 			}
@@ -93,53 +243,55 @@ class XChainRegtestMiner {
 		let lastRawMempoolLength = 0
 		let initialStartToMine = 0
 		let extendedStartToMine = 0
+		this.keepMining = true
 		
 		while (true){
-			if ((initialStartToMine > 0) && (extendedStartToMine > 0)){
-				let timeNow = Date.now()
-				let initialTimePassed = timeNow-initialStartToMine
-				let extendedStartTime = timeNow-extendedStartToMine
-				
-				if ((initialTimePassed >= MAX_TIME_TO_MINE_TXS) || (extendedStartTime >= ADDED_TIME_TO_MINE_TXS)){
-					try {
-						await this.generateBlocks(1)
-					} catch (err){
-						console.log("There were problems generating a new block. Trying again later.")
-						await this.sleep(CHECK_BLOCK_DELAY_MS)
-						continue
-					}
+			if (this.keepMining){
+				if ((initialStartToMine > 0) && (extendedStartToMine > 0)){
+					let timeNow = Date.now()
+					let initialTimePassed = timeNow-initialStartToMine
+					let extendedStartTime = timeNow-extendedStartToMine
 					
+					if ((initialTimePassed >= MAX_TIME_TO_MINE_TXS) || (extendedStartTime >= ADDED_TIME_TO_MINE_TXS)){
+						try {
+							await this.generateBlocks(1)
+						} catch (err){
+							console.log("There were problems generating a new block. Trying again later.")
+							await this.sleep(CHECK_BLOCK_DELAY_MS)
+							continue
+						}
+						
+						initialStartToMine = 0
+						extendedStartToMine = 0
+						lastRawMempoolLength = 0
+					}
+				}
+				
+				let rawMempool = null
+				try {
+					rawMempool = await this.connector.getRawMempool()
+				} catch (error){
+					console.log("There were problems getting the mempool, trying again later.")
+					await this.sleep(CHECK_BLOCK_DELAY_MS)
+					continue
+				}
+				
+				if (rawMempool.length > 0){
+					if (rawMempool.length > lastRawMempoolLength){
+						//there are new txs in the mempool
+						if (initialStartToMine == 0){
+							initialStartToMine = Date.now()
+							extendedStartToMine = initialStartToMine
+						} else {
+							extendedStartToMine = Date.now()
+						}
+					}
+				} else {
 					initialStartToMine = 0
 					extendedStartToMine = 0
 					lastRawMempoolLength = 0
 				}
 			}
-			
-			let rawMempool = null
-			try {
-				rawMempool = await this.connector.getRawMempool()
-			} catch (error){
-				console.log("There were problems getting the mempool, trying again later.")
-				await this.sleep(CHECK_BLOCK_DELAY_MS)
-				continue
-			}
-			
-			if (rawMempool.length > 0){
-				if (rawMempool.length > lastRawMempoolLength){
-					//there are new txs in the mempool
-					if (initialStartToMine == 0){
-						initialStartToMine = Date.now()
-						extendedStartToMine = initialStartToMine
-					} else {
-						extendedStartToMine = Date.now()
-					}
-				}
-			} else {
-				initialStartToMine = 0
-				extendedStartToMine = 0
-				lastRawMempoolLength = 0
-			}
-			
 			await this.sleep(CHECK_BLOCK_DELAY_MS)
 		}
 	}
