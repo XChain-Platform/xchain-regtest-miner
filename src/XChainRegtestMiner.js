@@ -35,6 +35,7 @@ class XChainRegtestMiner {
 			//let AMOUNT_FOR_EACH_ADDRESS = 0.000001
 			//let FEE = 0.00001
 			
+			let OUTPUTS_QUANTITY_PER_TX = 2500
 			let AMOUNT_FOR_EACH_ADDRESS = 1000
 			let FEE = 1000
 			
@@ -60,70 +61,117 @@ class XChainRegtestMiner {
 
 			console.log("Sending funds to the main address")
 			//Ask for bitcoins
-			let totalAmount = 
+			let txsChunksCount = Math.ceil((txQuantity / OUTPUTS_QUANTITY_PER_TX))
+			let chunksTxids = []
+			for (let i=0;i<txsChunksCount;i++){
+				let txRemainder = OUTPUTS_QUANTITY_PER_TX
+				if (i == txsChunksCount-1){
+					let remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
+					
+					if (remainder > 0){
+						txRemainder = remainder
+					}
+				}
+				let totalAmount = 
+					AMOUNT_FOR_EACH_ADDRESS*txRemainder + //Amount for every address
+					FEE*txRemainder + //Fee that every address must pay to send the amount
+					50*txRemainder
+					
+				let txid = await this.sendFundsToAddress(mainAddress, totalAmount/SATOSHI_UNIT)
+				chunksTxids.push(txid)
+				//await this.generateBlocks(1)
+				//let rawTransaction = await this.connector.getRawTransaction(txid)
+			}
+			await this.generateBlocks(1)
+			
+			/*let totalAmount = 
 				AMOUNT_FOR_EACH_ADDRESS*txQuantity + //Amount for every address
 				FEE*txQuantity + //Fee that every address must pay to send the amount
 				50*txQuantity //Estimated fee to send the first tx with txQuantity outputs
 			let txid = await this.sendFundsToAddress(mainAddress, totalAmount/SATOSHI_UNIT)
 			await this.generateBlocks(1)
-			let rawTransaction = await this.connector.getRawTransaction(txid)
+			let rawTransaction = await this.connector.getRawTransaction(txid)*/
 			
 			
-			//Find the utxo
-			let transaction = bitcoin.Transaction.fromHex(rawTransaction)
-			let utxoIndex = 0
+			//Find the utxos
+			let utxos = []
+			for (let nextChunkIndex in chunksTxids){
+				let nextChunkTxid = chunksTxids[nextChunkIndex]
+				let rawTransaction = await this.connector.getRawTransaction(nextChunkTxid)
+				let transaction = bitcoin.Transaction.fromHex(rawTransaction)
+				let utxoIndex = 0
 			
-			for (let nextOutputIndex in transaction.outs){
-				let nextOutput = transaction.outs[nextOutputIndex]
-				let addressFromScript = bitcoin.address.fromOutputScript(nextOutput.script, network)
+				for (let nextOutputIndex in transaction.outs){
+					let nextOutput = transaction.outs[nextOutputIndex]
+					let addressFromScript = bitcoin.address.fromOutputScript(nextOutput.script, network)
 			
-				if (addressFromScript == mainAddress){
-					break
-				} else {
-					utxoIndex++
+					if (addressFromScript == mainAddress){
+						utxos.push({txid:nextChunkTxid, utxoIndex: utxoIndex, rawTransaction:rawTransaction})
+						break
+					} else {
+						utxoIndex++
+					}
 				}
-			}
-			
-			console.log("Creating a single transaction to send funds to those addresses")
-			console.log("Using utxo: "+txid+" with the index "+utxoIndex)
-			//Create a single transaction with txQuantity outputs
-			let psbt = new bitcoin.Psbt({ network: network})
-			
-			
-			psbt.addInput({
-				hash: txid,
-				index: utxoIndex,
-				sequence: transaction.outs[utxoIndex].sequence,
-				nonWitnessUtxo: Buffer.from(rawTransaction, 'hex')
-			})
-			
-			for (let nextAddressIndex in addresses){
-				let nextAddress = addresses[nextAddressIndex]
-				let nextAddressPayment = bitcoin.payments.p2pkh({ pubkey: nextAddress.publicKey, network }).address
-				let paymentAmount = AMOUNT_FOR_EACH_ADDRESS + FEE
 				
-				psbt.addOutput({
-					address: nextAddressPayment,
-					value: paymentAmount
+				
+			}
+			
+			console.log("Creating the transactions to send funds to those addresses")
+			
+			for (let nextUtxoIndex in utxos){
+				let nextUtxo = utxos[nextUtxoIndex]
+				let utxoIndex = nextUtxo["utxoIndex"]
+				let txid = nextUtxo["txid"]
+				let rawTransaction = nextUtxo["rawTransaction"]
+				let transaction = bitcoin.Transaction.fromHex(rawTransaction)
+				
+			    //Create a single transaction with txQuantity outputs
+			    let psbt = new bitcoin.Psbt({ network: network})
+			
+			
+			    psbt.addInput({
+				    hash: txid,
+				    index: utxoIndex,
+				    sequence: transaction.outs[utxoIndex].sequence,
+					nonWitnessUtxo: Buffer.from(rawTransaction, 'hex')
 				})
-			}
 			
-			var ECPair = ECPairFactory(ecc)
-			let keyToSign = ECPair.fromPrivateKey(address.privateKey, { network })
+			
+				let total = 0
+			
+				for (let nextAddressIndex=nextUtxoIndex*OUTPUTS_QUANTITY_PER_TX
+					 ;nextAddressIndex<((parseInt(nextUtxoIndex) +1)*OUTPUTS_QUANTITY_PER_TX) && (nextAddressIndex<addresses.length)
+					 ;nextAddressIndex++)
+				{
+					let nextAddress = addresses[nextAddressIndex]
+					let nextAddressPayment = bitcoin.payments.p2pkh({ pubkey: nextAddress.publicKey, network }).address
+					let paymentAmount = AMOUNT_FOR_EACH_ADDRESS + FEE
+				
+					total = total + paymentAmount
+					
+					psbt.addOutput({
+						address: nextAddressPayment,
+						value: paymentAmount
+					})
+				}
+			
+				var ECPair = ECPairFactory(ecc)
+				let keyToSign = ECPair.fromPrivateKey(address.privateKey, { network })
 
-			for (let nextInputIndex=0;nextInputIndex < psbt.data.inputs.length;nextInputIndex++){
-				psbt.signInput(parseInt(nextInputIndex), keyToSign)
+				for (let nextInputIndex=0;nextInputIndex < psbt.data.inputs.length;nextInputIndex++){
+					psbt.signInput(parseInt(nextInputIndex), keyToSign)
+				}
+			
+				psbt.finalizeAllInputs()
+				let extractedTransaction = psbt.extractTransaction()
+				let txVirtualSize = extractedTransaction.virtualSize()
+				let txHex = extractedTransaction.toHex()
+				
+				nextUtxo["txHex"] = txHex
+				nextUtxo["txIdSource"] = await this.connector.sendRawTransaction(txHex)
 			}
 			
-			psbt.finalizeAllInputs()
-			let extractedTransaction = psbt.extractTransaction()
-			let txVirtualSize = extractedTransaction.virtualSize()
-			let txHex = extractedTransaction.toHex()
 			
-			//console.log("TX size------------->")
-			//console.log(txVirtualSize)
-			
-			let txIdSource = await this.connector.sendRawTransaction(txHex)
 			
 			//Mine a block
 			await this.generateBlocks(1)
@@ -134,6 +182,12 @@ class XChainRegtestMiner {
 				let nextAddress = addresses[nextAddressIndex]
 				let psbt = new bitcoin.Psbt({ network: bitcoin.networks.regtest})
 				let paymentAmount = AMOUNT_FOR_EACH_ADDRESS
+				
+				let utxoIndex = Math.floor(nextAddressIndex/OUTPUTS_QUANTITY_PER_TX)
+				
+				let txIdSource = utxos[utxoIndex]["txIdSource"]
+				let txHex = utxos[utxoIndex]["txHex"]
+				let outputIndex = nextAddressIndex % OUTPUTS_QUANTITY_PER_TX
 				
 				psbt.addInput({
 					hash: txIdSource,
@@ -147,7 +201,9 @@ class XChainRegtestMiner {
 					value: paymentAmount
 				})
 				
-				keyToSign = ECPair.fromPrivateKey(nextAddress.privateKey, { network })
+				console.log("Stressing the mempool with the transaction number "+nextAddressIndex)
+				
+				let keyToSign = ECPair.fromPrivateKey(nextAddress.privateKey, { network })
 				psbt.signInput(0, keyToSign)
 				psbt.finalizeAllInputs()
 				let outputTxHex = psbt.extractTransaction().toHex()
