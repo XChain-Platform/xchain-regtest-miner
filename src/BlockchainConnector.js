@@ -1,5 +1,6 @@
 const axios = require('axios');
 axios.defaults.timeout = 5000
+axios.defaults.keepAlive = true
 
 class BlockchainConnector {
 	constructor(url, port, rpcUser, rpcPassword) {
@@ -9,7 +10,7 @@ class BlockchainConnector {
 		this.rpcPassword = rpcPassword
 	}
 
-	async getNetworkInfo(){
+async getNetworkInfo(){
 		const data = {
 			jsonrpc: '2.0',
 			method: 'getnetworkinfo',

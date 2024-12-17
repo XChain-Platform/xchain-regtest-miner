@@ -63,6 +63,7 @@ class XChainRegtestMiner {
 			//Ask for bitcoins
 			let txsChunksCount = Math.ceil((txQuantity / OUTPUTS_QUANTITY_PER_TX))
 			let chunksTxids = []
+			let processedChunkCount = 0
 			for (let i=0;i<txsChunksCount;i++){
 				let txRemainder = OUTPUTS_QUANTITY_PER_TX
 				if (i == txsChunksCount-1){
@@ -76,9 +77,27 @@ class XChainRegtestMiner {
 					AMOUNT_FOR_EACH_ADDRESS*txRemainder + //Amount for every address
 					FEE*txRemainder + //Fee that every address must pay to send the amount
 					50*txRemainder
-					
-				let txid = await this.sendFundsToAddress(mainAddress, totalAmount/SATOSHI_UNIT)
+				
+				console.log("Sending "+totalAmount/SATOSHI_UNIT+" ("+i+") to "+mainAddress)
+				
+				let sent = false
+				let txid = null
+				while(!sent){
+					try {
+						txid = await this.sendFundsToAddress(mainAddress, totalAmount/SATOSHI_UNIT)
+						sent = true
+					} catch(err){
+						console.log(err)
+						console.log("Error sending funds, trying again...")
+						await this.sleep(1000)
+					}
+				}
 				chunksTxids.push(txid)
+				processedChunkCount++
+				
+				if (processedChunkCount>=20){
+					await this.generateBlocks(1)
+				}
 				//await this.generateBlocks(1)
 				//let rawTransaction = await this.connector.getRawTransaction(txid)
 			}
@@ -97,7 +116,10 @@ class XChainRegtestMiner {
 			let utxos = []
 			for (let nextChunkIndex in chunksTxids){
 				let nextChunkTxid = chunksTxids[nextChunkIndex]
-				let rawTransaction = await this.connector.getRawTransaction(nextChunkTxid)
+				let rawTransaction = null
+				while (rawTransaction == null){
+					rawTransaction = await this.connector.getRawTransaction(nextChunkTxid)
+				}
 				let transaction = bitcoin.Transaction.fromHex(rawTransaction)
 				let utxoIndex = 0
 			
