@@ -17,75 +17,102 @@ const NODE_PASSWORD =  process.env.NODE_PASSWORD
 const REGTEST_MINER_API_PORT = process.env.REGTEST_MINER_API_PORT
 
 async function startApi(){
-	//Start the miner
-	const miner = new XChainRegtestMiner(NETWORK, NODE_URL, NODE_PORT, NODE_USER, NODE_PASSWORD);
-	miner.start()
+    //Start the miner
+    const miner = new XChainRegtestMiner(NETWORK, NODE_URL, NODE_PORT, NODE_USER, NODE_PASSWORD);
+    miner.start()
 
-	// Create the app
-	const app = express();
+    // Create the app
+    const app = express();
 
-	// Use Helmet to increase security
-	app.use(helmet());
+    // Use Helmet to increase security
+    app.use(helmet());
 
-	// Allow JSON requests
-	app.use(bodyParser.json());
+    // Allow JSON requests
+    app.use(bodyParser.json());
 
-	// Allow CORS for development
-	app.use(cors());
-
-
-	const jsonRpcController = {
-
-		// Function to send funds to any address
-		async send_funds({address, amount}) {
-			let txid = null
-		
-			try {
-				txid = await miner.sendFundsToAddress(address, amount)
-			} catch(err){
-				console.log(err)
-				return {"error":"There was a problem sending "+amount+" to "+address}
-			}
-
-			// Return ok
-			return {"result":txid}
-		},
-		
-		// Function to fill the mempool with a specific number of transactions randomly created
-		async fill_mempool({tx_quantity}) {
-			try {
-				await miner.fillMempool(tx_quantity)
-			} catch(err){
-				console.log(err)
-				return {"error":"There was a problem trying to fill mempool with "+tx_quantity+" transactions"}
-			}
-
-			// Return ok
-			return {"result":"ok"}
-		},
-		
-		// Function to fill the mempool with a specific number of transactions randomly created
-		async continue_mining({}) {
-			try {
-				await miner.continueMining()
-			} catch(err){
-				console.log(err)
-				return {"error":"There was a problem trying to continue the mining"}
-			}
-
-			// Return ok
-			return {"result":"ok"}
-		}
-	}
-
-	// Allow JSON-RPC requests
-	app.use(jsonRouter({methods: jsonRpcController}))
+    // Allow CORS for development
+    app.use(cors());
 
 
-	// Start the server
-	app.listen(REGTEST_MINER_API_PORT, () => {
-	  console.log('API listening on port '+REGTEST_MINER_API_PORT);
-	});
+    const jsonRpcController = {
+        // Function to check if xchain-regtest-miner is up
+        async ping() {
+            return {status:"success"};
+        },
+        
+        // Function to send funds to any address
+        async send_funds({address, amount}) {
+            let txid = null
+        
+            try {
+                txid = await miner.sendFundsToAddress(address, amount)
+            } catch(err){
+                console.log(err)
+                return {"error":"There was a problem sending "+amount+" to "+address}
+            }
+
+            // Return ok
+            return txid
+        },
+        
+        // Function to fill the mempool with a specific number of transactions randomly created
+        // this will stop the automatic mining for the regtest miner. Use continue_mining to activate it again
+        async fill_mempool({tx_quantity}) {
+            try {
+                await miner.fillMempool(tx_quantity)
+            } catch(err){
+                console.log(err)
+                return {"error":"There was a problem trying to fill mempool with "+tx_quantity+" transactions"}
+            }
+
+            // Return ok
+            return {"result":"ok"}
+        },
+        
+        // Function to fill the mempool with a specific number of transactions randomly created
+        async continue_mining({}) {
+            try {
+                await miner.continueMining()
+            } catch(err){
+                console.log(err)
+                return {"error":"There was a problem trying to continue the mining"}
+            }
+
+            // Return ok
+            return {"result":"ok"}
+        },
+        
+        async set_mining_time({max_time, tx_added_time}){
+            try{
+                await miner.setMiningTime(max_time, tx_added_time)
+            } catch (err){
+                return {"error":"There was a problem trying to set a new time to mine blocks"}
+            }
+            
+            // Return ok
+            return {"result":"ok"}
+        },
+        
+        async set_default_mining_time(){
+            try{
+                await miner.setDefaultMiningTime()
+            } catch (err){
+                return {"error":"There was a problem trying to set a the default time to mine blocks"}
+            }
+            
+            // Return ok
+            return {"result":"ok"}
+        }
+    }
+
+    // Allow JSON-RPC requests
+    app.use(jsonRouter({methods: jsonRpcController}))
+
+
+    // Start the server
+    app.listen(REGTEST_MINER_API_PORT, () => {
+      console.log('API listening on port '+REGTEST_MINER_API_PORT);
+    });
 }
 
 startApi()

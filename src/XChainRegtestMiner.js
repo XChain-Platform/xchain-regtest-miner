@@ -3,8 +3,8 @@ const BlockchainConnector = require('./BlockchainConnector.js')
 const CHECK_BLOCK_DELAY_MS = 1000 //1 second to continously ask for new block when all has been parsed
 const SATOSHI_UNIT = 100000000.0
 
-const MAX_TIME_TO_MINE_TXS = 30000 //max 30 seconds to mine a block after the first tx is found in the mempool
-const ADDED_TIME_TO_MINE_TXS = 5000 //5 seconds extra before mining a block every time a new tx appears in the mempool
+var MAX_TIME_TO_MINE_TXS = 30000 //max 30 seconds to mine a block after the first tx is found in the mempool
+var ADDED_TIME_TO_MINE_TXS = 5000 //5 seconds extra before mining a block every time a new tx appears in the mempool
 
 
 //This is useful only for filling the mempool
@@ -25,6 +25,22 @@ class XChainRegtestMiner {
     
     async sleep(ms) {
         return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+    
+    async setMiningTime(maxTime, txAddedTime){
+        if (Number.isInteger(maxTime) && Number.isInteger(txAddedTime)){
+            MAX_TIME_TO_MINE_TXS = maxTime
+            ADDED_TIME_TO_MINE_TXS = txAddedTime
+            console.log("New mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
+        } else {
+            console.log("INVALID mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
+        }
+    }
+    
+    async setDefaultMiningTime(){
+        MAX_TIME_TO_MINE_TXS = 30000
+        ADDED_TIME_TO_MINE_TXS = 5000
+        console.log("The mining times were set to the default: (Max Time)=>"+MAX_TIME_TO_MINE_TXS+"ms (Tx Added Time)=>"+ADDED_TIME_TO_MINE_TXS+"ms")
     }
     
     async fillMempool(txQuantity){
@@ -308,6 +324,12 @@ class XChainRegtestMiner {
     
     async generateBlocks(numberOfBlocks){
         await this.connector.generateToAddress(numberOfBlocks, this.walletAddress)
+        
+        if (numberOfBlocks > 1){
+            console.log(numberOfBlocks+" new blocks have been generated")
+        } else if (numberOfBlocks > 0){
+            console.log("A new block has been generated")
+        }
     }
     
     async start(){
