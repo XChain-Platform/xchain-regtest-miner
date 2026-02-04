@@ -310,19 +310,29 @@ class XChainRegtestMiner {
     async prepareWallet(){
         console.log("Checking if there is a wallet already loaded")
         let walletInfo = null
+        let walletLoaded = false
         try {
             walletInfo = await this.connector.getWalletInfo()
         } catch(err){
-            //Assume that any error means there isn't a wallet
+            //There's no wallet loaded
         }
         
         if (walletInfo == null){ //There is no wallet
-            console.log("Wallet not found. Creating a new wallet")
-            try{
-                await this.createWallet(this.walletNameParam)
+            try {
+                await this.connector.loadWallet(this.walletNameParam)
+                walletLoaded = true
             } catch(err){
-                console.log(err)
-                throw Error("Error when trying to create the wallet in the regtest node")
+                //The wallet couldn't be loaded
+            }
+            
+            if (!walletLoaded){
+                console.log("Wallet not found. Creating a new wallet")
+                try{
+                    await this.createWallet(this.walletNameParam)
+                } catch(err){
+                    console.log(err)
+                    throw Error("Error when trying to create the wallet in the regtest node")
+                }
             }
         }
     
