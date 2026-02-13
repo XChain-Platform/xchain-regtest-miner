@@ -32,7 +32,11 @@ class BlockchainConnector {
         this.rpcPassword = rpcPassword
     }
 
-async getNetworkInfo(){
+    async sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async getNetworkInfo(){
         const data = {
             jsonrpc: '2.0',
             method: 'getnetworkinfo',
@@ -282,31 +286,36 @@ async getNetworkInfo(){
     }
     
     async getWalletInfo(){
-        try {
-            const data = {
-                jsonrpc: '2.0',
-                method: 'getwalletinfo',
-                params: [],
-                id: 1,
+        const data = {
+            jsonrpc: '2.0',
+            method: 'getwalletinfo',
+            params: [],
+            id: 1,
+        }
+        
+        let response = null
+        while (true){
+            try {
+                // Make the request to the node
+                response = await axios.post(this.url, data, {
+                    auth: {
+                        username: this.rpcUser,
+                        password: this.rpcPassword,
+                    }
+                })
+                
+                break
+            } catch (error) {
+                console.error("There was an error while getting the wallet info from the node. Trying again...");
+                await this.sleep(1000)
             }
-
-            // Make the request to the node
-            const response = await axios.post(this.url, data, {
-                auth: {
-                    username: this.rpcUser,
-                    password: this.rpcPassword,
-                }
-            })
-
-            // Verify if there is a result and return it
-            if (response.data.result) {
-                return response.data.result;
-            } else {
-                throw new Error('Error getting wallet info');
-            }
-        } catch (error) {
-            console.error('Error:', error.message);
-            throw error;
+        }
+        
+        // Verify if there is a result and return it
+        if (response.data.result) {
+            return response.data.result;
+        } else {
+            throw new Error('Error getting wallet info');
         }
     }
     
