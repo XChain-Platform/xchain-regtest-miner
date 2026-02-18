@@ -285,6 +285,8 @@ class BlockchainConnector {
                 } catch (err){
                     tries--
                 }
+                
+                await this.sleep(1000)
             }
             
             throw new Error('Error creating wallet');
