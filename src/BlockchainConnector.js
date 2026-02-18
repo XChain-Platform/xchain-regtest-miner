@@ -256,7 +256,7 @@ class BlockchainConnector {
         }
     }
     
-    async createWallet(walletName) {
+    async createWallet(walletName, tries = 10) {
         try {
             const data = {
                 jsonrpc: '2.0',
@@ -265,20 +265,29 @@ class BlockchainConnector {
                 id: 1,
             }
 
-            // Make the request to the node
-            const response = await axios.post(this.url, data, {
-                auth: {
-                    username: this.rpcUser,
-                    password: this.rpcPassword,
-                }
-            })
+            while (tries > 0){
+                
+                try{
+                    // Make the request to the node
+                    const response = await axios.post(this.url, data, {
+                        auth: {
+                            username: this.rpcUser,
+                            password: this.rpcPassword,
+                        }
+                    })
 
-            // Verify if there is a result and return it
-            if (response.data.result) {
-                return response.data.result;
-            } else {
-                throw new Error('Error creating wallet');
+                    // Verify if there is a result and return it
+                    if (response.data.result) {
+                        return response.data.result;
+                    } else {
+                        tries--
+                    }
+                } catch (err){
+                    tries--
+                }
             }
+            
+            throw new Error('Error creating wallet');
         } catch (error) {
             console.error('Error:', error.message);
             throw error;
