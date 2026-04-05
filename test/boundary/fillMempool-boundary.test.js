@@ -227,7 +227,7 @@ describe('Boundary: fillMempool Chunking and Calculations', function () {
     // ─── F-09: tx_quantity = 50001 (21 chunks) ─────────────────────────
 
     describe('F-09: tx_quantity = 50001 (21 chunks, one past threshold)', function () {
-        it('triggers intermediate mining after chunk 20 plus remainder chunk', function () {
+        it('triggers intermediate mining once at chunk 20, then resets counter', function () {
             const txQuantity = 50001
             const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
             assert.strictEqual(chunks, 21)
@@ -235,20 +235,19 @@ describe('Boundary: fillMempool Chunking and Calculations', function () {
             const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
             assert.strictEqual(remainder, 1)
 
-            // processedChunkCount hits 20 at chunk 20, triggering mining
-            // Then chunk 21 (the remainder) doesn't trigger again since count stays >= 20
+            // processedChunkCount hits 20 at chunk 20, triggering mining and resetting to 0.
+            // Chunk 21 increments to 1, which does not trigger again.
             let intermediateMineCalls = 0
             let processedChunkCount = 0
             for (let i = 0; i < chunks; i++) {
                 processedChunkCount++
                 if (processedChunkCount >= 20) {
                     intermediateMineCalls++
+                    processedChunkCount = 0
                 }
             }
-            // BUG DOCUMENTATION: processedChunkCount is never reset, so ALL chunks >= 20
-            // will trigger mining. Chunk 20 AND chunk 21 both trigger.
-            assert.strictEqual(intermediateMineCalls, 2,
-                'processedChunkCount not reset: mines on chunks 20 and 21')
+            assert.strictEqual(intermediateMineCalls, 1,
+                'processedChunkCount resets after mining: only one intermediate mine')
         })
     })
 
@@ -337,9 +336,12 @@ describe('Boundary: fillMempool Chunking and Calculations', function () {
             assert.strictEqual(processedChunkCount >= 20, true)
         })
 
-        it('mines at 21 processed chunks (no reset in current code)', function () {
-            let processedChunkCount = 21
-            assert.strictEqual(processedChunkCount >= 20, true)
+        it('resets to 0 after mining at 20 (counter does not stay at 21)', function () {
+            let processedChunkCount = 20
+            if (processedChunkCount >= 20) processedChunkCount = 0
+            processedChunkCount++ // next chunk
+            assert.strictEqual(processedChunkCount, 1,
+                'After reset, next chunk starts at 1')
         })
     })
 

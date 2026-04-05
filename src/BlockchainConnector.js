@@ -413,7 +413,7 @@ class BlockchainConnector {
             })
 
             // Verify if there is a result and return it
-            if (!isNaN(response.data.result)){
+            if (response.data.result !== null && response.data.result !== undefined && !isNaN(response.data.result)){
                 return response.data.result;
             } else {
                 throw new Error('Error asking wallet balance');

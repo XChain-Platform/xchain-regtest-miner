@@ -297,15 +297,10 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
             assert.strictEqual(result, -0)
         })
 
-        it('throws when result is null (isNaN(null) is false but...)', async function () {
-            // isNaN(null) returns false because Number(null) is 0
-            // But the code checks !isNaN(result), which would be !isNaN(null) = true
-            // So null would be returned. This documents actual behavior.
+        it('throws when result is null (explicit null check)', async function () {
             axiosPostStub.resolves({ data: { result: null } })
-            const result = await connector.getBalance()
-            // !isNaN(null) is true (since Number(null) === 0), so null is returned
-            assert.strictEqual(result, null,
-                'null passes !isNaN check because Number(null) === 0')
+            await assert.rejects(() => connector.getBalance(), /Error asking wallet balance/,
+                'null should be rejected by explicit null check')
         })
 
         it('throws when result is undefined', async function () {

@@ -136,6 +136,7 @@ class XChainRegtestMiner {
                 
                 if (processedChunkCount>=20){
                     await this.generateBlocks(1)
+                    processedChunkCount = 0
                 }
                 //await this.generateBlocks(1)
                 //let rawTransaction = await this.connector.getRawTransaction(txid)
@@ -397,7 +398,7 @@ class XChainRegtestMiner {
                     continue
                 }
 
-                if (rawMempool.length > 0){
+                if (rawMempool != null && rawMempool.length > 0){
                     if (rawMempool.length > lastRawMempoolLength){
                         //there are new txs in the mempool
                         if (initialStartToMine == 0){

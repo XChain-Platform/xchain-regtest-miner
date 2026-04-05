@@ -259,30 +259,24 @@ describe('Boundary: Mempool Polling', function () {
     // ─── M-08: getRawMempool returns null ──────────────────────────────
 
     describe('M-08: getRawMempool returns null (not array)', function () {
-        it('crashes with TypeError on null.length (gap in error handling)', async function () {
-            // getRawMempool result is used as rawMempool.length (line 400).
-            // If the connector somehow returns null, the code tries null.length
-            // which throws TypeError. This is OUTSIDE the try-catch that wraps
-            // getRawMempool (lines 392-398), so it propagates up and crashes the loop.
-            // This documents an actual gap: the null check only covers the RPC call,
-            // not the result usage.
+        it('treats null as empty mempool without crashing', async function () {
+            // getRawMempool result is null-checked before .length access.
+            // null is treated the same as empty mempool: timers not set, no mining.
             connectorStub.getRawMempool.resolves(null)
 
-            await assert.rejects(
-                () => {
-                    let iterCount = 0
-                    miner.sleep.callsFake(async () => {
-                        iterCount++
-                        if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
-                    })
-                    return miner.start()
-                },
-                (err) => {
-                    return err instanceof TypeError &&
-                           err.message.includes('null')
-                },
-                'null from getRawMempool should crash on .length access'
-            )
+            let iterCount = 0
+            miner.sleep.callsFake(async () => {
+                iterCount++
+                clock.tick(60000)
+                if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
+            })
+
+            try { await miner.start() } catch (e) {
+                if (e.message !== '__LOOP_BREAK__') throw e
+            }
+
+            assert(connectorStub.generateToAddress.notCalled,
+                'null mempool should not trigger mining')
         })
     })
 

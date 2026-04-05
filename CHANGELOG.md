@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-04-05
+
+### Fixed
+- Mining loop crash when `getRawMempool` returns null — added null guard before `.length` access
+- `fillMempool` intermediate block mining firing on every chunk after the 20th — reset `processedChunkCount` after mining
+- `getBalance` silently accepting `null` as a valid balance (due to `isNaN(null)` returning false) — added explicit null/undefined check
+
 ## [0.1.3] - 2026-04-05
 
 ### Added
