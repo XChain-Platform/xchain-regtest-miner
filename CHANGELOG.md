@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-05
+
+### Added
+- Smoke test suite (12 tests) for fast health-check validation of core functionality
+  - BlockchainConnector instantiation and credential wiring
+  - Wallet preparation flows (fresh node create+fund, existing wallet load)
+  - Mining loop: mempool detection, timer-based block generation, max timer forcing, pause/resume
+  - JSON-RPC API controller dispatch (ping, send_funds, set_mining_time)
+- `npm run test:smoke` script (runs in ~200ms with no external dependencies)
+
 ## [0.1.0] - 2026-04-05
 
 ### Added
