@@ -80,16 +80,16 @@ describe('XChainRegtestMiner', function () {
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
-        it('accepts zero values', async function () {
+        it('rejects zero values', async function () {
             await miner.setMiningTime(0, 0)
-            assert.strictEqual(miner.maxTimeToMineTxs, 0)
-            assert.strictEqual(miner.addedTimeToMineTxs, 0)
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
-        it('accepts negative integers', async function () {
+        it('rejects negative integers', async function () {
             await miner.setMiningTime(-1, -1)
-            assert.strictEqual(miner.maxTimeToMineTxs, -1)
-            assert.strictEqual(miner.addedTimeToMineTxs, -1)
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('is isolated per instance', async function () {

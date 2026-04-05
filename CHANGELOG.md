@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-04-05
+
+### Fixed
+- TypeError crash when `setMiningTime` logs non-stringifiable objects (e.g., `{toString: 0}`) — wrapped error logging in try-catch
+- TypeError crash in `send_funds` and `fill_mempool` API error handlers for non-stringifiable parameter values — wrapped error message construction in try-catch
+- Infinite loop in `fillMempool` when `getRawTransaction` perpetually returns null — added 50-retry limit with 1s backoff
+- `fillMempool` accepting non-positive-integer `txQuantity` values (Infinity caused OOM, floats/strings caused undefined behavior) — added input validation requiring positive integer
+- `setMiningTime` accepting zero and negative values which caused excessive RPC calls — added `> 0` validation for both parameters
+
 ## [0.1.5] - 2026-04-05
 
 ### Added

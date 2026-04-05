@@ -44,23 +44,23 @@ describe('Boundary: API Input Validation', function () {
     // ═══════════════════════════════════════════════════════════════════
 
     describe('A-01: set_mining_time with both values = 0', function () {
-        it('accepts zero for both timers', async function () {
+        it('rejects zero for both timers', async function () {
             await miner.setMiningTime(0, 0)
-            assert.strictEqual(miner.maxTimeToMineTxs, 0)
-            assert.strictEqual(miner.addedTimeToMineTxs, 0)
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
     })
 
     describe('A-02: set_mining_time with negative integers', function () {
-        it('accepts negative integers (Number.isInteger(-1) is true)', async function () {
+        it('rejects negative integers', async function () {
             await miner.setMiningTime(-1, -1)
-            assert.strictEqual(miner.maxTimeToMineTxs, -1)
-            assert.strictEqual(miner.addedTimeToMineTxs, -1)
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
-        it('accepts large negative integers', async function () {
+        it('rejects large negative integers', async function () {
             await miner.setMiningTime(-999999, -999999)
-            assert.strictEqual(miner.maxTimeToMineTxs, -999999)
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
     })
 

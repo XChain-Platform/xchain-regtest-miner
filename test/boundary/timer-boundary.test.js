@@ -320,32 +320,10 @@ describe('Boundary: Adaptive Mining Timer Logic', function () {
     // ─── T-11: Negative timer values ───────────────────────────────────
 
     describe('T-11: negative timer values via setMiningTime', function () {
-        it('rejects negative values (non-integer validation)', async function () {
+        it('rejects negative values', async function () {
             await miner.setMiningTime(-1, -1)
-            // setMiningTime accepts negative integers (Number.isInteger(-1) === true)
-            // This documents actual behavior: negative values ARE accepted
-            assert.strictEqual(miner.maxTimeToMineTxs, -1)
-            assert.strictEqual(miner.addedTimeToMineTxs, -1)
-        })
-
-        it('mines immediately with negative timers since elapsed time always exceeds negative threshold', async function () {
-            miner.maxTimeToMineTxs = -1
-            miner.addedTimeToMineTxs = -1
-
-            connectorStub.getRawMempool.resolves(['txid1'])
-
-            let iterCount = 0
-            miner.sleep.callsFake(async () => {
-                iterCount++
-                if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
-            })
-
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-
-            assert(connectorStub.generateToAddress.called,
-                'Negative timer means elapsed time (>=0) always satisfies >= -1')
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
     })
 

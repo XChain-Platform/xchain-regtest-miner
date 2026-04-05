@@ -70,7 +70,7 @@ async function startApi(){
                 txid = await miner.sendFundsToAddress(address, amount)
             } catch(err){
                 console.log(err)
-                return {"error":"There was a problem sending "+amount+" to "+address}
+                try { return {"error":"There was a problem sending "+amount+" to "+address} } catch(e) { return {"error":"There was a problem sending funds"} }
             }
 
             // Return ok
@@ -84,7 +84,7 @@ async function startApi(){
                 await miner.fillMempool(tx_quantity)
             } catch(err){
                 console.log(err)
-                return {"error":"There was a problem trying to fill mempool with "+tx_quantity+" transactions"}
+                try { return {"error":"There was a problem trying to fill mempool with "+tx_quantity+" transactions"} } catch(e) { return {"error":"There was a problem trying to fill the mempool"} }
             }
 
             // Return ok

@@ -30,7 +30,7 @@ describe('Fuzz: JSON-RPC API parameters', function () {
                     txid = await miner.sendFundsToAddress(address, amount)
                 } catch (err) {
                     console.log(err)
-                    return { error: 'There was a problem sending ' + amount + ' to ' + address }
+                    try { return { error: 'There was a problem sending ' + amount + ' to ' + address } } catch(e) { return { error: 'There was a problem sending funds' } }
                 }
                 return txid
             },
@@ -39,7 +39,7 @@ describe('Fuzz: JSON-RPC API parameters', function () {
                     await miner.fillMempool(tx_quantity)
                 } catch (err) {
                     console.log(err)
-                    return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' }
+                    try { return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' } } catch(e) { return { error: 'There was a problem trying to fill the mempool' } }
                 }
                 return { result: 'ok' }
             },
@@ -99,32 +99,14 @@ describe('Fuzz: JSON-RPC API parameters', function () {
             )
         })
 
-        it('handles miner throwing for any input', async function () {
-            // KNOWN BUG: the error handler uses string concatenation:
-            //   'There was a problem sending ' + amount + ' to ' + address
-            // Objects with non-callable toString (e.g., {toString:{}}) cause TypeError.
-            // Use primitive types here to test the error path without triggering that bug.
+        it('handles miner throwing for any input including non-stringifiable objects', async function () {
             miner.sendFundsToAddress.rejects(new Error('fuzz error'))
             await fc.assert(
-                fc.asyncProperty(
-                    fc.oneof(fc.string(), fc.integer(), fc.double(), fc.boolean(), fc.constant(null), fc.constant(undefined)),
-                    fc.oneof(fc.string(), fc.integer(), fc.double(), fc.boolean(), fc.constant(null), fc.constant(undefined)),
-                    async (address, amount) => {
-                        const result = await controller.send_funds({ address, amount })
-                        assert.ok(result.error)
-                    }
-                ),
+                fc.asyncProperty(fc.anything(), fc.anything(), async (address, amount) => {
+                    const result = await controller.send_funds({ address, amount })
+                    assert.ok(result.error)
+                }),
                 { numRuns: 200 }
-            )
-        })
-
-        it('throws TypeError for non-stringifiable values in error path (known bug)', async function () {
-            // Counterexample found by fuzzer: {toString:{}} as address or amount
-            // The error handler does string concatenation which invokes toString()
-            miner.sendFundsToAddress.rejects(new Error('fuzz error'))
-            await assert.rejects(
-                () => controller.send_funds({ address: { toString: {} }, amount: 1 }),
-                TypeError
             )
         })
 
@@ -168,27 +150,14 @@ describe('Fuzz: JSON-RPC API parameters', function () {
             )
         })
 
-        it('handles miner throwing for any input', async function () {
-            // Same known bug as send_funds: error message uses string concatenation
-            // with tx_quantity, so non-stringifiable objects cause TypeError.
+        it('handles miner throwing for any input including non-stringifiable objects', async function () {
             miner.fillMempool.rejects(new Error('fuzz error'))
             await fc.assert(
-                fc.asyncProperty(
-                    fc.oneof(fc.string(), fc.integer(), fc.double(), fc.boolean(), fc.constant(null), fc.constant(undefined)),
-                    async (tx_quantity) => {
-                        const result = await controller.fill_mempool({ tx_quantity })
-                        assert.ok(result.error)
-                    }
-                ),
+                fc.asyncProperty(fc.anything(), async (tx_quantity) => {
+                    const result = await controller.fill_mempool({ tx_quantity })
+                    assert.ok(result.error)
+                }),
                 { numRuns: 200 }
-            )
-        })
-
-        it('throws TypeError for non-stringifiable tx_quantity in error path (known bug)', async function () {
-            miner.fillMempool.rejects(new Error('fuzz error'))
-            await assert.rejects(
-                () => controller.fill_mempool({ tx_quantity: { toString: {} } }),
-                TypeError
             )
         })
     })

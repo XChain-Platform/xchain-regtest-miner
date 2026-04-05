@@ -52,12 +52,12 @@ class XChainRegtestMiner {
     }
     
     async setMiningTime(maxTime, txAddedTime){
-        if (Number.isInteger(maxTime) && Number.isInteger(txAddedTime)){
+        if (Number.isInteger(maxTime) && Number.isInteger(txAddedTime) && maxTime > 0 && txAddedTime > 0){
             this.maxTimeToMineTxs = maxTime
             this.addedTimeToMineTxs = txAddedTime
             console.log("New mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
         } else {
-            console.log("INVALID mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
+            try { console.log("INVALID mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms") } catch(e) { console.log("INVALID mining times (non-printable values)") }
         }
     }
 
@@ -69,7 +69,12 @@ class XChainRegtestMiner {
     
     async fillMempool(txQuantity){
             this.keepMining = false //Stop the mining so the txs stay in mempool
-            
+
+            if (!Number.isInteger(txQuantity) || txQuantity < 1) {
+                try { console.log("INVALID txQuantity: "+txQuantity+". Must be a positive integer.") } catch(e) { console.log("INVALID txQuantity (non-printable value). Must be a positive integer.") }
+                return
+            }
+
             console.log("Filling mempool with "+txQuantity+" transactions")
             //let AMOUNT_FOR_EACH_ADDRESS = 0.000001
             //let FEE = 0.00001
@@ -157,8 +162,17 @@ class XChainRegtestMiner {
             for (let nextChunkIndex in chunksTxids){
                 let nextChunkTxid = chunksTxids[nextChunkIndex]
                 let rawTransaction = null
+                let getRawTxRetries = 0
+                const MAX_GET_RAW_TX_RETRIES = 50
                 while (rawTransaction == null){
                     rawTransaction = await this.connector.getRawTransaction(nextChunkTxid)
+                    if (rawTransaction == null) {
+                        getRawTxRetries++
+                        if (getRawTxRetries >= MAX_GET_RAW_TX_RETRIES) {
+                            throw new Error('Failed to get raw transaction after ' + MAX_GET_RAW_TX_RETRIES + ' retries for txid: ' + nextChunkTxid)
+                        }
+                        await this.sleep(1000)
+                    }
                 }
                 let transaction = bitcoin.Transaction.fromHex(rawTransaction)
                 let utxoIndex = 0

@@ -39,58 +39,23 @@ describe('Fuzz: fillMempool input handling', function () {
         delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
     })
 
-    // Helper: make getRawTransaction throw after N null returns to avoid infinite loop
-    function stubGetRawTxWithNullLimit(limit) {
-        let calls = 0
-        connectorStub.getRawTransaction.callsFake(async () => {
-            calls++
-            if (calls > limit) {
-                throw new Error('__NULL_LOOP_BREAK__')
-            }
-            return null
-        })
-    }
-
     // ─── txQuantity = 0 ─────────────────────────────────────────────
 
     describe('fillMempool with txQuantity = 0', function () {
-        it('completes without crash and makes no transactions', async function () {
-            connectorStub.sendToAddress.resolves('txid_fund')
-            stubGetRawTxWithNullLimit(5)
-
+        it('returns early without crash or transactions', async function () {
             await miner.fillMempool(0)
 
             assert.strictEqual(miner.keepMining, false)
-            // Should not have tried to send raw transactions for 0 outputs
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
             assert.strictEqual(connectorStub.sendRawTransaction.callCount, 0)
         })
     })
 
-    // ─── txQuantity = -1 ────────────────────────────────────────────
+    // ─── Invalid txQuantity values (all rejected by validation) ─────
 
-    describe('fillMempool with negative txQuantity', function () {
-        it('completes without crash for txQuantity = -1', async function () {
-            stubGetRawTxWithNullLimit(5)
-
-            try {
-                await miner.fillMempool(-1)
-            } catch (e) {
-                // Errors are acceptable as long as they're not RangeError
-                if (e.message !== '__NULL_LOOP_BREAK__') {
-                    assert.ok(
-                        !(e instanceof RangeError),
-                        'Negative txQuantity caused RangeError: ' + e.message
-                    )
-                }
-            }
-            assert.strictEqual(miner.keepMining, false)
-        })
-    })
-
-    // ─── Non-integer txQuantity values ───────────────────────────────
-
-    describe('fillMempool with non-integer txQuantity', function () {
+    describe('fillMempool rejects invalid txQuantity', function () {
         const cases = [
+            ['negative (-1)', -1],
             ['float (1.5)', 1.5],
             ['NaN', NaN],
             ['undefined', undefined],
@@ -101,23 +66,18 @@ describe('Fuzz: fillMempool input handling', function () {
             ['boolean false', false],
             ['empty object', {}],
             ['empty array', []],
-            // Note: Infinity and -Infinity are excluded because they cause
-            // Math.ceil(Infinity/2500) = Infinity, creating an infinite for-loop.
-            // This is a known vulnerability documented in the infinite loop test below.
+            ['Infinity', Infinity],
+            ['-Infinity', -Infinity],
+            ['zero', 0],
         ]
 
         for (const [label, value] of cases) {
-            it(`handles ${label} without process crash`, async function () {
-                stubGetRawTxWithNullLimit(5)
-                connectorStub.sendToAddress.resolves('a'.repeat(64))
+            it(`rejects ${label} and returns early`, async function () {
+                await miner.fillMempool(value)
 
-                try {
-                    await miner.fillMempool(value)
-                } catch (e) {
-                    // Any Error is acceptable — we only care about no crash
-                    assert.ok(e instanceof Error, `Expected Error, got ${typeof e}`)
-                }
                 assert.strictEqual(miner.keepMining, false)
+                // Should not have attempted any RPC calls beyond logging
+                assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
             })
         }
     })
@@ -211,60 +171,51 @@ describe('Fuzz: fillMempool input handling', function () {
 
     // ─── getRawTransaction null loop detection ──────────────────────
 
-    describe('fillMempool getRawTransaction infinite loop risk', function () {
-        it('getRawTransaction returning null repeatedly causes unbounded loop', async function () {
-            // Documents the known infinite loop at XChainRegtestMiner.js:160-162:
-            //   while (rawTransaction == null) { rawTransaction = await ... }
-            // No timeout, no retry limit.
-
+    describe('fillMempool getRawTransaction retry limit', function () {
+        it('throws after 50 retries when getRawTransaction perpetually returns null', async function () {
             connectorStub.sendToAddress.resolves('a'.repeat(64))
 
             let getRawTxCalls = 0
             connectorStub.getRawTransaction.callsFake(async () => {
                 getRawTxCalls++
-                if (getRawTxCalls > 50) {
-                    throw new Error('__INFINITE_LOOP_DETECTED__')
-                }
                 return null
             })
 
-            try {
-                await miner.fillMempool(1)
-            } catch (e) {
-                if (e.message === '__INFINITE_LOOP_DETECTED__') {
-                    // Confirms: the loop has no exit condition when getRawTransaction
-                    // perpetually returns null
-                    assert.ok(getRawTxCalls > 50,
-                        'Confirmed: getRawTransaction null loop has no exit condition')
-                    return
-                }
-            }
+            await assert.rejects(
+                () => miner.fillMempool(1),
+                /Failed to get raw transaction after 50 retries/
+            )
+            assert.strictEqual(getRawTxCalls, 50)
         })
     })
 
     // ─── fillMempool always sets keepMining=false ────────────────────
 
     describe('fillMempool state management', function () {
-        it('always sets keepMining to false on entry', async function () {
+        it('always sets keepMining to false on entry for invalid inputs', async function () {
+            // Use only values that will be rejected by validation (non-positive-integer)
+            // to avoid triggering the full fillMempool logic with stubbed RPC
             await fc.assert(
                 fc.asyncProperty(
-                    fc.integer({ min: -10, max: 0 }),
+                    fc.oneof(
+                        fc.integer({ max: 0 }),
+                        fc.double({ noInteger: true }),
+                        fc.string(),
+                        fc.boolean(),
+                        fc.constant(null),
+                        fc.constant(undefined),
+                        fc.constant(NaN),
+                        fc.constant(Infinity)
+                    ),
                     fc.boolean(),
                     async (txQuantity, initialKeepMining) => {
                         miner.keepMining = initialKeepMining
-                        stubGetRawTxWithNullLimit(5)
-
-                        try {
-                            await miner.fillMempool(txQuantity)
-                        } catch (e) {
-                            // Errors are acceptable
-                        }
-
+                        await miner.fillMempool(txQuantity)
                         assert.strictEqual(miner.keepMining, false,
                             'keepMining must be false after fillMempool regardless of input')
                     }
                 ),
-                { numRuns: 50 }
+                { numRuns: 100 }
             )
         })
     })
