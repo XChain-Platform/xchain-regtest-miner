@@ -227,35 +227,6 @@ class BlockchainConnector {
         }
     }
     
-    async getBlock(blockhash, hexFormat=true) {
-        try {
-            const data = {
-                jsonrpc: '2.0',
-                method: 'getblock',
-                params: [blockhash, (hexFormat?0:1)],
-                id: 1,
-            }
-
-            // Make the request to the node
-            const response = await axios.post(this.url, data, {
-                auth: {
-                    username: this.rpcUser,
-                    password: this.rpcPassword,
-                }
-            })
-
-            // Verify if there is a result and return it
-            if (response.data.result) {
-                return response.data.result;
-            } else {
-                throw new Error('Error getting block hex');
-            }
-        } catch (error) {
-            console.error('Error:', error.message);
-            throw error;
-        }
-    }
-    
     async createWallet(walletName, tries = 10) {
         try {
             const data = {
@@ -296,16 +267,18 @@ class BlockchainConnector {
         }
     }
     
-    async getWalletInfo(){
+    async getWalletInfo(maxRetries = 50){
         const data = {
             jsonrpc: '2.0',
             method: 'getwalletinfo',
             params: [],
             id: 1,
         }
-        
+
         let response = null
-        while (true){
+        let attempts = 0
+        while (attempts < maxRetries){
+            attempts++
             try {
                 // Make the request to the node
                 response = await axios.post(this.url, data, {
@@ -314,12 +287,16 @@ class BlockchainConnector {
                         password: this.rpcPassword,
                     }
                 })
-                
+
                 break
             } catch (error) {
                 console.error("There was an error while getting the wallet info from the node. Trying again...");
                 await this.sleep(1000)
             }
+        }
+
+        if (response === null) {
+            throw new Error('Error getting wallet info: max retries exceeded');
         }
         
         // Verify if there is a result and return it

@@ -25,8 +25,8 @@ const BlockchainConnector = require('./BlockchainConnector.js')
 const CHECK_BLOCK_DELAY_MS = 1000 //1 second to continously ask for new block when all has been parsed
 const SATOSHI_UNIT = 100000000.0
 
-var MAX_TIME_TO_MINE_TXS = 30000 //max 30 seconds to mine a block after the first tx is found in the mempool
-var ADDED_TIME_TO_MINE_TXS = 5000 //5 seconds extra before mining a block every time a new tx appears in the mempool
+const DEFAULT_MAX_TIME_TO_MINE_TXS = 30000 //max 30 seconds to mine a block after the first tx is found in the mempool
+const DEFAULT_ADDED_TIME_TO_MINE_TXS = 5000 //5 seconds extra before mining a block every time a new tx appears in the mempool
 
 
 //This is useful only for filling the mempool
@@ -43,6 +43,8 @@ class XChainRegtestMiner {
       this.connector = new BlockchainConnector(nodeUrl, nodePort, nodeUser, nodePassword)
       this.walletNameParam = "xchain_regtest_wallet"
       this.keepMining = false
+      this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
+      this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
     }
     
     async sleep(ms) {
@@ -51,22 +53,21 @@ class XChainRegtestMiner {
     
     async setMiningTime(maxTime, txAddedTime){
         if (Number.isInteger(maxTime) && Number.isInteger(txAddedTime)){
-            MAX_TIME_TO_MINE_TXS = maxTime
-            ADDED_TIME_TO_MINE_TXS = txAddedTime
+            this.maxTimeToMineTxs = maxTime
+            this.addedTimeToMineTxs = txAddedTime
             console.log("New mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
         } else {
             console.log("INVALID mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
         }
     }
-    
+
     async setDefaultMiningTime(){
-        MAX_TIME_TO_MINE_TXS = 30000
-        ADDED_TIME_TO_MINE_TXS = 5000
-        console.log("The mining times were set to the default: (Max Time)=>"+MAX_TIME_TO_MINE_TXS+"ms (Tx Added Time)=>"+ADDED_TIME_TO_MINE_TXS+"ms")
+        this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
+        this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
+        console.log("The mining times were set to the default: (Max Time)=>"+this.maxTimeToMineTxs+"ms (Tx Added Time)=>"+this.addedTimeToMineTxs+"ms")
     }
     
     async fillMempool(txQuantity){
-        return new Promise(async (resolve, reject) => {
             this.keepMining = false //Stop the mining so the txs stay in mempool
             
             console.log("Filling mempool with "+txQuantity+" transactions")
@@ -274,37 +275,24 @@ class XChainRegtestMiner {
                 outputIndex++
             }
             
-            resolve(true)
-        })
     }
-    
+
     async continueMining(){
         this.keepMining = true
     }
     
     async sendFundsToAddress(address, amount){
-        return new Promise(async (resolve, reject) => {
-            try{
-                let txid = await this.connector.sendToAddress(address, amount)
-                
-                resolve(txid)
-            } catch(err){
-                reject(err)
-            }
-        })
+        return await this.connector.sendToAddress(address, amount)
     }
     
     async createWallet(walletName){
-        return new Promise(async (resolve, reject) => {
-            try{
-                await this.connector.createWallet(walletName)
-                
-                resolve(true)
-            } catch(err){
-                console.log(err)
-                reject(false)
-            }
-        })
+        try {
+            await this.connector.createWallet(walletName)
+            return true
+        } catch(err){
+            console.log(err)
+            throw err
+        }
     }
     
     async prepareWallet(){
@@ -384,8 +372,8 @@ class XChainRegtestMiner {
                     let timeNow = Date.now()
                     let initialTimePassed = timeNow-initialStartToMine
                     let extendedStartTime = timeNow-extendedStartToMine
-                    
-                    if ((initialTimePassed >= MAX_TIME_TO_MINE_TXS) || (extendedStartTime >= ADDED_TIME_TO_MINE_TXS)){
+
+                    if ((initialTimePassed >= this.maxTimeToMineTxs) || (extendedStartTime >= this.addedTimeToMineTxs)){
                         try {
                             await this.generateBlocks(1)
                         } catch (err){
@@ -393,13 +381,13 @@ class XChainRegtestMiner {
                             await this.sleep(CHECK_BLOCK_DELAY_MS)
                             continue
                         }
-                        
+
                         initialStartToMine = 0
                         extendedStartToMine = 0
                         lastRawMempoolLength = 0
                     }
                 }
-                
+
                 let rawMempool = null
                 try {
                     rawMempool = await this.connector.getRawMempool()
@@ -408,7 +396,7 @@ class XChainRegtestMiner {
                     await this.sleep(CHECK_BLOCK_DELAY_MS)
                     continue
                 }
-                
+
                 if (rawMempool.length > 0){
                     if (rawMempool.length > lastRawMempoolLength){
                         //there are new txs in the mempool
@@ -419,6 +407,7 @@ class XChainRegtestMiner {
                             extendedStartToMine = Date.now()
                         }
                     }
+                    lastRawMempoolLength = rawMempool.length
                 } else {
                     initialStartToMine = 0
                     extendedStartToMine = 0
