@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-04-05
+
+### Added
+- Fuzz test suite (115 tests) using fast-check for property-based testing
+  - JSON-RPC API parameter fuzzing: arbitrary types, boundary values, malformed objects for all 6 methods
+  - Mining timer fuzzing: integer boundaries, non-integer rejection, zero/negative edge cases, rapid sequential calls
+  - fillMempool input fuzzing: txQuantity boundaries (0, -1, NaN, Infinity), chunk math verification, infinite loop detection
+  - RPC response fuzzing: malformed mempool responses, error resilience, fluctuating sizes, wallet setup edge cases
+  - Mining loop state fuzzing: timer transitions, keepMining flag toggling, interleaved errors, random event sequences
+- `fast-check` dev dependency for property-based/fuzz testing
+- `npm run test:fuzz` and `npm run test:fuzz:quick` scripts
+
 ## [0.1.4] - 2026-04-05
 
 ### Fixed
