@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-04-05
+
+### Added
+- Boundary test suite (184 tests) covering edge-case behavior across all components
+  - Adaptive mining timer: zero/negative/MAX_SAFE_INTEGER values, simultaneous expiry, state transitions
+  - Mempool polling: empty/single/burst/shrink scenarios, null response handling, rapid changes
+  - fillMempool chunking: tx_quantity at 0/1/2499/2500/2501, chunk mining threshold, BIP32 index math
+  - Combined boundaries: timer+mempool interactions, mid-countdown threshold changes, double-error recovery
+  - Wallet preparation: height 99/100/101 boundary, floating-point balance, -0 edge case, null walletInfo
+  - API input validation: type rejection (float/string/null/Infinity), partial validity, pass-through behavior
+  - RPC retry: exact retry counts for createWallet/getWalletInfo, response shape edge cases, null balance
+  - Block generation: count 0/1/101/negative, null walletAddress, concurrent calls
+
 ## [0.1.2] - 2026-04-05
 
 ### Added
