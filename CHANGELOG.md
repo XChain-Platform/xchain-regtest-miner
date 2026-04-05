@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-04-05
+
+### Added
+- E2E test suite (26 tests) validating full mining pipeline against a stateful mock node
+  - Startup/wallet lifecycle: fresh creation, restart, unloaded recovery, empty balance, failure
+  - Mining loop: mempool detection, timer batching, max timer forcing, idle behavior, multi-cycle
+  - JSON-RPC API: ping, send_funds, timing changes, pause/resume with live miner
+  - fillMempool: real PSBT construction and broadcasting (single and multi-transaction)
+  - Error resilience: RPC recovery, insufficient balance, invalid input validation
+  - Chain state: block continuity, balance tracking, transaction inclusion
+- StatefulMockNode test helper simulating Bitcoin Core regtest node with wallet, mempool, and chain state
+- `npm run test:e2e` script (runs in ~3s with no external dependencies)
+
 ## [0.1.1] - 2026-04-05
 
 ### Added
