@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-04-06
+
+### Added
+- Three-tier regression test suite (147 tests across 3 files)
+  - `test/regression/t0-critical-gate.test.js` — 45 tests covering constructor defaults, timer validation, wallet branching, mining loop core paths, fillMempool guards, input validation, API health, and connector construction
+  - `test/regression/t1-standard-regression.test.js` — 89 tests covering all 13 RPC methods, Miner↔Connector integration seams, boundary conditions (timer edges, chunking math, wallet height), security validation (input rejection, credential leak prevention), and exponential backoff behavior
+  - `test/regression/t2-full-regression.test.js` — 13 E2E tests against StatefulMockNode covering wallet lifecycle (fresh/restart/unloaded), mempool detection and block generation, pause/resume, timer override, send_funds round-trip, RPC error resilience, chain state progression, and graceful shutdown
+  - `test/regression/FLAKY_TESTS.md` — quarantine log for non-deterministic tests
+  - `npm run test:regression:t0` (< 15s gate), `test:regression:t1` (< 2min PR gate), `test:regression:t2` (< 10min nightly/release gate), `test:regression` (alias for t1)
+
 ## [0.1.11] - 2026-04-06
 
 ### Added

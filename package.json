@@ -1,7 +1,7 @@
 {
   "name": "xchain-regtest-miner",
   "description": "xchain-regtest-miner handles processing transactions and mining blocks on regtest networks.",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
     "type": "git",
@@ -38,6 +38,10 @@
     "test:chaos": "mocha --timeout 30000 test/chaos/**/*.chaos.test.js",
     "test:performance": "mocha --timeout 0 test/performance/**/*.perf.test.js",
     "test:mutation": "stryker run test/mutation/stryker.config.js",
-    "test:mutation:unit": "stryker run test/mutation/stryker.unit.config.js"
+    "test:mutation:unit": "stryker run test/mutation/stryker.unit.config.js",
+    "test:regression:t0": "mocha --timeout 15000 test/regression/t0-critical-gate.test.js",
+    "test:regression:t1": "mocha --timeout 120000 test/regression/t0-critical-gate.test.js test/regression/t1-standard-regression.test.js",
+    "test:regression:t2": "mocha --timeout 0 test/regression/**/*.test.js",
+    "test:regression": "mocha --timeout 120000 test/regression/t0-critical-gate.test.js test/regression/t1-standard-regression.test.js"
   }
 }
