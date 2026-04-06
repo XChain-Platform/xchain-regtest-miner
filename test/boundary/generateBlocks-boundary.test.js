@@ -92,12 +92,12 @@ describe('Boundary: Block Generation', function () {
     // ─── G-04: generateBlocks when node disconnected ───────────────────
 
     describe('G-04: generateBlocks when node is disconnected', function () {
-        it('propagates the connection error', async function () {
-            connectorStub.generateToAddress.rejects(new Error('ECONNREFUSED'))
+        it('propagates the clean error from connector', async function () {
+            connectorStub.generateToAddress.rejects(new Error('Error generating to address'))
 
             await assert.rejects(
                 () => miner.generateBlocks(1),
-                /ECONNREFUSED/
+                /Error generating to address/
             )
         })
     })
@@ -105,14 +105,12 @@ describe('Boundary: Block Generation', function () {
     // ─── G-05: generateBlocks timeout ──────────────────────────────────
 
     describe('G-05: generateBlocks timeout', function () {
-        it('propagates timeout error from connector', async function () {
-            const timeoutError = new Error('timeout of 60000ms exceeded')
-            timeoutError.code = 'ECONNABORTED'
-            connectorStub.generateToAddress.rejects(timeoutError)
+        it('propagates clean error from connector on timeout', async function () {
+            connectorStub.generateToAddress.rejects(new Error('Error generating to address'))
 
             await assert.rejects(
                 () => miner.generateBlocks(1),
-                /timeout/
+                /Error generating to address/
             )
         })
     })

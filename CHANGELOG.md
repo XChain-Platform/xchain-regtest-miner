@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-04-05
+
+### Added
+- Strengthened security test suite (159 tests, up from 114)
+  - BlockchainConnector: full error object property checks (`.config`, `.response` must be undefined on thrown errors)
+  - BlockchainConnector: `getNetworkInfo` and `getBlockchainInfo` error sanitization coverage (previously untested)
+  - Environment validation: NETWORK value restriction tests (regtest/testnet/mainnet only, case-sensitive)
+  - Environment validation: NODE_URL localhost warning tests (warns on non-localhost, does not exit)
+- `.dockerignore` file excluding `.env`, `node_modules`, `test`, `.git`, and markdown files from Docker builds
+
+### Fixed
+- Completed RPC credential leak remediation across all BlockchainConnector methods (SEC-004)
+  - `getNetworkInfo`, `getBlockchainInfo`: added try-catch, throw clean `new Error()` instead of propagating raw axios errors
+  - `getBlockHash`, `getBlock`, `getRawMempool`, `getMempoolEntry`, `loadWallet`, `getNewAddress`, `generateToAddress`, `getBalance`: replaced `console.error(error.message); throw error` with `throw new Error('...')` to prevent credential-bearing error objects from propagating
+  - `createWallet`: removed `console.error` in outer catch, throw clean error
+  - `getWalletInfo`: removed `console.error` in retry loop to prevent credential logging
+- NETWORK environment variable now validated against allowed values: regtest, testnet, mainnet (SEC-018)
+- NODE_URL now logs a warning when set to a non-localhost value, alerting that RPC credentials will transit the network in plaintext (SEC-017)
+
+### Changed
+- Dockerfile hardened: pinned base image (`node:20-alpine`), non-root user, `npm ci --omit=dev`, removed `.env` copy, added `HEALTHCHECK`
+- Removed `.env` file from Docker image build (SEC-015) — credentials must be passed via environment variables at runtime
+
 ## [0.1.7] - 2026-04-05
 
 ### Added

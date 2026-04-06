@@ -203,32 +203,32 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
     })
 
     describe('R-13: RPC returns malformed JSON (axios parse error)', function () {
-        it('throws axios error', async function () {
+        it('throws clean error (does not expose parse details)', async function () {
             const parseError = new Error('Unexpected token in JSON')
             parseError.code = 'ERR_BAD_RESPONSE'
             axiosPostStub.rejects(parseError)
 
-            await assert.rejects(() => connector.getNetworkInfo(), /Unexpected token/)
+            await assert.rejects(() => connector.getNetworkInfo(), /Error getting network info/)
         })
     })
 
     describe('R-14: RPC returns HTTP 500', function () {
-        it('throws axios error with status info', async function () {
+        it('throws clean error (does not expose status code)', async function () {
             const serverError = new Error('Request failed with status code 500')
             serverError.response = { status: 500 }
             axiosPostStub.rejects(serverError)
 
-            await assert.rejects(() => connector.getBlockchainInfo(), /500/)
+            await assert.rejects(() => connector.getBlockchainInfo(), /Error getting blockchain info/)
         })
     })
 
     describe('R-15: Connection refused (node not running)', function () {
-        it('throws ECONNREFUSED', async function () {
+        it('throws clean error (does not expose connection details)', async function () {
             const connError = new Error('connect ECONNREFUSED 127.0.0.1:18332')
             connError.code = 'ECONNREFUSED'
             axiosPostStub.rejects(connError)
 
-            await assert.rejects(() => connector.getNetworkInfo(), /ECONNREFUSED/)
+            await assert.rejects(() => connector.getNetworkInfo(), /Error getting network info/)
         })
     })
 
@@ -288,7 +288,7 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
 
         it('throws when result is string (NaN check)', async function () {
             axiosPostStub.resolves({ data: { result: 'not_a_number' } })
-            await assert.rejects(() => connector.getBalance(), /Error asking wallet balance/)
+            await assert.rejects(() => connector.getBalance(), /Error getting balance/)
         })
 
         it('accepts -0 as valid (isNaN(-0) is false)', async function () {
@@ -299,14 +299,14 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
 
         it('throws when result is null (explicit null check)', async function () {
             axiosPostStub.resolves({ data: { result: null } })
-            await assert.rejects(() => connector.getBalance(), /Error asking wallet balance/,
+            await assert.rejects(() => connector.getBalance(), /Error getting balance/,
                 'null should be rejected by explicit null check')
         })
 
         it('throws when result is undefined', async function () {
             axiosPostStub.resolves({ data: { result: undefined } })
             // isNaN(undefined) is true, so !isNaN is false -> throws
-            await assert.rejects(() => connector.getBalance(), /Error asking wallet balance/)
+            await assert.rejects(() => connector.getBalance(), /Error getting balance/)
         })
     })
 

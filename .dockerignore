@@ -1,0 +1,8 @@
+.env
+.env.*
+node_modules
+test
+.git
+.gitignore
+*.md
+.claude

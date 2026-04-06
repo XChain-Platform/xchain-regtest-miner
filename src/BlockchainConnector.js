@@ -37,47 +37,55 @@ class BlockchainConnector {
     }
 
     async getNetworkInfo(){
-        const data = {
-            jsonrpc: '2.0',
-            method: 'getnetworkinfo',
-            id: 1
-        }
-        
-        // Make the request to the node
-        const response = await axios.post(this.url, data, {
-            auth: {
-                username: this.rpcUser,
-                password: this.rpcPassword,
+        try {
+            const data = {
+                jsonrpc: '2.0',
+                method: 'getnetworkinfo',
+                id: 1
             }
-        })
 
-        // Verify if there is a result and return it
-        if (response.data.result) {
-            return response.data.result;
-        } else {
+            // Make the request to the node
+            const response = await axios.post(this.url, data, {
+                auth: {
+                    username: this.rpcUser,
+                    password: this.rpcPassword,
+                }
+            })
+
+            // Verify if there is a result and return it
+            if (response.data.result) {
+                return response.data.result;
+            } else {
+                throw new Error('Error getting network info');
+            }
+        } catch (error) {
             throw new Error('Error getting network info');
         }
     }
     
     async getBlockchainInfo(){
-        const data = {
-            jsonrpc: '2.0',
-            method: 'getblockchaininfo',
-            id: 1
-        }
-        
-        // Make the request to the node
-        const response = await axios.post(this.url, data, {
-            auth: {
-                username: this.rpcUser,
-                password: this.rpcPassword,
+        try {
+            const data = {
+                jsonrpc: '2.0',
+                method: 'getblockchaininfo',
+                id: 1
             }
-        })
 
-        // Verify if there is a result and return it
-        if (response.data.result) {
-            return response.data.result;
-        } else {
+            // Make the request to the node
+            const response = await axios.post(this.url, data, {
+                auth: {
+                    username: this.rpcUser,
+                    password: this.rpcPassword,
+                }
+            })
+
+            // Verify if there is a result and return it
+            if (response.data.result) {
+                return response.data.result;
+            } else {
+                throw new Error('Error getting blockchain info');
+            }
+        } catch (error) {
             throw new Error('Error getting blockchain info');
         }
     }
@@ -106,8 +114,7 @@ class BlockchainConnector {
                 throw new Error('Error getting block hash');
             }
         } catch (error) {
-            console.error('Error:', error.message);
-            throw error;
+            throw new Error('Error getting block hash');
         }
     }
 
@@ -132,14 +139,13 @@ class BlockchainConnector {
             if (response.data.result) {
                 return response.data.result;
             } else {
-                throw new Error('Error getting block hex');
+                throw new Error('Error getting block');
             }
         } catch (error) {
-            console.error('Error:', error.message);
-            throw error;
+            throw new Error('Error getting block');
         }
     }
-    
+
     async getRawMempool(){
         try {
             const data = {
@@ -160,14 +166,13 @@ class BlockchainConnector {
             if (response.data.result) {
                 return response.data.result;
             } else {
-                throw new Error('Error getting raw mempool info');
+                throw new Error('Error getting raw mempool');
             }
         } catch (error){
-            console.error('Error:', error.message);
-            throw error;
+            throw new Error('Error getting raw mempool');
         }
     }
-    
+
     async getMempoolEntry(txid){
         try {
             const data = {
@@ -192,11 +197,10 @@ class BlockchainConnector {
                 throw new Error('Error getting mempool entry');
             }
         } catch (error){
-            console.error('Error:', error.message);
-            throw error;
+            throw new Error('Error getting mempool entry');
         }
     }
-    
+
     async getRawTransaction(txid){
         try {
             const data = {
@@ -262,8 +266,7 @@ class BlockchainConnector {
             
             throw new Error('Error creating wallet');
         } catch (error) {
-            console.error('Error:', error.message);
-            throw error;
+            throw new Error('Error creating wallet');
         }
     }
     
@@ -290,7 +293,6 @@ class BlockchainConnector {
 
                 break
             } catch (error) {
-                console.error("There was an error while getting the wallet info from the node. Trying again...");
                 await this.sleep(1000)
             }
         }
@@ -331,11 +333,10 @@ class BlockchainConnector {
                 throw new Error('Error loading wallet');
             }
         } catch (error) {
-            console.error('Error:', error.message);
-            throw error;
+            throw new Error('Error loading wallet');
         }
     }
-    
+
     async getNewAddress(){
         try {
             const data = {
@@ -360,11 +361,10 @@ class BlockchainConnector {
                 throw new Error('Error getting new address');
             }
         } catch (error) {
-            console.error('Error:', error.message);
-            throw error;
-        }   
+            throw new Error('Error getting new address');
+        }
     }
-    
+
     async generateToAddress(count, address){
         try {
             const data = {
@@ -390,11 +390,10 @@ class BlockchainConnector {
                 throw new Error('Error generating to address');
             }
         } catch (error) {
-            console.error('Error:', error.message);
-            throw error;
-        }   
+            throw new Error('Error generating to address');
+        }
     }
-    
+
     async getBalance(){
         try {
             const data = {
@@ -416,14 +415,13 @@ class BlockchainConnector {
             if (response.data.result !== null && response.data.result !== undefined && !isNaN(response.data.result)){
                 return response.data.result;
             } else {
-                throw new Error('Error asking wallet balance');
+                throw new Error('Error getting balance');
             }
         } catch (error) {
-            console.error('Error:', error.message);
-            throw error;
-        }   
+            throw new Error('Error getting balance');
+        }
     }
-    
+
     async sendToAddress(address, amount){
         try {
             const data = {

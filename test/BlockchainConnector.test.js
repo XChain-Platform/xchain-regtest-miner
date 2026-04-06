@@ -79,9 +79,9 @@ describe('BlockchainConnector', function () {
             await assert.rejects(() => connector.getNetworkInfo(), /Error getting network info/)
         })
 
-        it('throws on network error', async function () {
+        it('throws clean error on network error', async function () {
             axiosPostStub.rejects(new Error('ECONNREFUSED'))
-            await assert.rejects(() => connector.getNetworkInfo(), /ECONNREFUSED/)
+            await assert.rejects(() => connector.getNetworkInfo(), /Error getting network info/)
         })
     })
 
@@ -112,10 +112,9 @@ describe('BlockchainConnector', function () {
             assertRpcCall('getblockhash', [42])
         })
 
-        it('throws and logs on error', async function () {
+        it('throws clean error on network error', async function () {
             axiosPostStub.rejects(new Error('timeout'))
-            await assert.rejects(() => connector.getBlockHash(0), /timeout/)
-            assert(console.error.calledOnce)
+            await assert.rejects(() => connector.getBlockHash(0), /Error getting block hash/)
         })
 
         it('throws when result is falsy', async function () {
@@ -142,14 +141,14 @@ describe('BlockchainConnector', function () {
             assertRpcCall('getblock', ['blockhash123', 1])
         })
 
-        it('throws and logs on error', async function () {
+        it('throws clean error on network error', async function () {
             axiosPostStub.rejects(new Error('fail'))
-            await assert.rejects(() => connector.getBlock('hash'), /fail/)
+            await assert.rejects(() => connector.getBlock('hash'), /Error getting block/)
         })
 
         it('throws when result is falsy', async function () {
             axiosPostStub.resolves(rpcNoResult())
-            await assert.rejects(() => connector.getBlock('hash'), /Error getting block hex/)
+            await assert.rejects(() => connector.getBlock('hash'), /Error getting block/)
         })
     })
 
@@ -164,9 +163,9 @@ describe('BlockchainConnector', function () {
             assertRpcCall('getrawmempool')
         })
 
-        it('throws on error', async function () {
+        it('throws clean error on network error', async function () {
             axiosPostStub.rejects(new Error('connection lost'))
-            await assert.rejects(() => connector.getRawMempool(), /connection lost/)
+            await assert.rejects(() => connector.getRawMempool(), /Error getting raw mempool/)
         })
 
         it('throws when result is falsy', async function () {
@@ -320,11 +319,17 @@ describe('BlockchainConnector', function () {
             await assert.rejects(() => connector.getWalletInfo(), /Error getting wallet info/)
         })
 
-        it('logs error on each retry attempt', async function () {
+        it('silently retries without logging credentials', async function () {
             axiosPostStub.onFirstCall().rejects(new Error('fail'))
             axiosPostStub.onSecondCall().resolves(rpcSuccess({ walletname: 'w' }))
             await connector.getWalletInfo(5)
-            assert(console.error.calledWithMatch(/error while getting the wallet info/i))
+            // Should not log errors containing credentials
+            for (const call of console.error.getCalls()) {
+                for (const arg of call.args) {
+                    const str = typeof arg === 'string' ? arg : String(arg)
+                    assert.ok(!str.includes('rpcpass'), 'Logged credentials during retry')
+                }
+            }
         })
     })
 
@@ -343,9 +348,9 @@ describe('BlockchainConnector', function () {
             await assert.rejects(() => connector.loadWallet('w'), /Error loading wallet/)
         })
 
-        it('throws on network error', async function () {
+        it('throws clean error on network error', async function () {
             axiosPostStub.rejects(new Error('refused'))
-            await assert.rejects(() => connector.loadWallet('w'), /refused/)
+            await assert.rejects(() => connector.loadWallet('w'), /Error loading wallet/)
         })
     })
 
@@ -407,7 +412,7 @@ describe('BlockchainConnector', function () {
 
         it('throws when result is NaN', async function () {
             axiosPostStub.resolves({ data: { result: 'not_a_number' } })
-            await assert.rejects(() => connector.getBalance(), /Error asking wallet balance/)
+            await assert.rejects(() => connector.getBalance(), /Error getting balance/)
         })
     })
 

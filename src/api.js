@@ -54,6 +54,15 @@ function validateEnvVars() {
             process.exit(1)
         }
     }
+    const validNetworks = ['regtest', 'testnet', 'mainnet']
+    if (!validNetworks.includes(process.env.NETWORK)) {
+        console.error('NETWORK must be one of: ' + validNetworks.join(', '))
+        process.exit(1)
+    }
+    const nodeUrl = process.env.NODE_URL
+    if (nodeUrl !== 'localhost' && nodeUrl !== '127.0.0.1') {
+        console.warn('WARNING: NODE_URL is not localhost (' + nodeUrl + '). RPC credentials will be transmitted over the network in plaintext.')
+    }
 }
 
 async function startApi(){
