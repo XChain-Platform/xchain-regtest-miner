@@ -33,7 +33,10 @@ Full regtest miner documentation is available in the [xchain-documentation](http
 
 | Document | Description |
 |---|---|
-| [README](https://github.com/XChain-platform/xchain-documentation/blob/master/components/regtest-miner/README.md) | Overview, architecture, features, mining loop, wallet lifecycle, fillMempool, configuration, installation |
+| [README](https://github.com/XChain-platform/xchain-documentation/blob/master/components/regtest-miner/README.md) | Overview, features, installation, quick start, scripts, dependencies |
+| [Architecture](https://github.com/XChain-platform/xchain-documentation/blob/master/components/regtest-miner/ARCHITECTURE.md) | Component diagram, source files, mining loop, wallet lifecycle, fillMempool |
+| [Configuration](https://github.com/XChain-platform/xchain-documentation/blob/master/components/regtest-miner/CONFIGURATION.md) | Environment variables, internal constants, timer behavior, backoff |
+| [Operations](https://github.com/XChain-platform/xchain-documentation/blob/master/components/regtest-miner/OPERATIONS.md) | JSON-RPC API endpoints, startup sequence, Docker, troubleshooting |
 
 ## Quick Start
 
