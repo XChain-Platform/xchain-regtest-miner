@@ -132,9 +132,9 @@ describe('E2E: Error Resilience', function () {
         assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         assert.strictEqual(miner.addedTimeToMineTxs, 5000)
 
-        // Valid integers: should change
-        await miner.setMiningTime(1000, 500)
-        assert.strictEqual(miner.maxTimeToMineTxs, 1000)
-        assert.strictEqual(miner.addedTimeToMineTxs, 500)
+        // Valid integers within bounds: should change
+        await miner.setMiningTime(2000, 1000)
+        assert.strictEqual(miner.maxTimeToMineTxs, 2000)
+        assert.strictEqual(miner.addedTimeToMineTxs, 1000)
     })
 })

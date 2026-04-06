@@ -42,7 +42,9 @@ describe('Fuzz: mining timer parameters', function () {
     // ─── setMiningTime with arbitrary values ────────────────────────
 
     describe('setMiningTime with arbitrary values', function () {
-        it('only accepts positive integers', async function () {
+        it('only accepts positive integers within bounds', async function () {
+            const MIN = 1000
+            const MAX = 3600000
             await fc.assert(
                 fc.asyncProperty(fc.anything(), fc.anything(), async (maxTime, txAddedTime) => {
                     const origMax = miner.maxTimeToMineTxs
@@ -50,7 +52,10 @@ describe('Fuzz: mining timer parameters', function () {
 
                     await miner.setMiningTime(maxTime, txAddedTime)
 
-                    if (Number.isInteger(maxTime) && Number.isInteger(txAddedTime) && maxTime > 0 && txAddedTime > 0) {
+                    const isValid = Number.isInteger(maxTime) && Number.isInteger(txAddedTime) &&
+                        maxTime >= MIN && maxTime <= MAX && txAddedTime >= MIN && txAddedTime <= MAX
+
+                    if (isValid) {
                         assert.strictEqual(miner.maxTimeToMineTxs, maxTime)
                         assert.strictEqual(miner.addedTimeToMineTxs, txAddedTime)
                     } else {
@@ -90,11 +95,11 @@ describe('Fuzz: mining timer parameters', function () {
 
     describe('setMiningTime integer edge cases', function () {
         const acceptedCases = [
-            [1, 1],
-            [2147483647, 2147483647],    // INT32_MAX
-            [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
-            [1, Number.MAX_SAFE_INTEGER],
-            [Number.MAX_SAFE_INTEGER, 1],
+            [1000, 1000],               // MIN boundary
+            [3600000, 3600000],          // MAX boundary
+            [30000, 5000],              // defaults
+            [1000, 3600000],            // min/max mix
+            [3600000, 1000],            // max/min mix
         ]
 
         for (const [maxTime, txAddedTime] of acceptedCases) {
@@ -112,8 +117,12 @@ describe('Fuzz: mining timer parameters', function () {
             [Number.MIN_SAFE_INTEGER, Number.MIN_SAFE_INTEGER],
             [0, Number.MAX_SAFE_INTEGER],
             [Number.MAX_SAFE_INTEGER, 0],
-            [-1, 1],
-            [1, -1],
+            [-1, 1000],
+            [1000, -1],
+            [1, 1],                       // below MIN_MINING_TIME
+            [999, 999],                   // just below MIN_MINING_TIME
+            [3600001, 3600001],           // just above MAX_MINING_TIME
+            [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER], // way above MAX_MINING_TIME
         ]
 
         for (const [maxTime, txAddedTime] of rejectedEdgeCases) {
@@ -182,7 +191,7 @@ describe('Fuzz: mining timer parameters', function () {
         it('last valid write wins with random positive integer sequences', async function () {
             await fc.assert(
                 fc.asyncProperty(
-                    fc.array(fc.tuple(fc.integer({ min: 1 }), fc.integer({ min: 1 })), { minLength: 1, maxLength: 50 }),
+                    fc.array(fc.tuple(fc.integer({ min: 1000, max: 3600000 }), fc.integer({ min: 1000, max: 3600000 })), { minLength: 1, maxLength: 50 }),
                     async (pairs) => {
                         for (const [maxTime, txAddedTime] of pairs) {
                             await miner.setMiningTime(maxTime, txAddedTime)

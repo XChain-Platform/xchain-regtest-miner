@@ -38,7 +38,27 @@ const NODE_USER =  process.env.NODE_USER
 const NODE_PASSWORD =  process.env.NODE_PASSWORD
 const REGTEST_MINER_API_PORT = process.env.REGTEST_MINER_API_PORT
 
+const REQUIRED_ENV_VARS = ['NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER', 'NODE_PASSWORD', 'REGTEST_MINER_API_PORT']
+
+function validateEnvVars() {
+    const missing = REQUIRED_ENV_VARS.filter(name => !process.env[name] || process.env[name].trim() === '')
+    if (missing.length > 0) {
+        console.error('Missing required environment variables: ' + missing.join(', '))
+        process.exit(1)
+    }
+    const portVars = ['NODE_PORT', 'REGTEST_MINER_API_PORT']
+    for (const name of portVars) {
+        const val = parseInt(process.env[name], 10)
+        if (isNaN(val) || val < 1 || val > 65535) {
+            console.error(name + ' must be a valid port number (1-65535)')
+            process.exit(1)
+        }
+    }
+}
+
 async function startApi(){
+    validateEnvVars()
+
     //Start the miner
     const miner = new XChainRegtestMiner(NETWORK, NODE_URL, NODE_PORT, NODE_USER, NODE_PASSWORD);
     miner.start()
@@ -69,8 +89,7 @@ async function startApi(){
             try {
                 txid = await miner.sendFundsToAddress(address, amount)
             } catch(err){
-                console.log(err)
-                try { return {"error":"There was a problem sending "+amount+" to "+address} } catch(e) { return {"error":"There was a problem sending funds"} }
+                return {"error":"There was a problem sending funds"}
             }
 
             // Return ok
@@ -83,8 +102,7 @@ async function startApi(){
             try {
                 await miner.fillMempool(tx_quantity)
             } catch(err){
-                console.log(err)
-                try { return {"error":"There was a problem trying to fill mempool with "+tx_quantity+" transactions"} } catch(e) { return {"error":"There was a problem trying to fill the mempool"} }
+                return {"error":"There was a problem trying to fill the mempool"}
             }
 
             // Return ok
@@ -96,7 +114,6 @@ async function startApi(){
             try {
                 await miner.continueMining()
             } catch(err){
-                console.log(err)
                 return {"error":"There was a problem trying to continue the mining"}
             }
 

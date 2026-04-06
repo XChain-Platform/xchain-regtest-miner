@@ -104,9 +104,10 @@ describe('Boundary: API Input Validation', function () {
     })
 
     describe('A-06: set_mining_time with Number.MAX_SAFE_INTEGER', function () {
-        it('accepts MAX_SAFE_INTEGER (is an integer)', async function () {
-            await miner.setMiningTime(Number.MAX_SAFE_INTEGER, 5000)
-            assert.strictEqual(miner.maxTimeToMineTxs, Number.MAX_SAFE_INTEGER)
+        it('rejects MAX_SAFE_INTEGER (exceeds max timer bound)', async function () {
+            const result = await miner.setMiningTime(Number.MAX_SAFE_INTEGER, 5000)
+            assert.ok(result && result.error)
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
     })
 

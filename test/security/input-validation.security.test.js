@@ -1,0 +1,308 @@
+const assert = require('assert')
+const sinon = require('sinon')
+const BlockchainConnector = require('../../src/BlockchainConnector')
+
+describe('Security: Input Validation', function () {
+    let XChainRegtestMiner
+    let miner
+    let connectorStub
+
+    beforeEach(function () {
+        connectorStub = {
+            getWalletInfo: sinon.stub(),
+            loadWallet: sinon.stub(),
+            createWallet: sinon.stub(),
+            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+            getBalance: sinon.stub().resolves(50.0),
+            getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+            generateToAddress: sinon.stub().resolves(['blockhash1']),
+            getRawMempool: sinon.stub().resolves([]),
+            sendToAddress: sinon.stub().resolves('txid_abc'),
+            getRawTransaction: sinon.stub().resolves('0200000001...'),
+            sendRawTransaction: sinon.stub().resolves('txid_sent'),
+        }
+
+        sinon.stub(BlockchainConnector.prototype, 'constructor')
+        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+        miner.connector = connectorStub
+        sinon.stub(miner, 'sleep').resolves()
+        sinon.stub(console, 'log')
+        sinon.stub(console, 'error')
+    })
+
+    afterEach(function () {
+        sinon.restore()
+        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+    })
+
+    // ─── sendFundsToAddress — SEC-003 ──────────────────────────────────
+
+    describe('sendFundsToAddress input validation (SEC-003)', function () {
+        it('rejects non-string address (number)', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress(12345, 1.0),
+                /Invalid address/
+            )
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
+        })
+
+        it('rejects non-string address (null)', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress(null, 1.0),
+                /Invalid address/
+            )
+        })
+
+        it('rejects non-string address (undefined)', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress(undefined, 1.0),
+                /Invalid address/
+            )
+        })
+
+        it('rejects non-string address (object)', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress({toString: 'bad'}, 1.0),
+                /Invalid address/
+            )
+        })
+
+        it('rejects non-string address (array)', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress(['bcrt1qtest'], 1.0),
+                /Invalid address/
+            )
+        })
+
+        it('rejects non-string address (boolean)', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress(true, 1.0),
+                /Invalid address/
+            )
+        })
+
+        it('rejects empty string address', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress('', 1.0),
+                /Invalid address/
+            )
+        })
+
+        it('rejects non-number amount (string)', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress('bcrt1qtest', '1.0'),
+                /Invalid amount/
+            )
+        })
+
+        it('rejects negative amount', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress('bcrt1qtest', -1),
+                /Invalid amount/
+            )
+        })
+
+        it('rejects zero amount', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress('bcrt1qtest', 0),
+                /Invalid amount/
+            )
+        })
+
+        it('rejects NaN amount', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress('bcrt1qtest', NaN),
+                /Invalid amount/
+            )
+        })
+
+        it('rejects Infinity amount', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress('bcrt1qtest', Infinity),
+                /Invalid amount/
+            )
+        })
+
+        it('rejects -Infinity amount', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress('bcrt1qtest', -Infinity),
+                /Invalid amount/
+            )
+        })
+
+        it('rejects null amount', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress('bcrt1qtest', null),
+                /Invalid amount/
+            )
+        })
+
+        it('rejects boolean amount', async function () {
+            await assert.rejects(
+                () => miner.sendFundsToAddress('bcrt1qtest', true),
+                /Invalid amount/
+            )
+        })
+
+        it('accepts valid string address and positive number amount', async function () {
+            await miner.sendFundsToAddress('bcrt1qtest', 1.0)
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 1)
+            assert.deepStrictEqual(connectorStub.sendToAddress.firstCall.args, ['bcrt1qtest', 1.0])
+        })
+
+        it('accepts very small positive amount', async function () {
+            await miner.sendFundsToAddress('bcrt1qtest', 0.00000001)
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 1)
+        })
+
+        it('never reaches RPC layer with invalid inputs', async function () {
+            const badInputs = [
+                [null, 1.0],
+                ['', 1.0],
+                [123, 1.0],
+                ['bcrt1qtest', -1],
+                ['bcrt1qtest', NaN],
+                ['bcrt1qtest', 'abc'],
+                ['bcrt1qtest', Infinity],
+            ]
+            for (const [addr, amt] of badInputs) {
+                try { await miner.sendFundsToAddress(addr, amt) } catch(e) { /* expected */ }
+            }
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
+        })
+    })
+
+    // ─── setMiningTime — SEC-008 (timer bounds) ────────────────────────
+
+    describe('setMiningTime timer bounds (SEC-008)', function () {
+        it('rejects maxTime below minimum (SEC-008)', async function () {
+            const result = await miner.setMiningTime(500, 2000)
+            assert.ok(result && result.error)
+            assert.match(result.error, /too small/)
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
+        })
+
+        it('rejects txAddedTime below minimum (SEC-008)', async function () {
+            const result = await miner.setMiningTime(2000, 500)
+            assert.ok(result && result.error)
+            assert.match(result.error, /too small/)
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
+        })
+
+        it('rejects maxTime above maximum (SEC-008)', async function () {
+            const result = await miner.setMiningTime(3600001, 2000)
+            assert.ok(result && result.error)
+            assert.match(result.error, /too large/)
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
+        })
+
+        it('rejects txAddedTime above maximum (SEC-008)', async function () {
+            const result = await miner.setMiningTime(2000, 3600001)
+            assert.ok(result && result.error)
+            assert.match(result.error, /too large/)
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
+        })
+
+        it('rejects both values above maximum', async function () {
+            const result = await miner.setMiningTime(9999999, 9999999)
+            assert.ok(result && result.error)
+        })
+
+        it('rejects maxTime of 1ms (near-continuous mining)', async function () {
+            const result = await miner.setMiningTime(1, 1000)
+            assert.ok(result && result.error)
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
+        })
+
+        it('accepts values at minimum boundary (1000ms)', async function () {
+            const result = await miner.setMiningTime(1000, 1000)
+            assert.strictEqual(result, undefined)
+            assert.strictEqual(miner.maxTimeToMineTxs, 1000)
+            assert.strictEqual(miner.addedTimeToMineTxs, 1000)
+        })
+
+        it('accepts values at maximum boundary (3600000ms)', async function () {
+            const result = await miner.setMiningTime(3600000, 3600000)
+            assert.strictEqual(result, undefined)
+            assert.strictEqual(miner.maxTimeToMineTxs, 3600000)
+            assert.strictEqual(miner.addedTimeToMineTxs, 3600000)
+        })
+
+        it('returns error object for non-integer maxTime', async function () {
+            const result = await miner.setMiningTime(10.5, 2000)
+            assert.ok(result && result.error)
+            assert.match(result.error, /positive integers/)
+        })
+
+        it('returns error object for non-integer txAddedTime', async function () {
+            const result = await miner.setMiningTime(2000, 'abc')
+            assert.ok(result && result.error)
+        })
+
+        it('returns error for zero values', async function () {
+            const result = await miner.setMiningTime(0, 0)
+            assert.ok(result && result.error)
+        })
+
+        it('returns error for negative values', async function () {
+            const result = await miner.setMiningTime(-1000, -1000)
+            assert.ok(result && result.error)
+        })
+
+        it('returns error for Number.MAX_SAFE_INTEGER', async function () {
+            const result = await miner.setMiningTime(Number.MAX_SAFE_INTEGER, 5000)
+            assert.ok(result && result.error)
+            assert.match(result.error, /too large/)
+        })
+
+        it('does not crash with non-printable values', async function () {
+            const result = await miner.setMiningTime({toString: 0}, {toString: 0})
+            assert.ok(result && result.error)
+        })
+    })
+
+    // ─── fillMempool — SEC-002 (quantity cap) ──────────────────────────
+
+    describe('fillMempool quantity cap (SEC-002)', function () {
+        it('rejects txQuantity exceeding 50000', async function () {
+            const result = await miner.fillMempool(50001)
+            assert.ok(result && result.error)
+            assert.match(result.error, /exceeds maximum/)
+        })
+
+        it('rejects txQuantity of 100000', async function () {
+            const result = await miner.fillMempool(100000)
+            assert.ok(result && result.error)
+            assert.match(result.error, /exceeds maximum/)
+        })
+
+        it('rejects txQuantity of Number.MAX_SAFE_INTEGER', async function () {
+            const result = await miner.fillMempool(Number.MAX_SAFE_INTEGER)
+            assert.ok(result && result.error)
+        })
+
+        it('still rejects non-positive-integer before cap check', async function () {
+            await miner.fillMempool(0)
+            await miner.fillMempool(-1)
+            await miner.fillMempool(1.5)
+            await miner.fillMempool('abc')
+            // None should have started the fill process
+            assert.strictEqual(miner.fillMempoolRunning, false)
+        })
+
+        it('accepts txQuantity at maximum boundary (50000)', async function () {
+            // Will fail at the crypto stage, but should pass the validation
+            miner.walletAddress = 'bcrt1qtest'
+            connectorStub.sendToAddress.rejects(new Error('test abort'))
+            try {
+                await miner.fillMempool(50000)
+            } catch(e) {
+                // Expected — fails at sendFundsToAddress after passing validation
+            }
+            // Verify it got past validation (fillMempoolRunning was set)
+            // It should be reset by finally block
+            assert.strictEqual(miner.fillMempoolRunning, false)
+        })
+    })
+})

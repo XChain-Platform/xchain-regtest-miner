@@ -450,12 +450,10 @@ class BlockchainConnector {
             if (response.data.result){
                 return response.data.result["txid"];
             } else {
-                console.log(response.data.error)
                 throw new Error('Error sending funds to address');
             }
         } catch (error) {
-            console.error('Error:', error.message);
-            throw error;
+            throw new Error('Error sending funds to address');
         }
     }
     
@@ -480,12 +478,10 @@ class BlockchainConnector {
             if (response.data.result){
                 return response.data.result
             } else {
-                console.log(response.data.error)
                 throw new Error('Error sending raw transaction')
             }
         } catch (error) {
-            console.error('Error:', error.message)
-            throw error;
+            throw new Error('Error sending raw transaction');
         }
     }
 }

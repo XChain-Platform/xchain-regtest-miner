@@ -184,11 +184,11 @@ describe('E2E: JSON-RPC API Against Live Miner', function () {
     // ─── C3: set_mining_time takes effect on live loop ──────────────
 
     it('C3: set_mining_time changes live mining behavior', async function () {
-        // Set very short timers
-        const res = await rpcCall('set_mining_time', { max_time: 100, tx_added_time: 50 })
+        // Set short but valid timers (minimum is 1000ms)
+        const res = await rpcCall('set_mining_time', { max_time: 1000, tx_added_time: 1000 })
         assert.deepStrictEqual(res.body.result, { result: 'ok' })
-        assert.strictEqual(miner.maxTimeToMineTxs, 100)
-        assert.strictEqual(miner.addedTimeToMineTxs, 50)
+        assert.strictEqual(miner.maxTimeToMineTxs, 1000)
+        assert.strictEqual(miner.addedTimeToMineTxs, 1000)
 
         // Reset to defaults
         const res2 = await rpcCall('set_default_mining_time')

@@ -397,20 +397,44 @@ describe('Fuzz: RPC response handling', function () {
     // ─── sendFundsToAddress response fuzzing ────────────────────────
 
     describe('sendFundsToAddress with arbitrary inputs', function () {
-        it('passes through any address and amount to connector', async function () {
+        it('passes through valid address and amount to connector', async function () {
             await fc.assert(
-                fc.asyncProperty(fc.string(), fc.double(), async (address, amount) => {
-                    connectorStub.sendToAddress.resolves('txid_ok')
-                    const result = await miner.sendFundsToAddress(address, amount)
-                    assert.strictEqual(result, 'txid_ok')
-                    assert.ok(connectorStub.sendToAddress.calledWith(address, amount))
+                fc.asyncProperty(
+                    fc.string({ minLength: 1 }),
+                    fc.double({ min: 0.00000001, max: 1e8, noNaN: true }),
+                    async (address, amount) => {
+                        connectorStub.sendToAddress.resolves('txid_ok')
+                        const result = await miner.sendFundsToAddress(address, amount)
+                        assert.strictEqual(result, 'txid_ok')
+                        assert.ok(connectorStub.sendToAddress.calledWith(address, amount))
+                        connectorStub.sendToAddress.resetHistory()
+                    }
+                ),
+                { numRuns: 200 }
+            )
+        })
+
+        it('rejects invalid inputs without reaching connector', async function () {
+            await fc.assert(
+                fc.asyncProperty(fc.anything(), fc.anything(), async (address, amount) => {
+                    const isValidAddr = typeof address === 'string' && address.length > 0
+                    const isValidAmt = typeof amount === 'number' && isFinite(amount) && amount > 0
+                    if (!isValidAddr || !isValidAmt) {
+                        connectorStub.sendToAddress.resetHistory()
+                        try {
+                            await miner.sendFundsToAddress(address, amount)
+                        } catch(e) {
+                            assert.ok(e.message.includes('Invalid'))
+                        }
+                        assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
+                    }
                     connectorStub.sendToAddress.resetHistory()
                 }),
                 { numRuns: 200 }
             )
         })
 
-        it('propagates connector errors', async function () {
+        it('propagates connector errors for valid inputs', async function () {
             connectorStub.sendToAddress.rejects(new Error('insufficient funds'))
             await assert.rejects(
                 () => miner.sendFundsToAddress('addr', 1),

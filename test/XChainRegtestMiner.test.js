@@ -148,7 +148,7 @@ describe('XChainRegtestMiner', function () {
 
         it('throws on connector error', async function () {
             connectorStub.createWallet.rejects(new Error('already exists'))
-            await assert.rejects(() => miner.createWallet('w'), /already exists/)
+            await assert.rejects(() => miner.createWallet('w'), /Error creating wallet/)
         })
     })
 

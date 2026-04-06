@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-04-05
+
+### Added
+- Security test suite (114 tests) covering all hardening fixes
+  - Input validation: sendFundsToAddress address/amount type checking, boundary values, invalid type rejection
+  - Timer bounds: setMiningTime min/max enforcement (1000ms–3600000ms), error return objects
+  - fillMempool quantity cap: rejection above 50,000, memory exhaustion prevention
+  - Resource exhaustion: sendFundsToAddress retry limit (50), fillMempool mutex, concurrent call rejection
+  - Error sanitization: RPC credential non-disclosure across all BlockchainConnector methods
+  - Environment validation: missing vars, empty vars, invalid port numbers
+  - API hardening: generic error messages, prototype pollution resistance, XSS non-reflection
+- `npm run test:security` script
+
+### Fixed
+- Infinite retry loop in `fillMempool` when `sendFundsToAddress` perpetually fails — added 50-retry limit with backoff (SEC-001)
+- Unbounded memory allocation via `fillMempool` with large `txQuantity` — added 50,000 cap (SEC-002)
+- Missing input validation on `sendFundsToAddress` — now requires non-empty string address and positive finite number amount (SEC-003)
+- RPC credential leakage in `sendToAddress` and `sendRawTransaction` error paths — errors now throw clean messages without axios internals (SEC-004)
+- Missing environment variable validation at startup — `validateEnvVars()` checks all 6 required vars and validates port ranges (SEC-005)
+- Race condition on concurrent `fillMempool` calls — added `fillMempoolRunning` mutex with try/finally cleanup (SEC-006)
+- Missing timer bounds on `setMiningTime` — enforced 1000ms minimum and 3600000ms maximum, returns error objects on invalid input (SEC-008)
+- User input reflected in API error messages (`send_funds`, `fill_mempool`) — now uses generic error strings (SEC-012)
+- `setMiningTime` silently rejecting invalid input — now returns `{error: "..."}` to caller (SEC-013)
+- Full error objects logged to console in `createWallet` and `prepareWallet` — sanitized to clean error messages (SEC-004)
+
 ## [0.1.6] - 2026-04-05
 
 ### Fixed

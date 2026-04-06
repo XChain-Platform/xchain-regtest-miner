@@ -429,7 +429,7 @@ describe('BlockchainConnector', function () {
 
         it('throws on network error', async function () {
             axiosPostStub.rejects(new Error('timeout'))
-            await assert.rejects(() => connector.sendToAddress('a', 1), /timeout/)
+            await assert.rejects(() => connector.sendToAddress('a', 1), /Error sending funds to address/)
         })
     })
 
@@ -450,7 +450,7 @@ describe('BlockchainConnector', function () {
 
         it('throws on network error', async function () {
             axiosPostStub.rejects(new Error('refused'))
-            await assert.rejects(() => connector.sendRawTransaction('hex'), /refused/)
+            await assert.rejects(() => connector.sendRawTransaction('hex'), /Error sending raw transaction/)
         })
     })
 

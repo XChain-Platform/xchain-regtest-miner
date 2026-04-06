@@ -28,6 +28,11 @@ const SATOSHI_UNIT = 100000000.0
 const DEFAULT_MAX_TIME_TO_MINE_TXS = 30000 //max 30 seconds to mine a block after the first tx is found in the mempool
 const DEFAULT_ADDED_TIME_TO_MINE_TXS = 5000 //5 seconds extra before mining a block every time a new tx appears in the mempool
 
+const MAX_MINING_TIME = 3600000 //1 hour max for mining timers
+const MIN_MINING_TIME = 1000 //1 second minimum for mining timers
+const MAX_FILL_MEMPOOL_QUANTITY = 50000 //max number of transactions to fill the mempool with
+const MAX_SEND_RETRIES = 50 //max retries for sending funds in fillMempool
+
 
 //This is useful only for filling the mempool
 const { BIP32Factory } = require('bip32')
@@ -45,6 +50,7 @@ class XChainRegtestMiner {
       this.keepMining = false
       this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
       this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
+      this.fillMempoolRunning = false
     }
     
     async sleep(ms) {
@@ -52,13 +58,21 @@ class XChainRegtestMiner {
     }
     
     async setMiningTime(maxTime, txAddedTime){
-        if (Number.isInteger(maxTime) && Number.isInteger(txAddedTime) && maxTime > 0 && txAddedTime > 0){
-            this.maxTimeToMineTxs = maxTime
-            this.addedTimeToMineTxs = txAddedTime
-            console.log("New mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
-        } else {
+        if (!Number.isInteger(maxTime) || !Number.isInteger(txAddedTime) || maxTime <= 0 || txAddedTime <= 0){
             try { console.log("INVALID mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms") } catch(e) { console.log("INVALID mining times (non-printable values)") }
+            return {error: "Invalid mining times. Both values must be positive integers."}
         }
+        if (maxTime < MIN_MINING_TIME || txAddedTime < MIN_MINING_TIME){
+            console.log("Mining times too small: minimum is "+MIN_MINING_TIME+"ms")
+            return {error: "Mining times too small. Minimum is "+MIN_MINING_TIME+"ms."}
+        }
+        if (maxTime > MAX_MINING_TIME || txAddedTime > MAX_MINING_TIME){
+            console.log("Mining times too large: maximum is "+MAX_MINING_TIME+"ms")
+            return {error: "Mining times too large. Maximum is "+MAX_MINING_TIME+"ms."}
+        }
+        this.maxTimeToMineTxs = maxTime
+        this.addedTimeToMineTxs = txAddedTime
+        console.log("New mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
     }
 
     async setDefaultMiningTime(){
@@ -68,6 +82,11 @@ class XChainRegtestMiner {
     }
     
     async fillMempool(txQuantity){
+            if (this.fillMempoolRunning) {
+                console.log("fillMempool is already running, rejecting concurrent call")
+                return {error: "fillMempool is already running"}
+            }
+
             this.keepMining = false //Stop the mining so the txs stay in mempool
 
             if (!Number.isInteger(txQuantity) || txQuantity < 1) {
@@ -75,6 +94,13 @@ class XChainRegtestMiner {
                 return
             }
 
+            if (txQuantity > MAX_FILL_MEMPOOL_QUANTITY) {
+                console.log("txQuantity "+txQuantity+" exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY)
+                return {error: "txQuantity exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY}
+            }
+
+            this.fillMempoolRunning = true
+            try {
             console.log("Filling mempool with "+txQuantity+" transactions")
             //let AMOUNT_FOR_EACH_ADDRESS = 0.000001
             //let FEE = 0.00001
@@ -126,13 +152,17 @@ class XChainRegtestMiner {
                 
                 let sent = false
                 let txid = null
+                let sendRetries = 0
                 while(!sent){
                     try {
                         txid = await this.sendFundsToAddress(mainAddress, totalAmount/SATOSHI_UNIT)
                         sent = true
                     } catch(err){
-                        console.log(err)
-                        console.log("Error sending funds, trying again...")
+                        sendRetries++
+                        if (sendRetries >= MAX_SEND_RETRIES) {
+                            throw new Error('Failed to send funds after ' + MAX_SEND_RETRIES + ' retries')
+                        }
+                        console.log("Error sending funds, trying again... (attempt "+sendRetries+"/"+MAX_SEND_RETRIES+")")
                         await this.sleep(1000)
                     }
                 }
@@ -289,7 +319,10 @@ class XChainRegtestMiner {
                 
                 outputIndex++
             }
-            
+
+            } finally {
+                this.fillMempoolRunning = false
+            }
     }
 
     async continueMining(){
@@ -297,6 +330,12 @@ class XChainRegtestMiner {
     }
     
     async sendFundsToAddress(address, amount){
+        if (typeof address !== 'string' || address.length === 0) {
+            throw new Error('Invalid address: must be a non-empty string')
+        }
+        if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
+            throw new Error('Invalid amount: must be a positive finite number')
+        }
         return await this.connector.sendToAddress(address, amount)
     }
     
@@ -305,8 +344,7 @@ class XChainRegtestMiner {
             await this.connector.createWallet(walletName)
             return true
         } catch(err){
-            console.log(err)
-            throw err
+            throw new Error('Error creating wallet')
         }
     }
     
@@ -333,7 +371,6 @@ class XChainRegtestMiner {
                 try{
                     await this.createWallet(this.walletNameParam)
                 } catch(err){
-                    console.log(err)
                     throw Error("Error when trying to create the wallet in the regtest node")
                 }
             }
