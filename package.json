@@ -1,7 +1,7 @@
 {
   "name": "xchain-regtest-miner",
   "description": "xchain-regtest-miner handles processing transactions and mining blocks on regtest networks.",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
     "type": "git",
@@ -32,6 +32,7 @@
     "test:e2e": "mocha --timeout 30000 test/e2e/**/*.test.js",
     "test:fuzz": "mocha --timeout 0 test/fuzz/**/*.fuzz.test.js",
     "test:fuzz:quick": "mocha --timeout 60000 test/fuzz/**/*.fuzz.test.js",
-    "test:security": "mocha --timeout 10000 test/security/**/*.security.test.js"
+    "test:security": "mocha --timeout 10000 test/security/**/*.security.test.js",
+    "test:performance": "mocha --timeout 0 test/performance/**/*.perf.test.js"
   }
 }

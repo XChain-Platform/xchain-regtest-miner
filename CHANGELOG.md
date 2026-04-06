@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-04-05
+
+### Added
+- Performance and load testing suite (28 tests across 6 categories)
+  - Block generation latency (BG): empty/small/medium/large mempool, sequential and burst mining
+  - Mempool polling (MP): steady trickle, burst arrival, continuous flood, timer boundary, 5000-txid overhead
+  - fillMempool scaling (FM): 10/100/500 txs, scaling ratio analysis, mutex rejection timing
+  - RPC latency (RPC): baseline all methods, concurrent load, simulated delay, connection reuse, mixed concurrent
+  - Soak stability (SL): idle soak, active soak, burst soak, error recovery
+  - API throughput (API): ping flood, mixed workload, concurrent requests
+- Performance test helpers: PerformanceCollector (timing/percentiles), MemorySampler (heap tracking), LatencyMockNode (configurable RPC delays), perfAssert (threshold assertions)
+- `npm run test:performance` script
+
 ## [0.1.8] - 2026-04-05
 
 ### Added
