@@ -189,12 +189,11 @@ describe('Fuzz: fillMempool input handling', function () {
         })
     })
 
-    // ─── fillMempool always sets keepMining=false ────────────────────
+    // ─── fillMempool does not change keepMining for invalid inputs ────
 
     describe('fillMempool state management', function () {
-        it('always sets keepMining to false on entry for invalid inputs', async function () {
-            // Use only values that will be rejected by validation (non-positive-integer)
-            // to avoid triggering the full fillMempool logic with stubbed RPC
+        it('does not change keepMining for invalid inputs (validation rejects early)', async function () {
+            // Invalid inputs are rejected before keepMining is modified
             await fc.assert(
                 fc.asyncProperty(
                     fc.oneof(
@@ -211,8 +210,8 @@ describe('Fuzz: fillMempool input handling', function () {
                     async (txQuantity, initialKeepMining) => {
                         miner.keepMining = initialKeepMining
                         await miner.fillMempool(txQuantity)
-                        assert.strictEqual(miner.keepMining, false,
-                            'keepMining must be false after fillMempool regardless of input')
+                        assert.strictEqual(miner.keepMining, initialKeepMining,
+                            'keepMining must be unchanged after fillMempool with invalid input')
                     }
                 ),
                 { numRuns: 100 }

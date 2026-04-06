@@ -110,19 +110,15 @@ describe('Boundary: Combined Parameter Interactions', function () {
 
     // ─── C-03: fillMempool + short maxTimeToMineTxs ────────────────────
 
-    describe('C-03: fillMempool pauses mining via keepMining=false', function () {
-        it('keepMining is set to false before any chunk processing', async function () {
+    describe('C-03: fillMempool with invalid input does not change keepMining', function () {
+        it('keepMining is unchanged for invalid txQuantity (validation rejects early)', async function () {
             miner.keepMining = true
             miner.maxTimeToMineTxs = 100
 
-            try {
-                await miner.fillMempool(0)
-            } catch (e) {
-                // May fail; we only care about keepMining state
-            }
+            await miner.fillMempool(0)
 
-            assert.strictEqual(miner.keepMining, false,
-                'fillMempool must disable mining before processing')
+            assert.strictEqual(miner.keepMining, true,
+                'fillMempool must not change keepMining for invalid input')
         })
     })
 

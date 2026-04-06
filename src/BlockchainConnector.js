@@ -162,8 +162,8 @@ class BlockchainConnector {
                 }
             })
 
-            // Verify if there is a result and return it
-            if (response.data.result) {
+            // Verify the result is an array (empty mempool returns [])
+            if (Array.isArray(response.data.result)) {
                 return response.data.result;
             } else {
                 throw new Error('Error getting raw mempool');
@@ -231,7 +231,7 @@ class BlockchainConnector {
         }
     }
     
-    async createWallet(walletName, tries = 10) {
+    async createWallet(walletName, tries = 50) {
         try {
             const data = {
                 jsonrpc: '2.0',

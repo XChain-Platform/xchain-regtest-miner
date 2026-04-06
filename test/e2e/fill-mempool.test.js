@@ -51,8 +51,8 @@ describe('E2E: fillMempool with Real Broadcasting', function () {
 
         await miner.fillMempool(1)
 
-        // keepMining should be false (fillMempool disables auto-mining)
-        assert.strictEqual(miner.keepMining, false)
+        // keepMining should be restored to true by the finally block
+        assert.strictEqual(miner.keepMining, true)
 
         // Stress transaction(s) should be in the mempool
         assert.ok(node.mempool.length >= 1, 'Expected at least 1 tx in mempool, got ' + node.mempool.length)
@@ -78,7 +78,7 @@ describe('E2E: fillMempool with Real Broadcasting', function () {
 
         await miner.fillMempool(3)
 
-        assert.strictEqual(miner.keepMining, false)
+        assert.strictEqual(miner.keepMining, true)
 
         // Should have 3 stress txs in mempool
         assert.strictEqual(node.mempool.length, 3)

@@ -255,10 +255,10 @@ describe('BlockchainConnector', function () {
             assert.strictEqual(axiosPostStub.callCount, 3)
         })
 
-        it('defaults to 10 retries', async function () {
+        it('defaults to 50 retries', async function () {
             axiosPostStub.rejects(new Error('fail'))
             await assert.rejects(() => connector.createWallet('w'))
-            assert.strictEqual(axiosPostStub.callCount, 10)
+            assert.strictEqual(axiosPostStub.callCount, 50)
         })
 
         it('sleeps between retries', async function () {

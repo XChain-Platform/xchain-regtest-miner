@@ -220,7 +220,7 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
         function runLoopWithTimeout(miner, timeoutMs) {
             return new Promise(async (resolve) => {
                 const timer = setTimeout(() => {
-                    miner.keepMining = false
+                    miner._shutdown = true
                     // Give it one more cycle to exit
                     setTimeout(resolve, 20)
                 }, timeoutMs)
@@ -272,8 +272,14 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
             connector.getRawMempool.resolves(['txid1'])
 
             // Disable mining immediately after start
+            let loopCount = 0
             miner.sleep.callsFake(async () => {
+                loopCount++
                 miner.keepMining = false
+                if (loopCount >= 3) {
+                    miner._shutdown = true
+                    throw new Error('__LOOP_BREAK__')
+                }
                 return new Promise(r => setTimeout(r, 5))
             })
 
@@ -281,14 +287,12 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
             miner.prepareWallet.callsFake(async () => {})
 
             try {
-                await Promise.race([
-                    miner.start(),
-                    new Promise(r => setTimeout(r, 100)),
-                ])
-            } catch (e) { /* expected */ }
+                await miner.start()
+            } catch (e) {
+                if (e.message !== '__LOOP_BREAK__') throw e
+            }
 
             // keepMining was set false on first sleep, then loop skips mining
-            // The first iteration may have polled mempool once
             assert.strictEqual(connector.generateToAddress.callCount, 0)
         })
 

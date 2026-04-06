@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-04-05
+
+### Added
+- Chaos engineering test suite (22 tests across 6 files implementing 10 experiments)
+  - ChaosNode helper extending LatencyMockNode with fault injection (offline, fail rates, response corruption, method interception, auth enforcement)
+  - CE-01/02/03: RPC disruption tests (connection loss, timeout, 50% flapping)
+  - CE-04/10: RPC corruption tests (invalid response shapes, auth failure)
+  - CE-05: Startup resilience tests (node unavailable during initialization)
+  - CE-06: fillMempool interruption tests (state recovery verification)
+  - CE-07/09: Stress tests (10k+ mempool entries, concurrent API abuse)
+  - CE-08: Process lifecycle tests (SIGTERM handler, crash/restart)
+- `npm run test:chaos` script
+- Graceful shutdown via SIGTERM handler in mining loop (W-4 fix)
+- Exponential backoff for mining loop error retries, capped at 30s (W-5 fix)
+
+### Fixed
+- getRawMempool now validates response is an Array via `Array.isArray()`, preventing string responses from causing phantom mining (W-1)
+- createWallet default retries increased from 10 to 50, matching getWalletInfo and providing a wider startup window (W-2)
+- fillMempool now restores `keepMining=true` in its finally block, preventing stuck mining state after failures (W-3)
+- fillMempool validation moved before `keepMining=false` assignment, so invalid inputs no longer disrupt mining state
+
 ## [0.1.9] - 2026-04-05
 
 ### Added

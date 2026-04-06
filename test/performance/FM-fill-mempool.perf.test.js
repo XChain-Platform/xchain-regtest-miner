@@ -65,7 +65,7 @@ describe('Performance: FM — fillMempool', function () {
 
         // Functional: correct number of stress txs in mempool
         assert.strictEqual(node.mempool.length, 10)
-        assert.strictEqual(miner.keepMining, false)
+        assert.strictEqual(miner.keepMining, true)
 
         assertMaxUnder(collector, 'fillMempool:10', 15000)
     })

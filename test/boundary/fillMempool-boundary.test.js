@@ -50,24 +50,16 @@ describe('Boundary: fillMempool Chunking and Calculations', function () {
     // ─── F-01: tx_quantity = 0 ─────────────────────────────────────────
 
     describe('F-01: tx_quantity = 0', function () {
-        it('sets keepMining to false and processes zero chunks', async function () {
+        it('rejects invalid input and does not change keepMining', async function () {
             miner.keepMining = true
 
-            // With 0 txs, Math.ceil(0/2500) = 0 chunks, so funding loop doesn't execute.
-            // But the code will still try to do getRawTransaction for chunk txids (empty array).
-            // Then it mines a block at line 143, tries to build PSBTs (empty utxos array).
-            // Should complete without error.
-            connectorStub.sendToAddress.resolves('funding_txid')
+            // txQuantity=0 fails validation (< 1) and returns early
+            // without modifying keepMining or processing chunks
+            await miner.fillMempool(0)
 
-            try {
-                await miner.fillMempool(0)
-            } catch (e) {
-                // May fail due to crypto ops with 0 addresses; that's part of the boundary
-            }
-
-            assert.strictEqual(miner.keepMining, false,
-                'Should set keepMining to false immediately')
-            // 0 chunks means no sendToAddress calls for funding
+            assert.strictEqual(miner.keepMining, true,
+                'Should not change keepMining for invalid input')
+            // No processing should occur
             assert.strictEqual(connectorStub.sendToAddress.callCount, 0,
                 'Should not send any funding transactions')
         })

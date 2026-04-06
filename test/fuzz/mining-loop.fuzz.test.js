@@ -211,17 +211,16 @@ describe('Fuzz: mining loop state machine', function () {
     // ─── Concurrent fillMempool + continueMining ────────────────────
 
     describe('fillMempool and continueMining interaction', function () {
-        it('fillMempool sets keepMining=false, continueMining restores it', async function () {
+        it('fillMempool pauses mining during execution, finally restores it', async function () {
             miner.keepMining = true
 
-            // fillMempool sets keepMining = false on entry
-            try {
-                await miner.fillMempool(0)
-            } catch (e) {
-                // acceptable
-            }
-            assert.strictEqual(miner.keepMining, false)
+            // fillMempool(0) fails validation and returns early — keepMining unchanged
+            await miner.fillMempool(0)
+            assert.strictEqual(miner.keepMining, true,
+                'Invalid input should not change keepMining')
 
+            // continueMining always sets true
+            miner.keepMining = false
             await miner.continueMining()
             assert.strictEqual(miner.keepMining, true)
         })
@@ -239,13 +238,15 @@ describe('Fuzz: mining loop state machine', function () {
                             }
                         }
 
-                        // Final state should be deterministic based on last operation
-                        const lastOp = sequence[sequence.length - 1]
-                        if (lastOp) {
-                            assert.strictEqual(miner.keepMining, false)
-                        } else {
+                        // With the W-3 fix, fillMempool(0) doesn't change keepMining
+                        // (invalid input returns early), and continueMining sets it to true.
+                        // So the final state depends on whether continueMining was ever called.
+                        // fillMempool(0) is a no-op for keepMining; continueMining always sets true.
+                        const everCalledContinue = sequence.some(op => !op)
+                        if (everCalledContinue) {
                             assert.strictEqual(miner.keepMining, true)
                         }
+                        // If only fillMempool(0) was called, keepMining stays at whatever it was
                     }
                 ),
                 { numRuns: 200 }

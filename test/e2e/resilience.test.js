@@ -88,6 +88,7 @@ describe('E2E: Error Resilience', function () {
         try { await startPromise } catch (e) {
             if (e.message !== '__E2E_SHUTDOWN__') throw e
         }
+        if (miner._sigTermHandler) process.removeListener('SIGTERM', miner._sigTermHandler)
     })
 
     // ─── E2: send_funds with insufficient balance ───────────────────

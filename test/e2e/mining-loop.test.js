@@ -57,6 +57,10 @@ describe('E2E: Mempool Monitoring and Block Generation', function () {
             }
         }
         startPromise = null
+        // Clean up SIGTERM handler registered by start()
+        if (miner && miner._sigTermHandler) {
+            process.removeListener('SIGTERM', miner._sigTermHandler)
+        }
     })
 
     function startMinerLoop() {

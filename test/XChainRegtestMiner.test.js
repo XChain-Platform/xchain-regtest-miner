@@ -616,18 +616,23 @@ describe('XChainRegtestMiner', function () {
     // ─── fillMempool ────────────────────────────────────────────────────
 
     describe('fillMempool', function () {
-        it('sets keepMining to false', async function () {
+        it('sets keepMining to false only after validation passes', async function () {
             miner.keepMining = true
 
-            // Stub all the crypto/tx operations to prevent actual execution
-            // fillMempool will fail on crypto ops but keepMining should already be set
-            try {
-                await miner.fillMempool(0)
-            } catch (e) {
-                // May fail on zero quantity edge cases; that's ok for this test
-            }
+            // fillMempool(0) fails validation and returns early — keepMining unchanged
+            await miner.fillMempool(0)
+            assert.strictEqual(miner.keepMining, true,
+                'keepMining should not change for invalid input')
 
-            assert.strictEqual(miner.keepMining, false)
+            // fillMempool with valid input sets keepMining to false during execution
+            // and restores it to true in the finally block
+            try {
+                await miner.fillMempool(1)
+            } catch (e) {
+                // May fail on crypto ops; that's ok for this test
+            }
+            assert.strictEqual(miner.keepMining, true,
+                'keepMining should be restored to true by the finally block')
         })
 
         it('calculates correct number of chunks for quantities within one chunk', function () {

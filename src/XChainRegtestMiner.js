@@ -87,8 +87,6 @@ class XChainRegtestMiner {
                 return {error: "fillMempool is already running"}
             }
 
-            this.keepMining = false //Stop the mining so the txs stay in mempool
-
             if (!Number.isInteger(txQuantity) || txQuantity < 1) {
                 try { console.log("INVALID txQuantity: "+txQuantity+". Must be a positive integer.") } catch(e) { console.log("INVALID txQuantity (non-printable value). Must be a positive integer.") }
                 return
@@ -99,6 +97,7 @@ class XChainRegtestMiner {
                 return {error: "txQuantity exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY}
             }
 
+            this.keepMining = false //Stop the mining so the txs stay in mempool
             this.fillMempoolRunning = true
             try {
             console.log("Filling mempool with "+txQuantity+" transactions")
@@ -322,6 +321,7 @@ class XChainRegtestMiner {
 
             } finally {
                 this.fillMempoolRunning = false
+                this.keepMining = true
             }
     }
 
@@ -407,18 +407,27 @@ class XChainRegtestMiner {
     async start(){
         //Prepare the wallet
         await this.prepareWallet()
-        
+
         //Loop to check if there are transactions in the mempool, if there are, then
         //Wait some time for new txs, if there is a new tx in that time, then extended the waiting time again
         //If there are no new tx in that time, then mine a block
         console.log("Ready. Checking for new txs")
-        
+
+        // Graceful shutdown on SIGTERM — allow current loop iteration to complete
+        this._sigTermHandler = () => {
+            console.log("Received SIGTERM, shutting down gracefully...")
+            this._shutdown = true
+        }
+        process.on('SIGTERM', this._sigTermHandler)
+
         let lastRawMempoolLength = 0
         let initialStartToMine = 0
         let extendedStartToMine = 0
+        let consecutiveErrors = 0
+        const MAX_BACKOFF_MS = 30000
         this.keepMining = true
-        
-        while (true){
+
+        while (!this._shutdown){
             if (this.keepMining){
                 if ((initialStartToMine > 0) && (extendedStartToMine > 0)){
                     let timeNow = Date.now()
@@ -428,9 +437,12 @@ class XChainRegtestMiner {
                     if ((initialTimePassed >= this.maxTimeToMineTxs) || (extendedStartTime >= this.addedTimeToMineTxs)){
                         try {
                             await this.generateBlocks(1)
+                            consecutiveErrors = 0
                         } catch (err){
-                            console.log("There were problems generating a new block. Trying again later.")
-                            await this.sleep(CHECK_BLOCK_DELAY_MS)
+                            consecutiveErrors++
+                            let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
+                            console.log("There were problems generating a new block. Retrying in "+backoff+"ms.")
+                            await this.sleep(backoff)
                             continue
                         }
 
@@ -443,9 +455,12 @@ class XChainRegtestMiner {
                 let rawMempool = null
                 try {
                     rawMempool = await this.connector.getRawMempool()
+                    consecutiveErrors = 0
                 } catch (error){
-                    console.log("There were problems getting the mempool, trying again later.")
-                    await this.sleep(CHECK_BLOCK_DELAY_MS)
+                    consecutiveErrors++
+                    let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
+                    console.log("There were problems getting the mempool. Retrying in "+backoff+"ms.")
+                    await this.sleep(backoff)
                     continue
                 }
 

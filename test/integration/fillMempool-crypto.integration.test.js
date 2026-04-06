@@ -356,10 +356,10 @@ describe('Seam C: fillMempool ↔ bitcoinjs-lib crypto pipeline', function () {
             await miner.fillMempool(1)
         })
 
-        it('fillMempool(1) sets keepMining to false', async function () {
+        it('fillMempool(1) restores keepMining to true via finally block', async function () {
             miner.keepMining = true
             await miner.fillMempool(1)
-            assert.strictEqual(miner.keepMining, false)
+            assert.strictEqual(miner.keepMining, true)
         })
 
         it('fillMempool(1) broadcasts exactly 2 raw transactions', async function () {
