@@ -163,4 +163,8 @@ async function startApi(){
     });
 }
 
-startApi()
+if (require.main === module) {
+    startApi()
+}
+
+module.exports = { startApi }

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-04-06
+
+### Added
+- StrykerJS mutation testing infrastructure (v8.7.1 with Mocha runner)
+  - `stryker.config.js` — full mutation run across unit, smoke, boundary, security, integration, and e2e tests
+  - `stryker.unit.config.js` — fast unit-only mutation run for quick feedback
+  - `npm run test:mutation` and `npm run test:mutation:unit` scripts
+  - HTML, JSON, and clear-text reporters outputting to `reports/mutation/`
+  - perTest coverage analysis for optimized mutant-to-test mapping
+  - StringLiteral mutations excluded to reduce noise from RPC method names and error messages
+  - Thresholds: break at 60%, low at 75%, high at 90%
+
+### Changed
+- `src/api.js` now guards `startApi()` behind `require.main === module` check, enabling safe instrumentation by mutation testing and other tooling
+
 ## [0.1.10] - 2026-04-05
 
 ### Added
