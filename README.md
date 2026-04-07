@@ -4,11 +4,14 @@
 # XChain Platform Regtest Miner
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.12-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.1.14-blue" alt="Version">
   <img src="https://img.shields.io/badge/tests-901%20passing-brightgreen" alt="Tests">
-  <img src="https://img.shields.io/badge/coverage-unit%20%7C%20integration%20%7C%20e2e%20%7C%20fuzz%20%7C%20chaos%20%7C%20mutation%20%7C%20boundary%20%7C%20smoke%20%7C%20security%20%7C%20performance%20%7C%20regression-brightgreen" alt="Coverage">
   <img src="https://img.shields.io/badge/node-%3E%3D18-green" alt="Node">
   <img src="https://img.shields.io/badge/license-Dankest%20Community-orange" alt="License">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/coverage-unit%20%7C%20integration%20%7C%20e2e%20%7C%20fuzz%20%7C%20chaos%20%7C%20mutation%20%7C%20boundary%20%7C%20smoke%20%7C%20security%20%7C%20performance%20%7C%20regression-brightgreen" alt="Coverage">
 </p>
 
 Auto-mining service for XChain Platform regtest environments. Polls the mempool every second, batches transactions using an adaptive dual-timer system (30s max / 5s extension), and mines blocks via `generatetoaddress`. Exposes a JSON-RPC API for test orchestration including fund transfers, mempool stress testing, and runtime timer configuration.
