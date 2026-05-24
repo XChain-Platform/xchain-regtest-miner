@@ -349,36 +349,43 @@ class XChainRegtestMiner {
     }
     
     async prepareWallet(){
-        console.log("Checking if there is a wallet already loaded")
-        let walletInfo = null
-        let walletLoaded = false
+        console.log("Checking wallet availability")
+
+        // Probe with getNewAddress: succeeds whenever ANY wallet is usable —
+        // modern Bitcoin Core 0.17+ with an already-loaded named wallet, or
+        // legacy single-wallet chains (Dogecoin v1.14.x, older Litecoin)
+        // that auto-load a default wallet and don't implement createwallet /
+        // loadwallet / listwallets at all.
+        let probeAddress = null
         try {
-            walletInfo = await this.connector.getWalletInfo()
+            probeAddress = await this.connector.getNewAddress()
         } catch(err){
-            //There's no wallet loaded
+            // No usable wallet yet — fall through to load/create
         }
-        
-        if (walletInfo == null){ //There is no wallet
+
+        if (probeAddress == null){
+            let walletLoaded = false
             try {
                 await this.connector.loadWallet(this.walletNameParam)
                 walletLoaded = true
             } catch(err){
-                //The wallet couldn't be loaded
+                //The named wallet couldn't be loaded (may not exist, or RPC unsupported)
             }
-            
+
             if (!walletLoaded){
                 console.log("Wallet not found. Creating a new wallet")
                 try{
                     await this.createWallet(this.walletNameParam)
                 } catch(err){
-                    throw Error("Error when trying to create the wallet in the regtest node")
+                    throw new Error(`Could not create wallet '${this.walletNameParam}' on regtest node (chain may not support createwallet RPC — e.g. Dogecoin v1.14.x): ${err.message}`)
                 }
             }
+            console.log("Getting a new address to receive blocks reward")
+            this.walletAddress = await this.connector.getNewAddress()
+        } else {
+            // Probe succeeded — wallet is already usable, use that address
+            this.walletAddress = probeAddress
         }
-    
-        //Get from the database the last address from the wallet
-        console.log("Getting a new address to receive blocks reward")
-        this.walletAddress = await this.connector.getNewAddress()
         
         console.log("Checking wallet balance")
         this.balance = await this.connector.getBalance()
