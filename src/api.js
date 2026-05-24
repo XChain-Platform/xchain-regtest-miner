@@ -151,9 +151,20 @@ async function startApi(){
             } catch (err){
                 return {"error":"There was a problem trying to set a the default time to mine blocks"}
             }
-            
+
             // Return ok
             return {"result":"ok"}
+        },
+
+        // Mine `count` empty blocks. Used by e2e tests to advance block height
+        // past indexer time-locked states (e.g. STAKE ACTIVATION_DELAY_BLOCKS).
+        async generate_blocks({count}){
+            try {
+                let hashes = await miner.generateBlocks(count)
+                return { "result": { "count": hashes.length, "hashes": hashes } }
+            } catch (err){
+                return { "error": "There was a problem generating blocks: " + (err && err.message) }
+            }
         }
     }
 

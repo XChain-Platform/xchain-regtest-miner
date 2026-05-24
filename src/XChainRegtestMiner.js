@@ -338,6 +338,7 @@ class XChainRegtestMiner {
         }
         return await this.connector.sendToAddress(address, amount)
     }
+
     
     async createWallet(walletName){
         try {
@@ -402,13 +403,14 @@ class XChainRegtestMiner {
     }
     
     async generateBlocks(numberOfBlocks){
-        await this.connector.generateToAddress(numberOfBlocks, this.walletAddress)
-        
+        let hashes = await this.connector.generateToAddress(numberOfBlocks, this.walletAddress)
+
         if (numberOfBlocks > 1){
             console.log(numberOfBlocks+" new blocks have been generated")
         } else if (numberOfBlocks > 0){
             console.log("A new block has been generated")
         }
+        return hashes
     }
     
     async start(){
