@@ -424,19 +424,24 @@ class BlockchainConnector {
 
     async sendToAddress(address, amount){
         try {
+            // Use POSITIONAL params for sendtoaddress, not named. Named-parameter
+            // JSON-RPC is a Bitcoin Core 0.18+ feature. Dogecoin v1.14.x is
+            // based on Bitcoin Core 0.14 and rejects named-param calls (returns
+            // an error or empty response — manifests as "There was a problem
+            // sending funds" in the API layer). Positional works on every
+            // supported chain (BTC v28.x, LTC v0.21.x, DOGE v1.14.x).
+            //
+            // Drop the `verbose: true` flag too — that's also 0.18+ and changes
+            // the response shape from "<txid string>" to {"txid":"<...>","fee":...}.
+            // Keeping the bare-string response form makes the code work on all
+            // supported daemons.
             const data = {
                 jsonrpc: '2.0',
                 method: 'sendtoaddress',
-                //params: [address, amount],
-                params: {
-                    "address":address, 
-                    "amount":amount,
-                    "verbose":true
-                },
+                params: [address, amount],
                 id: 1,
             }
 
-            // Make the request to the node
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
@@ -444,14 +449,26 @@ class BlockchainConnector {
                 }
             })
 
-            // Verify if there is a result and return it
-            if (response.data.result){
-                return response.data.result["txid"];
-            } else {
-                throw new Error('Error sending funds to address');
+            const result = response.data && response.data.result
+            // sendtoaddress returns a bare txid string under positional params.
+            // Still tolerate the verbose-object form in case a future daemon
+            // returns it (e.g. if Bitcoin Core ever flips its default).
+            if (typeof result === 'string' && result.length > 0) {
+                return result
             }
+            if (result && typeof result === 'object' && typeof result.txid === 'string') {
+                return result.txid
+            }
+            // Surface the node's actual error message so failures are debuggable
+            const nodeErr = response.data && response.data.error
+                ? (nodeErr => nodeErr.message || JSON.stringify(nodeErr))(response.data.error)
+                : 'no result, no error'
+            throw new Error('sendtoaddress returned no txid: ' + nodeErr)
         } catch (error) {
-            throw new Error('Error sending funds to address');
+            // Preserve the underlying error message — generic "Error sending funds
+            // to address" loses information that's essential to diagnose chain-
+            // specific quirks like the one this method's comment describes.
+            throw new Error('sendToAddress failed: ' + (error && error.message ? error.message : String(error)))
         }
     }
     
