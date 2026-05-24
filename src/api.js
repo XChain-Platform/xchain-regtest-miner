@@ -31,7 +31,11 @@ const XChainRegtestMiner  = require('./XChainRegtestMiner');
 const jsonRouter = require('express-json-rpc-router')
 
 
-const NETWORK = process.env.NETWORK
+// Accept either the bare network ("regtest") or the platform's "coin-network" form ("bitcoin-regtest"),
+// extracting the network suffix when a hyphen is present.
+const NETWORK = (process.env.NETWORK || '').includes('-')
+    ? process.env.NETWORK.split('-').pop()
+    : process.env.NETWORK
 const NODE_URL =  process.env.NODE_URL
 const NODE_PORT =  process.env.NODE_PORT
 const NODE_USER =  process.env.NODE_USER
@@ -55,8 +59,8 @@ function validateEnvVars() {
         }
     }
     const validNetworks = ['regtest', 'testnet', 'mainnet']
-    if (!validNetworks.includes(process.env.NETWORK)) {
-        console.error('NETWORK must be one of: ' + validNetworks.join(', '))
+    if (!validNetworks.includes(NETWORK)) {
+        console.error('NETWORK must resolve to one of: ' + validNetworks.join(', ') + ' (got: ' + process.env.NETWORK + ')')
         process.exit(1)
     }
     const nodeUrl = process.env.NODE_URL
