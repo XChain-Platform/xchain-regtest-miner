@@ -158,10 +158,11 @@ class XChainRegtestMiner {
                         sent = true
                     } catch(err){
                         sendRetries++
+                        let detail = (err && err.message ? err.message : err)
                         if (sendRetries >= MAX_SEND_RETRIES) {
-                            throw new Error('Failed to send funds after ' + MAX_SEND_RETRIES + ' retries')
+                            throw new Error('Failed to send funds after ' + MAX_SEND_RETRIES + ' retries: ' + detail)
                         }
-                        console.log("Error sending funds, trying again... (attempt "+sendRetries+"/"+MAX_SEND_RETRIES+")")
+                        console.log("Error sending funds: "+detail+" — retrying (attempt "+sendRetries+"/"+MAX_SEND_RETRIES+")")
                         await this.sleep(1000)
                     }
                 }
@@ -345,7 +346,7 @@ class XChainRegtestMiner {
             await this.connector.createWallet(walletName)
             return true
         } catch(err){
-            throw new Error('Error creating wallet')
+            throw new Error('Error creating wallet: ' + (err && err.message ? err.message : err))
         }
     }
     
@@ -450,7 +451,7 @@ class XChainRegtestMiner {
                         } catch (err){
                             consecutiveErrors++
                             let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
-                            console.log("There were problems generating a new block. Retrying in "+backoff+"ms.")
+                            console.log("There were problems generating a new block: "+(err && err.message ? err.message : err)+" — retrying in "+backoff+"ms.")
                             await this.sleep(backoff)
                             continue
                         }
@@ -468,7 +469,7 @@ class XChainRegtestMiner {
                 } catch (error){
                     consecutiveErrors++
                     let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
-                    console.log("There were problems getting the mempool. Retrying in "+backoff+"ms.")
+                    console.log("There were problems getting the mempool: "+(error && error.message ? error.message : error)+" — retrying in "+backoff+"ms.")
                     await this.sleep(backoff)
                     continue
                 }
