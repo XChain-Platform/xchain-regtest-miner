@@ -30,6 +30,26 @@ class BlockchainConnector {
         this.port = port
         this.rpcUser = rpcUser
         this.rpcPassword = rpcPassword
+        // walletName + walletUrl stay null until the miner confirms the
+        // daemon supports named wallets (Bitcoin Core 0.17+ /wallet/<name>/
+        // URI). With it set, wallet-context RPCs (sendtoaddress, getbalance,
+        // getnewaddress, getwalletinfo) target THIS wallet specifically —
+        // necessary when multiple wallets are loaded on the same node,
+        // because bare RPC calls fail with -19 "Wallet file not specified".
+        // Left null on legacy daemons (Dogecoin v1.14 etc.) that don't
+        // implement /wallet/ URI routing — RPCs fall back to base URL.
+        this.walletName = null
+        this.walletUrl  = null
+    }
+
+    setWalletName(walletName) {
+        this.walletName = walletName
+        this.walletUrl  = walletName ? (this.url + "/wallet/" + walletName) : null
+    }
+
+    // URL for wallet-context RPCs. Falls back to base URL on legacy daemons.
+    _walletEndpoint() {
+        return this.walletUrl || this.url
     }
 
     async sleep(ms) {
@@ -284,7 +304,7 @@ class BlockchainConnector {
             attempts++
             try {
                 // Make the request to the node
-                response = await axios.post(this.url, data, {
+                response = await axios.post(this._walletEndpoint(), data, {
                     auth: {
                         username: this.rpcUser,
                         password: this.rpcPassword,
@@ -347,7 +367,7 @@ class BlockchainConnector {
             }
 
             // Make the request to the node
-            const response = await axios.post(this.url, data, {
+            const response = await axios.post(this._walletEndpoint(), data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
@@ -386,11 +406,16 @@ class BlockchainConnector {
             // Verify if there is a result and return it
             if (response.data.result) {
                 return response.data.result;
-            } else {
-                throw new Error('Error generating to address');
             }
+            // Surface the node's actual RPC error so failures are debuggable —
+            // e.g. LTC's "bad-txns-vin-empty" stall would have been visible at
+            // a glance instead of requiring a curl detour against the node.
+            const nodeErr = response.data && response.data.error
+                ? (response.data.error.message || JSON.stringify(response.data.error))
+                : 'no result, no error'
+            throw new Error('generatetoaddress returned no result: ' + nodeErr)
         } catch (error) {
-            throw new Error('Error generating to address');
+            throw new Error('generateToAddress failed: ' + (error && error.message ? error.message : String(error)))
         }
     }
 
@@ -404,7 +429,7 @@ class BlockchainConnector {
             }
 
             // Make the request to the node
-            const response = await axios.post(this.url, data, {
+            const response = await axios.post(this._walletEndpoint(), data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
@@ -442,7 +467,7 @@ class BlockchainConnector {
                 id: 1,
             }
 
-            const response = await axios.post(this.url, data, {
+            const response = await axios.post(this._walletEndpoint(), data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,

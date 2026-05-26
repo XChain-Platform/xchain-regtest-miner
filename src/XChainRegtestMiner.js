@@ -382,6 +382,15 @@ class XChainRegtestMiner {
                     throw new Error(`Could not create wallet '${this.walletNameParam}' on regtest node (chain may not support createwallet RPC — e.g. Dogecoin v1.14.x): ${err.message}`)
                 }
             }
+            // We took the load-or-create path, which means the daemon
+            // supports named wallets (Bitcoin Core 0.17+). Pin the
+            // connector to THIS wallet via /wallet/<name>/ URI routing so
+            // subsequent wallet RPCs (sendtoaddress, getbalance, etc.)
+            // continue to work even if extra wallets get loaded on the
+            // same node later. The probe-succeeded path (else branch) is
+            // either legacy (Dogecoin v1.14.x) or single-wallet modern,
+            // both of which work fine on the base URL.
+            this.connector.setWalletName(this.walletNameParam)
             console.log("Getting a new address to receive blocks reward")
             this.walletAddress = await this.connector.getNewAddress()
         } else {
