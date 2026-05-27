@@ -43,5 +43,11 @@
     "test:regression:t1": "mocha --timeout 120000 test/regression/t0-critical-gate.test.js test/regression/t1-standard-regression.test.js",
     "test:regression:t2": "mocha --timeout 0 test/regression/**/*.test.js",
     "test:regression": "mocha --timeout 120000 test/regression/t0-critical-gate.test.js test/regression/t1-standard-regression.test.js"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.0.5",
+    "diff": "^8.0.3",
+    "tmp": "^0.2.7",
+    "fast-uri": "^3.1.2"
   }
 }
