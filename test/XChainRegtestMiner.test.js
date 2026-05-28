@@ -272,6 +272,25 @@ describe('XChainRegtestMiner', function () {
             await miner.prepareWallet()
             assert(connectorStub.loadWallet.calledOnce)
         })
+
+        it('retries the getNewAddress probe while a legacy daemon\'s wallet is still loading', async function () {
+            // Dogecoin v1.14 accepts RPC requests before its wallet has
+            // finished loading; the first few getNewAddress calls reject
+            // with a wallet-not-ready error. The retry loop should ride out
+            // the brief window without falling through to createWallet
+            // (which v1.14 doesn't implement).
+            const probe = sinon.stub()
+            probe.onCall(0).rejects(new Error('Wallet file not specified'))
+            probe.onCall(1).rejects(new Error('Wallet file not specified'))
+            probe.onCall(2).rejects(new Error('Wallet file not specified'))
+            probe.onCall(3).resolves('dogecoin_regtest_addr')
+            connectorStub.getNewAddress = probe
+
+            await miner.prepareWallet()
+            assert.strictEqual(probe.callCount, 4, 'probe should retry until it succeeds')
+            assert(connectorStub.createWallet.notCalled, 'createWallet must not be reached on a legacy daemon')
+            assert.strictEqual(miner.walletAddress, 'dogecoin_regtest_addr')
+        })
     })
 
     // ─── Mining Loop (start) ────────────────────────────────────────────

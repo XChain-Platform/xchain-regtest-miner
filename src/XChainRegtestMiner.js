@@ -358,11 +358,26 @@ class XChainRegtestMiner {
         // legacy single-wallet chains (Dogecoin v1.14.x, older Litecoin)
         // that auto-load a default wallet and don't implement createwallet /
         // loadwallet / listwallets at all.
+        //
+        // Retry the probe for a few seconds because legacy daemons accept
+        // RPC requests before their wallet has finished loading. Dogecoin
+        // v1.14 in particular reliably loses this race on the first start
+        // after a fresh `xchain-node reset` — the miner crashes because
+        // `createWallet` (the fallback) isn't supported on DOGE. A handful
+        // of 1-second retries covers wallet load in practice.
         let probeAddress = null
-        try {
-            probeAddress = await this.connector.getNewAddress()
-        } catch(err){
-            // No usable wallet yet — fall through to load/create
+        const PROBE_MAX_ATTEMPTS = 10
+        const PROBE_INTERVAL_MS  = 1000
+        for (let attempt = 1; attempt <= PROBE_MAX_ATTEMPTS; attempt++) {
+            try {
+                probeAddress = await this.connector.getNewAddress()
+                break
+            } catch(err){
+                if (attempt < PROBE_MAX_ATTEMPTS) {
+                    await this.sleep(PROBE_INTERVAL_MS)
+                }
+                // After the last attempt, fall through to the load/create path.
+            }
         }
 
         if (probeAddress == null){
