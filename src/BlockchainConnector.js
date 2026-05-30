@@ -21,7 +21,7 @@
 
 // Load required libraries
 const axios = require('axios');
-axios.defaults.timeout = 60000 //a minute
+axios.defaults.timeout = parseInt(process.env.NODE_RPC_TIMEOUT ?? '60000', 10)
 axios.defaults.keepAlive = true
 
 class BlockchainConnector {

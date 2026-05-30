@@ -51,6 +51,7 @@ class XChainRegtestMiner {
       this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
       this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
       this.fillMempoolRunning = false
+      this._generateQueue = Promise.resolve()
     }
     
     async sleep(ms) {
@@ -427,7 +428,12 @@ class XChainRegtestMiner {
         }
     }
     
-    async generateBlocks(numberOfBlocks){
+    generateBlocks(count) {
+        this._generateQueue = this._generateQueue.then(() => this._generateBlocks(count))
+        return this._generateQueue
+    }
+
+    async _generateBlocks(numberOfBlocks){
         let hashes = await this.connector.generateToAddress(numberOfBlocks, this.walletAddress)
 
         if (numberOfBlocks > 1){

@@ -118,7 +118,7 @@ describe('Boundary: Block Generation', function () {
     // ─── G-06: Concurrent generateBlocks calls ─────────────────────────
 
     describe('G-06: concurrent generateBlocks calls', function () {
-        it('both calls execute independently', async function () {
+        it('second call is serialized behind first — both complete in queue order', async function () {
             let callOrder = []
             connectorStub.generateToAddress.callsFake(async (count, addr) => {
                 callOrder.push(count)
@@ -131,8 +131,8 @@ describe('Boundary: Block Generation', function () {
             ])
 
             assert.strictEqual(connectorStub.generateToAddress.callCount, 2)
-            assert(callOrder.includes(1))
-            assert(callOrder.includes(5))
+            // Queue preserves submission order: 1 must have run before 5
+            assert.deepStrictEqual(callOrder, [1, 5])
         })
     })
 
