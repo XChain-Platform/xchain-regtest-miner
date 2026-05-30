@@ -390,7 +390,29 @@ describe('BlockchainConnector', function () {
 
         it('throws when result is falsy', async function () {
             axiosPostStub.resolves(rpcNoResult())
-            await assert.rejects(() => connector.generateToAddress(1, 'a'), /Error generating to address/)
+            await assert.rejects(() => connector.generateToAddress(1, 'a'), /generateToAddress failed/)
+        })
+
+        it('surfaces the node RPC error message in the thrown error', async function () {
+            // Regression: session 4's LTC stall hid behind the old generic
+            // "Error generating to address" message. The real RPC error
+            // (e.g. "bad-txns-vin-empty") must reach the caller's log.
+            axiosPostStub.resolves({
+                data: { result: null, error: { code: -25, message: 'bad-txns-vin-empty, Transaction check failed' }, id: 1 }
+            })
+            await assert.rejects(
+                () => connector.generateToAddress(1, 'addr'),
+                /bad-txns-vin-empty/
+            )
+        })
+
+        it('surfaces axios/network errors with their underlying message', async function () {
+            const netErr = new Error('ECONNREFUSED 127.0.0.1:3220')
+            axiosPostStub.rejects(netErr)
+            await assert.rejects(
+                () => connector.generateToAddress(1, 'addr'),
+                /ECONNREFUSED 127\.0\.0\.1:3220/
+            )
         })
     })
 
@@ -419,22 +441,31 @@ describe('BlockchainConnector', function () {
     // ─── sendToAddress ──────────────────────────────────────────────────
 
     describe('sendToAddress', function () {
-        it('uses named params with verbose flag and returns txid', async function () {
-            axiosPostStub.resolves(rpcSuccess({ txid: 'abc123' }))
+        // sendtoaddress now uses POSITIONAL params (Dogecoin v1.14 compat — see
+        // the comment in src/BlockchainConnector.js#sendToAddress) and tolerates
+        // both bare-string and {txid} response shapes.
+        it('uses positional params and returns the txid', async function () {
+            axiosPostStub.resolves(rpcSuccess('abc123'))
             const result = await connector.sendToAddress('addr1', 1.5)
             assert.strictEqual(result, 'abc123')
             const data = axiosPostStub.firstCall.args[1]
-            assert.deepStrictEqual(data.params, { address: 'addr1', amount: 1.5, verbose: true })
+            assert.deepStrictEqual(data.params, ['addr1', 1.5])
         })
 
-        it('throws and logs when result is falsy', async function () {
+        it('tolerates the verbose-form {txid: ...} response shape', async function () {
+            axiosPostStub.resolves(rpcSuccess({ txid: 'abc123' }))
+            const result = await connector.sendToAddress('addr1', 1.5)
+            assert.strictEqual(result, 'abc123')
+        })
+
+        it('surfaces the node RPC error when result is falsy', async function () {
             axiosPostStub.resolves(rpcNoResult())
-            await assert.rejects(() => connector.sendToAddress('a', 1), /Error sending funds/)
+            await assert.rejects(() => connector.sendToAddress('a', 1), /sendToAddress failed.*fail/)
         })
 
-        it('throws on network error', async function () {
+        it('surfaces the underlying network error message', async function () {
             axiosPostStub.rejects(new Error('timeout'))
-            await assert.rejects(() => connector.sendToAddress('a', 1), /Error sending funds to address/)
+            await assert.rejects(() => connector.sendToAddress('a', 1), /sendToAddress failed.*timeout/)
         })
     })
 
