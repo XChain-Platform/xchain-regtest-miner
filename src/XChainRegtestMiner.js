@@ -324,7 +324,6 @@ class XChainRegtestMiner {
 
             } finally {
                 this.fillMempoolRunning = false
-                this.keepMining = true
             }
     }
 
