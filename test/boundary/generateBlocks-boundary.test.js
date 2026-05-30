@@ -45,9 +45,15 @@ describe('Boundary: Block Generation', function () {
     // ─── G-01: generateBlocks(0) ───────────────────────────────────────
 
     describe('G-01: generateBlocks(0)', function () {
-        it('calls generateToAddress with count=0', async function () {
+        it('is a no-op — does not call generateToAddress (node rejects count 0)', async function () {
             await miner.generateBlocks(0)
-            assert(connectorStub.generateToAddress.calledWith(0, 'bcrt1qtest'))
+            assert(connectorStub.generateToAddress.notCalled,
+                'count 0 must short-circuit before the RPC')
+        })
+
+        it('returns an empty array for count 0', async function () {
+            const result = await miner.generateBlocks(0)
+            assert.deepStrictEqual(result, [])
         })
 
         it('does not log any block generation message', async function () {
@@ -175,19 +181,25 @@ describe('Boundary: Block Generation', function () {
     // ─── Negative block count ──────────────────────────────────────────
 
     describe('Negative block count', function () {
-        it('passes negative count to connector (no validation)', async function () {
+        it('is a no-op — does not call connector for negative count', async function () {
             await miner.generateBlocks(-1)
-            assert(connectorStub.generateToAddress.calledWith(-1, 'bcrt1qtest'))
+            assert(connectorStub.generateToAddress.notCalled,
+                'negative count must short-circuit before the RPC')
         })
 
-        it('does not log for negative count (both comparisons fail)', async function () {
+        it('returns an empty array for negative count', async function () {
+            const result = await miner.generateBlocks(-1)
+            assert.deepStrictEqual(result, [])
+        })
+
+        it('does not log for negative count', async function () {
             console.log.resetHistory()
             await miner.generateBlocks(-1)
             const blockMessages = console.log.args.filter(
                 args => args[0] && typeof args[0] === 'string' && args[0].includes('generated')
             )
             assert.strictEqual(blockMessages.length, 0,
-                '-1 > 1 is false and -1 > 0 is false, so no message logged')
+                'no-op generates no blocks, so no message logged')
         })
     })
 })

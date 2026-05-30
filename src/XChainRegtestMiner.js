@@ -429,6 +429,7 @@ class XChainRegtestMiner {
     }
     
     generateBlocks(count) {
+        if (count <= 0) return [];
         // Serialize all callers (auto-mine loop + generate_blocks RPC) behind a
         // single promise chain so concurrent calls never issue overlapping
         // generateToAddress requests against the node. The chain itself is kept

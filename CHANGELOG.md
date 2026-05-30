@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-05-30
+
+### Fixed
+- `generateBlocks(count)` now treats a count of 0 (or any non-positive value) as a no-op, returning an empty array instead of forwarding the request to the node. Bitcoin Core and Litecoin reject `generatetoaddress 0` with `-8: nblocks must be positive`, so callers that pass 0 as a defensive sentinel previously received an unexpected RPC error rather than an empty result.
+
 ## [0.1.15] - 2026-05-29
 
 ### Fixed
