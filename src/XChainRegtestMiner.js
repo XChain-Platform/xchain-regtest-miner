@@ -429,8 +429,15 @@ class XChainRegtestMiner {
     }
     
     generateBlocks(count) {
-        this._generateQueue = this._generateQueue.then(() => this._generateBlocks(count))
-        return this._generateQueue
+        // Serialize all callers (auto-mine loop + generate_blocks RPC) behind a
+        // single promise chain so concurrent calls never issue overlapping
+        // generateToAddress requests against the node. The chain itself is kept
+        // on a rejection-swallowing tail (`.catch`) so that one failed mining
+        // attempt does not poison the queue: the next caller still runs, while
+        // this caller still receives its own success/failure via `run`.
+        const run = this._generateQueue.then(() => this._generateBlocks(count))
+        this._generateQueue = run.catch(() => {})
+        return run
     }
 
     async _generateBlocks(numberOfBlocks){

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-05-29
+
+### Fixed
+- `generateBlocks` now serializes concurrent callers behind a single promise queue, so the auto-mine loop and the `generate_blocks` JSON-RPC handler can no longer issue overlapping `generateToAddress` requests against the node. This eliminates a race where the node mined more blocks than the API caller expected, producing off-by-one block heights.
+- A failed mining attempt no longer wedges the serialization queue: the rejection is isolated to its own caller via a rejection-swallowing tail, so the next `generateBlocks` call still runs (previously a single failure left the queue permanently rejected and stopped all further mining).
+
 ## [0.1.14] - 2026-04-06
 
 ### Changed
