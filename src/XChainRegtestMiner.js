@@ -45,6 +45,7 @@ const {ECPairFactory} = require('ecpair')
 
 class XChainRegtestMiner {
     constructor(network, nodeUrl, nodePort, nodeUser, nodePassword) {
+      this.network = network
       this.connector = new BlockchainConnector(nodeUrl, nodePort, nodeUser, nodePassword)
       this.walletNameParam = "xchain_regtest_wallet"
       this.keepMining = false
@@ -111,10 +112,10 @@ class XChainRegtestMiner {
             
             
             //Create a seed
-            var network = bitcoin.networks.regtest
+            var network = bitcoin.networks[this.network] || bitcoin.networks.regtest
             var mnemonic = bip39.generateMnemonic()
             var seed = bip39.mnemonicToSeedSync(mnemonic)
-            var root = bip32.fromSeed(seed, )
+            var root = bip32.fromSeed(seed, network)
             var account = root.derivePath("m/44'/0'/0'/0")
             var address = account.derive(0).derive(0)
             var mainAddress = bitcoin.payments.p2pkh({ pubkey: address.publicKey, network }).address
@@ -287,7 +288,7 @@ class XChainRegtestMiner {
             let outputIndex = 0
             for (let nextAddressIndex in addresses){
                 let nextAddress = addresses[nextAddressIndex]
-                let psbt = new bitcoin.Psbt({ network: bitcoin.networks.regtest})
+                let psbt = new bitcoin.Psbt({ network: bitcoin.networks[this.network] || bitcoin.networks.regtest })
                 let paymentAmount = AMOUNT_FOR_EACH_ADDRESS
                 
                 let utxoIndex = Math.floor(nextAddressIndex/OUTPUTS_QUANTITY_PER_TX)
