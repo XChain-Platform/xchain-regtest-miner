@@ -12,7 +12,7 @@
     "@stryker-mutator/mocha-runner": "^8.7.1",
     "fast-check": "^4.6.0",
     "mocha": "^10.7.3",
-    "sinon": "^17.0.1"
+    "sinon": "^21.0.3"
   },
   "dependencies": {
     "axios": "^1.16.0",

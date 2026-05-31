@@ -601,17 +601,11 @@ describe('XChainRegtestMiner', function () {
             // Same mempool size across calls -- should NOT reset extended timer
             connectorStub.getRawMempool.resolves(['txid1'])
 
-            let extendedTimerResetCount = 0
-            const originalDateNow = Date.now
-
             let iterCount = 0
-            let dateNowCallCount = 0
 
-            // Track how many times Date.now is called after initial setup
-            // More calls = more timer resets
-            const dateNowStub = sinon.stub(Date, 'now')
-            dateNowStub.returns(1000)
-
+            // Fake timers (installed in beforeEach) freeze Date.now at a constant,
+            // so timer thresholds never elapse and mining stays idle. No need to stub
+            // Date.now; sinon.stub cannot wrap the fake-timers Date in sinon >= 18.
             miner.sleep.callsFake(async () => {
                 iterCount++
                 if (iterCount >= 4) throw new Error('__LOOP_BREAK__')
@@ -620,8 +614,6 @@ describe('XChainRegtestMiner', function () {
             try { await miner.start() } catch (e) {
                 if (e.message !== '__LOOP_BREAK__') throw e
             }
-
-            dateNowStub.restore()
 
             // With the bug fix, after the first iteration sets lastRawMempoolLength=1,
             // subsequent iterations with the same mempool length should NOT enter

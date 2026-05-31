@@ -395,11 +395,13 @@ describe('Boundary: Adaptive Mining Timer Logic', function () {
 
             let dateNowCalls = []
             const origDateNow = Date.now
-            sinon.stub(Date, 'now').callsFake(() => {
+            // Fake timers already control Date.now; wrap it manually to count calls.
+            // sinon.stub cannot wrap the fake-timers Date object in sinon >= 18.
+            Date.now = () => {
                 const val = origDateNow.call(Date)
                 dateNowCalls.push(val)
                 return val
-            })
+            }
 
             let iterCount = 0
             miner.sleep.callsFake(async () => {
@@ -411,7 +413,7 @@ describe('Boundary: Adaptive Mining Timer Logic', function () {
                 if (e.message !== '__LOOP_BREAK__') throw e
             }
 
-            Date.now.restore()
+            Date.now = origDateNow
 
             // Both timers should have been set (Date.now called when first tx detected)
             assert(dateNowCalls.length >= 1,
@@ -528,10 +530,12 @@ describe('Boundary: Adaptive Mining Timer Logic', function () {
 
             let dateNowCallCount = 0
             const origNow = Date.now
-            sinon.stub(Date, 'now').callsFake(() => {
+            // Fake timers already control Date.now; wrap it manually to count calls.
+            // sinon.stub cannot wrap the fake-timers Date object in sinon >= 18.
+            Date.now = () => {
                 dateNowCallCount++
                 return origNow.call(Date)
-            })
+            }
 
             let iterCount = 0
             miner.sleep.callsFake(async () => {
@@ -543,7 +547,7 @@ describe('Boundary: Adaptive Mining Timer Logic', function () {
                 if (e.message !== '__LOOP_BREAK__') throw e
             }
 
-            Date.now.restore()
+            Date.now = origNow
 
             // Date.now should be called a small number of times (for setting timers),
             // not once per tx in the mempool
