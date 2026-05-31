@@ -31,11 +31,14 @@ const XChainRegtestMiner  = require('./XChainRegtestMiner');
 const jsonRouter = require('express-json-rpc-router')
 
 
-// Accept either the bare network ("regtest") or the platform's "coin-network" form ("bitcoin-regtest"),
-// extracting the network suffix when a hyphen is present.
-const NETWORK = (process.env.NETWORK || '').includes('-')
-    ? process.env.NETWORK.split('-').pop()
-    : process.env.NETWORK
+// Accept either the bare network ("regtest") or the platform's "coin-network" form ("bitcoin-regtest").
+// COIN_NETWORK keeps the full identifier so the miner can resolve coin-specific
+// address/PSBT params (DOGE/LTC version bytes differ from Bitcoin); NETWORK is the
+// bare suffix, used only for validation below.
+const COIN_NETWORK = process.env.NETWORK
+const NETWORK = (COIN_NETWORK || '').includes('-')
+    ? COIN_NETWORK.split('-').pop()
+    : COIN_NETWORK
 const NODE_URL =  process.env.NODE_URL
 const NODE_PORT =  process.env.NODE_PORT
 const NODE_USER =  process.env.NODE_USER
@@ -73,7 +76,7 @@ async function startApi(){
     validateEnvVars()
 
     //Start the miner
-    const miner = new XChainRegtestMiner(NETWORK, NODE_URL, NODE_PORT, NODE_USER, NODE_PASSWORD);
+    const miner = new XChainRegtestMiner(COIN_NETWORK, NODE_URL, NODE_PORT, NODE_USER, NODE_PASSWORD);
     miner.start()
 
     // Create the app

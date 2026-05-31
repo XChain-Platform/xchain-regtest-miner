@@ -21,6 +21,7 @@
 
 // Load required libraries
 const BlockchainConnector = require('./BlockchainConnector.js')
+const CryptoNetworks = require('./CryptoNetworks.js')
 
 const CHECK_BLOCK_DELAY_MS = 1000 //1 second to continously ask for new block when all has been parsed
 const SATOSHI_UNIT = 100000000.0
@@ -112,7 +113,11 @@ class XChainRegtestMiner {
             
             
             //Create a seed
-            var network = bitcoin.networks[this.network] || bitcoin.networks.regtest
+            // Resolve coin-specific bitcoinjs params (P2PKH version byte, WIF,
+            // bip32) from the coin-network identifier so DOGE/LTC addresses and
+            // PSBTs encode correctly, not just Bitcoin. Falls back to Bitcoin
+            // regtest when only a bare network ("regtest") was supplied.
+            var network = CryptoNetworks.getBitcoinJsNetwork(this.network) || bitcoin.networks.regtest
             var mnemonic = bip39.generateMnemonic()
             var seed = bip39.mnemonicToSeedSync(mnemonic)
             var root = bip32.fromSeed(seed, network)
@@ -288,7 +293,7 @@ class XChainRegtestMiner {
             let outputIndex = 0
             for (let nextAddressIndex in addresses){
                 let nextAddress = addresses[nextAddressIndex]
-                let psbt = new bitcoin.Psbt({ network: bitcoin.networks[this.network] || bitcoin.networks.regtest })
+                let psbt = new bitcoin.Psbt({ network: network })
                 let paymentAmount = AMOUNT_FOR_EACH_ADDRESS
                 
                 let utxoIndex = Math.floor(nextAddressIndex/OUTPUTS_QUANTITY_PER_TX)

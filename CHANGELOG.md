@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `.env.example` — added a configuration template listing every environment variable the miner reads (coin/network, coin-node RPC, API port), with safe regtest defaults and inline comments.
 
+## [0.1.18] - 2026-05-31
+
+### Fixed
+- `fillMempool` now resolves bitcoinjs-lib network parameters from the full coin-network identifier (e.g. `dogecoin-regtest`, `litecoin-mainnet`) via a new `CryptoNetworks` helper, instead of indexing `bitcoin.networks` by the bare network name. `api.js` previously stripped the coin prefix before constructing the miner, so address and PSBT encoding always fell back to Bitcoin parameters regardless of the coin served. This was harmless on regtest — Bitcoin, Dogecoin and Litecoin all share Bitcoin's `0x6f` P2PKH version byte there — but produced invalid addresses for the Dogecoin/Litecoin testnet and mainnet variants the API also accepts (e.g. Dogecoin testnet `0x71`, Litecoin mainnet `0x30`). `api.js` now forwards the full coin-network identifier to the miner so the correct per-coin parameters are used.
+
 ## [0.1.17] - 2026-05-30
 
 ### Fixed
