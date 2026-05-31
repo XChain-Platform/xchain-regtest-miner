@@ -115,7 +115,7 @@ describe('Boundary: Combined Parameter Interactions', function () {
             miner.keepMining = true
             miner.maxTimeToMineTxs = 100
 
-            await miner.fillMempool(0)
+            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
 
             assert.strictEqual(miner.keepMining, true,
                 'fillMempool must not change keepMining for invalid input')

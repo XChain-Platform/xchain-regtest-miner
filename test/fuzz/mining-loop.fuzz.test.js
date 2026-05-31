@@ -214,8 +214,8 @@ describe('Fuzz: mining loop state machine', function () {
         it('fillMempool pauses mining during execution, finally restores it', async function () {
             miner.keepMining = true
 
-            // fillMempool(0) fails validation and returns early — keepMining unchanged
-            await miner.fillMempool(0)
+            // fillMempool(0) fails validation and throws — keepMining unchanged
+            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
             assert.strictEqual(miner.keepMining, true,
                 'Invalid input should not change keepMining')
 

@@ -86,17 +86,17 @@ class XChainRegtestMiner {
     async fillMempool(txQuantity){
             if (this.fillMempoolRunning) {
                 console.log("fillMempool is already running, rejecting concurrent call")
-                return {error: "fillMempool is already running"}
+                throw new Error("fillMempool is already running")
             }
 
             if (!Number.isInteger(txQuantity) || txQuantity < 1) {
                 try { console.log("INVALID txQuantity: "+txQuantity+". Must be a positive integer.") } catch(e) { console.log("INVALID txQuantity (non-printable value). Must be a positive integer.") }
-                return
+                throw new Error("txQuantity must be a positive integer")
             }
 
             if (txQuantity > MAX_FILL_MEMPOOL_QUANTITY) {
                 console.log("txQuantity "+txQuantity+" exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY)
-                return {error: "txQuantity exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY}
+                throw new Error("txQuantity exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY)
             }
 
             this.keepMining = false //Stop the mining so the txs stay in mempool

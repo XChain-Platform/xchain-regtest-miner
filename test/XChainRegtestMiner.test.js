@@ -638,8 +638,8 @@ describe('XChainRegtestMiner', function () {
         it('sets keepMining to false only after validation passes', async function () {
             miner.keepMining = true
 
-            // fillMempool(0) fails validation and returns early — keepMining unchanged
-            await miner.fillMempool(0)
+            // fillMempool(0) fails validation and throws before touching state — keepMining unchanged
+            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
             assert.strictEqual(miner.keepMining, true,
                 'keepMining should not change for invalid input')
 
@@ -652,6 +652,19 @@ describe('XChainRegtestMiner', function () {
             }
             assert.strictEqual(miner.keepMining, true,
                 'keepMining should be restored to true by the finally block')
+        })
+
+        it('throws (rather than silently returning) on invalid txQuantity', async function () {
+            // Regression: a float tx_quantity from a JSON-parsed config used to make
+            // fillMempool return undefined, which the API layer swallowed into a
+            // { result: 'ok' } response with an empty mempool. It must now throw so
+            // the caller learns the work was never done.
+            await assert.rejects(() => miner.fillMempool(50.5), /positive integer/)
+            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
+            await assert.rejects(() => miner.fillMempool(-1), /positive integer/)
+
+            // keepMining must be untouched and a concurrent run must not be marked
+            assert.strictEqual(miner.fillMempoolRunning, false)
         })
 
         it('calculates correct number of chunks for quantities within one chunk', function () {

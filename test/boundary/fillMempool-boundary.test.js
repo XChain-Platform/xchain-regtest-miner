@@ -53,9 +53,9 @@ describe('Boundary: fillMempool Chunking and Calculations', function () {
         it('rejects invalid input and does not change keepMining', async function () {
             miner.keepMining = true
 
-            // txQuantity=0 fails validation (< 1) and returns early
-            // without modifying keepMining or processing chunks
-            await miner.fillMempool(0)
+            // txQuantity=0 fails validation (< 1) and throws before
+            // modifying keepMining or processing chunks
+            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
 
             assert.strictEqual(miner.keepMining, true,
                 'Should not change keepMining for invalid input')

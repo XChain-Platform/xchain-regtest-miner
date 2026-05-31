@@ -918,43 +918,41 @@ describe('T1 Regression: Security', function () {
 
         it('rejects zero', async function () {
             miner.keepMining = true
-            await miner.fillMempool(0)
+            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
             assert.strictEqual(miner.keepMining, true, 'keepMining unchanged for invalid input')
         })
 
         it('rejects negative', async function () {
             miner.keepMining = true
-            await miner.fillMempool(-1)
+            await assert.rejects(() => miner.fillMempool(-1), /positive integer/)
             assert.strictEqual(miner.keepMining, true)
         })
 
         it('rejects float', async function () {
             miner.keepMining = true
-            await miner.fillMempool(1.5)
+            await assert.rejects(() => miner.fillMempool(1.5), /positive integer/)
             assert.strictEqual(miner.keepMining, true)
         })
 
         it('rejects string', async function () {
             miner.keepMining = true
-            await miner.fillMempool('abc')
+            await assert.rejects(() => miner.fillMempool('abc'), /positive integer/)
             assert.strictEqual(miner.keepMining, true)
         })
 
         it('rejects null', async function () {
             miner.keepMining = true
-            await miner.fillMempool(null)
+            await assert.rejects(() => miner.fillMempool(null), /positive integer/)
             assert.strictEqual(miner.keepMining, true)
         })
 
         it('rejects exceeding maximum (50001)', async function () {
-            const result = await miner.fillMempool(50001)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.fillMempool(50001), /maximum/)
         })
 
         it('rejects concurrent calls', async function () {
             miner.fillMempoolRunning = true
-            const result = await miner.fillMempool(10)
-            assert.ok(result && result.error && result.error.includes('already running'))
+            await assert.rejects(() => miner.fillMempool(10), /already running/)
         })
     })
 

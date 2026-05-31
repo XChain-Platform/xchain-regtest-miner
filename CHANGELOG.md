@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.17] - 2026-05-30
+
+### Fixed
+- `fillMempool` now throws on a rejected `txQuantity` (non-integer, less than 1, over the maximum) and on a concurrent invocation, instead of returning early. Previously the `fill_mempool` JSON-RPC handler ignored these early returns and always responded `{"result":"ok"}`, so a caller passing a float (e.g. from a JSON-parsed config) received a success response with an empty mempool and only discovered the problem when later broadcast/assert steps failed. The handler now surfaces the validation message in its error response.
+
 ## [0.1.16] - 2026-05-30
 
 ### Fixed

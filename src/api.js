@@ -115,7 +115,7 @@ async function startApi(){
             try {
                 await miner.fillMempool(tx_quantity)
             } catch(err){
-                return {"error":"There was a problem trying to fill the mempool"}
+                return {"error":"There was a problem trying to fill the mempool: " + (err && err.message ? err.message : err)}
             }
 
             // Return ok

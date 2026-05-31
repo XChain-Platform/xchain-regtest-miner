@@ -46,7 +46,7 @@ describe('api.js', function () {
                         await miner.fillMempool(tx_quantity)
                     } catch (err) {
                         console.log(err)
-                        return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' }
+                        return { error: 'There was a problem trying to fill the mempool: ' + (err && err.message ? err.message : err) }
                     }
                     return { result: 'ok' }
                 },
@@ -123,7 +123,18 @@ describe('api.js', function () {
             it('returns error object on failure', async function () {
                 miner.fillMempool.rejects(new Error('crash'))
                 const result = await controller.fill_mempool({ tx_quantity: 50 })
-                assert(result.error.includes('50'))
+                assert(result.error.includes('crash'))
+            })
+
+            it('surfaces an error (not ok) when fillMempool rejects on invalid tx_quantity', async function () {
+                // A float tx_quantity (e.g. from a JSON-parsed config) fails fillMempool's
+                // integer guard, which now throws. The handler must surface that as an
+                // error response — never a silent { result: 'ok' } with an empty mempool.
+                miner.fillMempool.rejects(new Error('txQuantity must be a positive integer'))
+                const result = await controller.fill_mempool({ tx_quantity: 50.5 })
+                assert.notDeepStrictEqual(result, { result: 'ok' })
+                assert(result.error)
+                assert(result.error.includes('txQuantity must be a positive integer'))
             })
         })
 

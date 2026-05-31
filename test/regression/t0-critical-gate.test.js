@@ -376,9 +376,7 @@ describe('T0 Regression: Critical Gate', function () {
     describe('REG-T0-006: fillMempool guards (W-3 bug prevention)', function () {
         it('rejects concurrent fillMempool calls', async function () {
             miner.fillMempoolRunning = true
-            const result = await miner.fillMempool(10)
-            assert.ok(result && result.error)
-            assert.ok(result.error.includes('already running'))
+            await assert.rejects(() => miner.fillMempool(10), /already running/)
         })
 
         it('restores keepMining to true in finally block', async function () {
@@ -394,16 +392,14 @@ describe('T0 Regression: Critical Gate', function () {
 
         it('rejects invalid txQuantity without changing keepMining', async function () {
             miner.keepMining = true
-            await miner.fillMempool(0)
+            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
             assert.strictEqual(miner.keepMining, true)
-            await miner.fillMempool(-1)
+            await assert.rejects(() => miner.fillMempool(-1), /positive integer/)
             assert.strictEqual(miner.keepMining, true)
         })
 
         it('rejects txQuantity exceeding maximum', async function () {
-            const result = await miner.fillMempool(50001)
-            assert.ok(result && result.error)
-            assert.ok(result.error.includes('maximum'))
+            await assert.rejects(() => miner.fillMempool(50001), /maximum/)
         })
     })
 
