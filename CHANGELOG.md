@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `.env.example` — added a configuration template listing every environment variable the miner reads (coin/network, coin-node RPC, API port), with safe regtest defaults and inline comments.
+
 ## [0.1.17] - 2026-05-30
 
 ### Fixed
