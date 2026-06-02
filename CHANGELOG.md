@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `.env.example` — added a configuration template listing every environment variable the miner reads (coin/network, coin-node RPC, API port), with safe regtest defaults and inline comments.
 
+### Fixed
+- `connector-rpc` integration test: corrected the `sendToAddress` assertion to expect positional params `['<address>', <amount>]` instead of a named-parameter object with a `verbose` flag. `BlockchainConnector` uses positional params (and omits `verbose`) for Dogecoin v1.14 compatibility — named-parameter JSON-RPC and the `verbose` flag are Bitcoin Core 0.18+ features that older daemons reject. The unit test already matched; the integration assertion was stale and failing CI.
+
 ## [0.1.18] - 2026-05-31
 
 ### Fixed

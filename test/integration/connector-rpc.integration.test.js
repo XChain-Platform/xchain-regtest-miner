@@ -116,17 +116,13 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
             assert.strictEqual(result, 50.0)
         })
 
-        it('sendToAddress: sends named params with verbose flag', async function () {
+        it('sendToAddress: sends positional params (DOGE v1.14 compat)', async function () {
             server.onMethod('sendtoaddress').returns({ txid: 'abc123' })
             const result = await connector.sendToAddress('bcrt1qaddr', 1.5)
             assert.strictEqual(result, 'abc123')
 
             const call = server.callsFor('sendtoaddress')[0]
-            assert.deepStrictEqual(call.params, {
-                address: 'bcrt1qaddr',
-                amount: 1.5,
-                verbose: true,
-            })
+            assert.deepStrictEqual(call.params, ['bcrt1qaddr', 1.5])
         })
 
         it('sendRawTransaction: sends tx hex param', async function () {
