@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `connector-rpc` integration test: corrected the `sendToAddress` assertion to expect positional params `['<address>', <amount>]` instead of a named-parameter object with a `verbose` flag. `BlockchainConnector` uses positional params (and omits `verbose`) for Dogecoin v1.14 compatibility — named-parameter JSON-RPC and the `verbose` flag are Bitcoin Core 0.18+ features that older daemons reject. The unit test already matched; the integration assertion was stale and failing CI.
 
+### Changed
+- Raised the `bitcoinjs-lib` dependency floor from `^6.1.5` to `^6.1.7`, matching the version already declared by the encoder, decoder, UTXO-tracker, and SDK services. All resolved to `6.1.7` at runtime, but the miner's lower floor meant an isolated `package-lock.json` regeneration could pick up an older `6.1.x` patch than the rest of the stack — a divergence risk for a library that owns PSBT, address, and script serialization. The lockfile is regenerated; no resolved versions or source code change.
+
 ## [0.1.18] - 2026-05-31
 
 ### Fixed
