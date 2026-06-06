@@ -2,7 +2,7 @@
   "name": "xchain-regtest-miner",
   "description": "xchain-regtest-miner handles processing transactions and mining blocks on regtest networks.",
   "version": "0.1.18",
-  "license": "SEE LICENSE IN LICENSE.md",
+  "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "https://github.com/XChain-platform/xchain-regtest-miner.git"
