@@ -17,6 +17,6 @@ module.exports = {
   ...base,
   mochaOptions: {
     ...base.mochaOptions,
-    spec: ['test/*.test.js'],
+    spec: ['test/unit/*.test.js'],
   },
 }

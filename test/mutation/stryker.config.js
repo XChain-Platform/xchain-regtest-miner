@@ -30,7 +30,7 @@ module.exports = {
     // Includes: unit (root-level), smoke, boundary, security, integration, e2e
     // Excludes: performance, chaos, fuzz (too slow for mutation testing)
     spec: [
-      'test/*.test.js',
+      'test/unit/*.test.js',
       'test/smoke/**/*.test.js',
       'test/boundary/**/*.test.js',
       'test/security/**/*.test.js',

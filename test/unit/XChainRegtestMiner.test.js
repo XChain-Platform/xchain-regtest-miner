@@ -12,7 +12,7 @@ const assert = require('assert')
 const sinon = require('sinon')
 
 // Stub BlockchainConnector before requiring XChainRegtestMiner
-const BlockchainConnector = require('../src/BlockchainConnector')
+const BlockchainConnector = require('../../src/BlockchainConnector')
 
 describe('XChainRegtestMiner', function () {
     let XChainRegtestMiner
@@ -39,7 +39,7 @@ describe('XChainRegtestMiner', function () {
         // Stub the BlockchainConnector constructor
         sinon.stub(BlockchainConnector.prototype, 'constructor')
 
-        XChainRegtestMiner = require('../src/XChainRegtestMiner')
+        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
         miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
         miner.connector = connectorStub
 
@@ -51,7 +51,7 @@ describe('XChainRegtestMiner', function () {
     afterEach(function () {
         sinon.restore()
         // Clear module cache so fresh require works each time
-        delete require.cache[require.resolve('../src/XChainRegtestMiner')]
+        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
     })
 
     // ─── Constructor ────────────────────────────────────────────────────
