@@ -10,6 +10,7 @@
   "devDependencies": {
     "@stryker-mutator/core": "^8.7.1",
     "@stryker-mutator/mocha-runner": "^8.7.1",
+    "c8": "^11.0.0",
     "fast-check": "^4.6.0",
     "mocha": "^11.7.5",
     "sinon": "^21.0.3"
@@ -30,6 +31,7 @@
   "scripts": {
     "api": "node ./src/api.js",
     "test": "mocha --timeout 0 --recursive test/",
+    "coverage": "c8 --reporter=text --reporter=html --include 'src/**/*.js' mocha --timeout 10000 'test/unit/**/*.test.js' --exit",
     "test:unit": "mocha --timeout 10000 test/unit/**/*.test.js",
     "test:smoke": "mocha --timeout 10000 test/smoke/smoke.test.js",
     "test:e2e": "mocha --timeout 30000 test/e2e/**/*.test.js",

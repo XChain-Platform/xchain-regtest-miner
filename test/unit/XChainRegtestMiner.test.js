@@ -34,6 +34,7 @@ describe('XChainRegtestMiner', function () {
             getRawTransaction: sinon.stub().resolves('0200000001...'),
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
             getNetworkInfo: sinon.stub().resolves({}),
+            setWalletName: sinon.stub(),
         }
 
         // Stub the BlockchainConnector constructor
@@ -207,27 +208,39 @@ describe('XChainRegtestMiner', function () {
             assert.strictEqual(miner.walletAddress, 'bcrt1qtest')
         })
 
-        it('loads existing wallet when getWalletInfo fails', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+        // Helper: a getNewAddress stub whose probe attempts all fail (exhausting
+        // the PROBE_MAX_ATTEMPTS=10 retry loop so prepareWallet falls through to the
+        // load/create path), then resolves for the post-load address fetch.
+        function probeAlwaysFails(addr = 'bcrt1qnew') {
+            let calls = 0
+            return sinon.stub().callsFake(async () => {
+                calls++
+                if (calls <= 10) throw new Error('wallet not ready')
+                return addr
+            })
+        }
+
+        it('loads the named wallet when the getNewAddress probe never succeeds', async function () {
+            connectorStub.getNewAddress = probeAlwaysFails()
             connectorStub.loadWallet.resolves({ name: 'xchain_regtest_wallet' })
             await miner.prepareWallet()
             assert(connectorStub.loadWallet.calledWith('xchain_regtest_wallet'))
             assert(connectorStub.createWallet.notCalled)
         })
 
-        it('creates wallet when both getWalletInfo and loadWallet fail', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+        it('creates the wallet when the probe fails and loadWallet fails', async function () {
+            connectorStub.getNewAddress = probeAlwaysFails()
             connectorStub.loadWallet.rejects(new Error('not found'))
             connectorStub.createWallet.resolves({ name: 'xchain_regtest_wallet' })
             await miner.prepareWallet()
             assert(connectorStub.createWallet.calledWith('xchain_regtest_wallet'))
         })
 
-        it('throws when all wallet methods fail', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+        it('throws when the probe fails and both load and create fail', async function () {
+            connectorStub.getNewAddress = sinon.stub().rejects(new Error('wallet not ready'))
             connectorStub.loadWallet.rejects(new Error('not found'))
             connectorStub.createWallet.rejects(new Error('disk full'))
-            await assert.rejects(() => miner.prepareWallet(), /Error when trying to create the wallet/)
+            await assert.rejects(() => miner.prepareWallet(), /Could not create wallet/)
         })
 
         it('gets a new address after wallet is ready', async function () {
@@ -276,8 +289,8 @@ describe('XChainRegtestMiner', function () {
             assert(connectorStub.generateToAddress.calledWith(1, 'bcrt1qtest'))
         })
 
-        it('treats getWalletInfo returning null as no wallet loaded', async function () {
-            connectorStub.getWalletInfo.resolves(null)
+        it('treats a never-succeeding probe as no wallet loaded (falls through to loadWallet)', async function () {
+            connectorStub.getNewAddress = probeAlwaysFails()
             connectorStub.loadWallet.resolves({ name: 'w' })
             await miner.prepareWallet()
             assert(connectorStub.loadWallet.calledOnce)
@@ -645,15 +658,18 @@ describe('XChainRegtestMiner', function () {
             assert.strictEqual(miner.keepMining, true,
                 'keepMining should not change for invalid input')
 
-            // fillMempool with valid input sets keepMining to false during execution
-            // and restores it to true in the finally block
+            // fillMempool stops mining (keepMining=false) so the funding txs stay in
+            // the mempool instead of being mined away, and intentionally leaves it
+            // stopped — the caller resumes explicitly via continueMining(). keepMining
+            // is set false right after validation (before any crypto), so it is false
+            // whether or not the later crypto ops throw.
             try {
                 await miner.fillMempool(1)
             } catch (e) {
                 // May fail on crypto ops; that's ok for this test
             }
-            assert.strictEqual(miner.keepMining, true,
-                'keepMining should be restored to true by the finally block')
+            assert.strictEqual(miner.keepMining, false,
+                'fillMempool must leave mining stopped so the txs persist in the mempool')
         })
 
         it('throws (rather than silently returning) on invalid txQuantity', async function () {
