@@ -30,6 +30,7 @@
   },
   "scripts": {
     "api": "node ./src/api.js",
+    "ci": "mocha 'test/unit/**/*.test.js' --timeout 10000 --recursive --exit",
     "test": "mocha --timeout 0 --recursive test/",
     "coverage": "c8 --reporter=text --reporter=html --include 'src/**/*.js' mocha --timeout 10000 'test/unit/**/*.test.js' --exit",
     "test:unit": "mocha --timeout 10000 test/unit/**/*.test.js",
