@@ -39,7 +39,7 @@ class CryptoNetworks {
                     "pubKeyHash": 0x1e,
                     "scriptHash": 0x16,
                     "wif": 0x9e,
-                    "dustThreshold": 546
+                    "dustThreshold": 100000
                 }
             case "dogecoin-testnet":
                 return {
@@ -51,7 +51,7 @@ class CryptoNetworks {
                     "pubKeyHash": 0x71,
                     "scriptHash": 0xc4,
                     "wif": 0xf1,
-                    "dustThreshold": 546
+                    "dustThreshold": 100000
                 }
             case "dogecoin-regtest":
                 // Dogecoin v1.14.x regtest reuses Bitcoin-testnet prefixes
@@ -67,7 +67,7 @@ class CryptoNetworks {
                     "pubKeyHash": 0x6f,
                     "scriptHash": 0xc4,
                     "wif": 0xef,
-                    "dustThreshold": 546
+                    "dustThreshold": 100000
                 }
             case "litecoin-mainnet":
                 return {
@@ -80,7 +80,7 @@ class CryptoNetworks {
                     "pubKeyHash": 0x30,
                     "scriptHash": 0x32,
                     "wif": 0xb0,
-                    "dustThreshold": 546
+                    "dustThreshold": 5460
                 }
             case "litecoin-testnet":
                 return {
@@ -93,7 +93,7 @@ class CryptoNetworks {
                     "pubKeyHash": 0x6f,
                     "scriptHash": 0xc4,
                     "wif": 0xef,
-                    "dustThreshold": 546
+                    "dustThreshold": 5460
                 }
             case "litecoin-regtest":
                 return {
@@ -106,7 +106,7 @@ class CryptoNetworks {
                     "pubKeyHash": 0x6f,
                     "scriptHash": 0xc4,
                     "wif": 0xef,
-                    "dustThreshold": 546
+                    "dustThreshold": 5460
                 }
         }
     }
