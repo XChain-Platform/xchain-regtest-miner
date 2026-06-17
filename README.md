@@ -6,7 +6,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.1.14-blue" alt="Version">
   <img src="https://img.shields.io/badge/tests-901%20passing-brightgreen" alt="Tests">
-  <img src="https://img.shields.io/badge/node-%3E%3D18-green" alt="Node">
+  <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-Dankest%20Community-orange" alt="License">
 </p>
 
@@ -18,17 +18,17 @@ Auto-mining service for XChain Platform regtest environments. Polls the mempool 
 
 ## Features
 
-- **Adaptive dual-timer mining** — 30-second max timer with 5-second extension on each new transaction, configurable at runtime via JSON-RPC
-- **Automatic wallet management** — creates, loads, and funds a regtest wallet on startup; mines 101 bootstrap blocks on a fresh chain for coinbase maturity
-- **JSON-RPC control API** — 6 endpoints (`ping`, `send_funds`, `fill_mempool`, `continue_mining`, `set_mining_time`, `set_default_mining_time`) for test orchestration
-- **Mempool stress testing** — `fill_mempool` constructs and broadcasts thousands of raw Bitcoin transactions using BIP32/BIP39 key derivation and PSBT signing
-- **Exponential backoff** — automatic retry with capped exponential backoff (1s to 30s) on RPC connection failures
-- **Graceful shutdown** — SIGTERM handler allows the current mining loop iteration to complete before exiting
-- **Input validation** — rejects invalid addresses, amounts, timer values, and transaction quantities before any RPC call
-- **Error sanitization** — RPC credentials never exposed in error messages or console output
-- **Concurrent call protection** — `fillMempool` mutex prevents overlapping stress test runs with automatic flag restoration
-- **Docker-ready** — Alpine Node 20, non-root user, JSON-RPC healthcheck, Helmet security headers
-- **901 tests** — unit, integration, e2e, smoke, boundary, security, fuzz, chaos, performance, mutation, and regression testing
+- **Adaptive dual-timer mining:** 30-second max timer with 5-second extension on each new transaction, configurable at runtime via JSON-RPC
+- **Automatic wallet management:** creates, loads, and funds a regtest wallet on startup; mines 101 bootstrap blocks on a fresh chain for coinbase maturity
+- **JSON-RPC control API:** 6 endpoints (`ping`, `send_funds`, `fill_mempool`, `continue_mining`, `set_mining_time`, `set_default_mining_time`) for test orchestration
+- **Mempool stress testing:** `fill_mempool` constructs and broadcasts thousands of raw Bitcoin transactions using BIP32/BIP39 key derivation and PSBT signing
+- **Exponential backoff:** automatic retry with capped exponential backoff (1s to 30s) on RPC connection failures
+- **Graceful shutdown:** SIGTERM handler allows the current mining loop iteration to complete before exiting
+- **Input validation:** rejects invalid addresses, amounts, timer values, and transaction quantities before any RPC call
+- **Error sanitization:** RPC credentials never exposed in error messages or console output
+- **Concurrent call protection:** `fillMempool` mutex prevents overlapping stress test runs with automatic flag restoration
+- **Docker-ready:** Alpine Node 22, non-root user, JSON-RPC healthcheck, Helmet security headers
+- **901 tests:** unit, integration, e2e, smoke, boundary, security, fuzz, chaos, performance, mutation, and regression testing
 
 ## Documentation
 
@@ -81,25 +81,25 @@ npm run api
 | `npm run test:performance` | Performance tests |
 | `npm run test:mutation` | Mutation testing (Stryker Mutator) |
 | `npm run test:mutation:unit` | Unit-only mutation testing |
-| `npm run test:regression` | Regression tests — T1 standard gate (134 tests) |
-| `npm run test:regression:t0` | Regression T0 — critical gate (45 tests, < 15s) |
-| `npm run test:regression:t1` | Regression T1 — standard (134 tests, < 2 min) |
-| `npm run test:regression:t2` | Regression T2 — full E2E (147 tests, < 10 min) |
+| `npm run test:regression` | Regression tests: T1 standard gate (134 tests) |
+| `npm run test:regression:t0` | Regression T0: critical gate (45 tests, < 15s) |
+| `npm run test:regression:t1` | Regression T1: standard (134 tests, < 2 min) |
+| `npm run test:regression:t2` | Regression T2: full E2E (147 tests, < 10 min) |
 
 ## Test Suite
 
 | Type | Tests | Description |
 |---|---|---|
-| Unit | ~120 | `XChainRegtestMiner.test.js`, `BlockchainConnector.test.js`, `api.test.js` — constructor, timers, wallet prep, mining loop, fillMempool chunking, RPC formatting, API dispatch |
-| Integration | ~80 | 4 seam files — HTTP↔JSON-RPC, Miner↔Connector sequences, fillMempool↔bitcoinjs-lib crypto, Connector↔MockRpcServer |
-| E2E | ~30 | StatefulMockNode — startup lifecycle, mempool detection, block generation, fill-mempool, API, chain state, resilience |
+| Unit | ~120 | `XChainRegtestMiner.test.js`, `BlockchainConnector.test.js`, `api.test.js`: constructor, timers, wallet prep, mining loop, fillMempool chunking, RPC formatting, API dispatch |
+| Integration | ~80 | 4 seam files: HTTP/JSON-RPC, Miner/Connector sequences, fillMempool/bitcoinjs-lib crypto, Connector/MockRpcServer |
+| E2E | ~30 | StatefulMockNode: startup lifecycle, mempool detection, block generation, fill-mempool, API, chain state, resilience |
 | Smoke | 12 | Instantiation, wallet prep paths, mempool detection, timer expiry, pause/resume, API health |
 | Boundary | ~87 | Timer edges, mempool state machine, fillMempool quantities, wallet state transitions, RPC edge cases, combined scenarios |
 | Security | ~159 | Input validation, env validation, connector error sanitization, error disclosure, API hardening, resource exhaustion |
-| Fuzz | ~50 | Property-based via fast-check — RPC parameters, RPC responses, fillMempool stress, mining loop edge cases, timer behavior |
+| Fuzz | ~50 | Property-based via fast-check: RPC parameters, RPC responses, fillMempool stress, mining loop edge cases, timer behavior |
 | Chaos | ~22 | RPC disruption, timeout, flapping, response corruption, auth failures, fillMempool interruption, SIGTERM |
 | Performance | ~28 | Block generation latency, mempool polling, fillMempool scaling, RPC latency, sustained load, API throughput |
-| Mutation | — | Stryker Mutator — full service and unit-only configs, 90% high / 75% low / 60% break thresholds |
+| Mutation | - | Stryker Mutator: full service and unit-only configs, 90% high / 75% low / 60% break thresholds |
 | Regression | 147 | Three-tier suite: T0 critical gate (45), T1 standard (89), T2 full E2E (13) |
 | **Total** | **~901** | |
 
