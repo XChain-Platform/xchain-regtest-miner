@@ -7,7 +7,7 @@
  *
  * This file is part of XChain Platform. Licensed under the GNU Affero
  * General Public License v3.0 or later; see LICENSE.md. A commercial
- * license (without AGPL source-disclosure terms) is available —
+ * license (without AGPL source-disclosure terms) is available -
  * contact legal@dankest.llc.
  *
  **********************************************************************
@@ -76,7 +76,10 @@ async function startApi(){
 
     //Start the miner
     const miner = new XChainRegtestMiner(COIN_NETWORK, NODE_URL, NODE_PORT, NODE_USER, NODE_PASSWORD);
-    miner.start()
+    miner.start().catch(err => {
+        console.error('Miner failed to start: ' + (err && err.message ? err.message : err))
+        process.exit(1)
+    })
 
     // Create the app
     const app = express();
@@ -96,6 +99,12 @@ async function startApi(){
         async ping() {
             return {status:"success"};
         },
+
+        // Return current loop state so operators and CI can distinguish
+        // idle-healthy from stuck-retrying without watching stdout.
+        async status() {
+            return miner.getStatus()
+        },
         
         // Function to send funds to any address
         async send_funds({address, amount}) {
@@ -104,7 +113,7 @@ async function startApi(){
             try {
                 txid = await miner.sendFundsToAddress(address, amount)
             } catch(err){
-                return {"error":"There was a problem sending funds"}
+                return {"error":"There was a problem sending funds: " + (err && err.message ? err.message : err)}
             }
 
             // Return ok
@@ -124,6 +133,20 @@ async function startApi(){
             return {"result":"ok"}
         },
         
+        // Stop the auto-mine loop from firing further blocks. Any block already
+        // in flight at the moment of the call completes normally. Use
+        // continue_mining to resume.
+        async pause_mining({}) {
+            try {
+                await miner.pauseMining()
+            } catch(err){
+                return {"error":"There was a problem trying to pause the mining"}
+            }
+
+            // Return ok
+            return {"result":"ok"}
+        },
+
         // Function to fill the mempool with a specific number of transactions randomly created
         async continue_mining({}) {
             try {
@@ -144,9 +167,9 @@ async function startApi(){
             }
             
             // Return ok
-            return {"result":"ok"}
+            return "ok"
         },
-        
+
         async set_default_mining_time(){
             try{
                 await miner.setDefaultMiningTime()
@@ -155,7 +178,7 @@ async function startApi(){
             }
 
             // Return ok
-            return {"result":"ok"}
+            return "ok"
         },
 
         // Mine `count` empty blocks. Used by e2e tests to advance block height
@@ -163,7 +186,7 @@ async function startApi(){
         async generate_blocks({count}){
             try {
                 let hashes = await miner.generateBlocks(count)
-                return { "result": { "count": hashes.length, "hashes": hashes } }
+                return { "count": hashes.length, "hashes": hashes }
             } catch (err){
                 return { "error": "There was a problem generating blocks: " + (err && err.message) }
             }

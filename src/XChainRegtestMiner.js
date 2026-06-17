@@ -7,7 +7,7 @@
  *
  * This file is part of XChain Platform. Licensed under the GNU Affero
  * General Public License v3.0 or later; see LICENSE.md. A commercial
- * license (without AGPL source-disclosure terms) is available —
+ * license (without AGPL source-disclosure terms) is available -
  * contact legal@dankest.llc.
  *
  **********************************************************************
@@ -22,6 +22,10 @@
 const BlockchainConnector = require('./BlockchainConnector.js')
 const CryptoNetworks = require('./CryptoNetworks.js')
 
+// NOTE: CHECK_BLOCK_DELAY_MS and MIN_MINING_TIME are intentionally kept equal
+// (both 1000ms). This means a timer set at exactly MIN_MINING_TIME may fire
+// anywhere between 1× and 2× the intended delay depending on poll phase.
+// Tighten CHECK_BLOCK_DELAY_MS (e.g. 100ms) if sub-second timing precision matters.
 const CHECK_BLOCK_DELAY_MS = 1000 //1 second to continously ask for new block when all has been parsed
 const SATOSHI_UNIT = 100000000.0
 
@@ -53,6 +57,10 @@ class XChainRegtestMiner {
       this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
       this.fillMempoolRunning = false
       this._generateQueue = Promise.resolve()
+      this._mempoolSize = 0
+      this._blocksMined = 0
+      this._lastMineAt = null
+      this._consecutiveErrors = 0
     }
     
     async sleep(ms) {
@@ -107,16 +115,24 @@ class XChainRegtestMiner {
             //let FEE = 0.00001
             
             let OUTPUTS_QUANTITY_PER_TX = 2500
-            let AMOUNT_FOR_EACH_ADDRESS = 1000
-            let FEE = 1000
-            
-            
+
             //Create a seed
             // Resolve coin-specific bitcoinjs params (P2PKH version byte, WIF,
             // bip32) from the coin-network identifier so DOGE/LTC addresses and
             // PSBTs encode correctly, not just Bitcoin. Falls back to Bitcoin
             // regtest when only a bare network ("regtest") was supplied.
             var network = CryptoNetworks.getBitcoinJsNetwork(this.network) || bitcoin.networks.regtest
+            if (!CryptoNetworks.getBitcoinJsNetwork(this.network)) {
+                console.log("WARNING: NETWORK='"+this.network+"' did not resolve to a coin-specific network; falling back to bitcoin.networks.regtest for fillMempool. Set NETWORK to a coin-network form (e.g. dogecoin-regtest) for correct coin params.")
+            }
+
+            // Scale amounts to the coin's dust threshold so DOGE/LTC regtest
+            // nodes (which have much higher minimum relay fees than Bitcoin)
+            // don't reject the stress txs. Bitcoin regtest has no dustThreshold
+            // field, so we default to 1000 sat (same as before).
+            const coinDust = (network && network.dustThreshold) ? network.dustThreshold : 1000
+            let AMOUNT_FOR_EACH_ADDRESS = Math.max(coinDust, 1000)
+            let FEE = Math.max(coinDust, 1000)
             var mnemonic = bip39.generateMnemonic()
             var seed = bip39.mnemonicToSeedSync(mnemonic)
             var root = bip32.fromSeed(seed, network)
@@ -168,7 +184,7 @@ class XChainRegtestMiner {
                         if (sendRetries >= MAX_SEND_RETRIES) {
                             throw new Error('Failed to send funds after ' + MAX_SEND_RETRIES + ' retries: ' + detail)
                         }
-                        console.log("Error sending funds: "+detail+" — retrying (attempt "+sendRetries+"/"+MAX_SEND_RETRIES+")")
+                        console.log("Error sending funds: "+detail+"; retrying (attempt "+sendRetries+"/"+MAX_SEND_RETRIES+")")
                         await this.sleep(1000)
                     }
                 }
@@ -331,6 +347,10 @@ class XChainRegtestMiner {
             }
     }
 
+    async pauseMining(){
+        this.keepMining = false
+    }
+
     async continueMining(){
         this.keepMining = true
     }
@@ -358,17 +378,17 @@ class XChainRegtestMiner {
     async prepareWallet(){
         console.log("Checking wallet availability")
 
-        // Probe with getNewAddress: succeeds whenever ANY wallet is usable —
-        // modern Bitcoin Core 0.17+ with an already-loaded named wallet, or
-        // legacy single-wallet chains (Dogecoin v1.14.x, older Litecoin)
-        // that auto-load a default wallet and don't implement createwallet /
-        // loadwallet / listwallets at all.
+        // Probe with getNewAddress: succeeds whenever ANY wallet is usable,
+        // including modern Bitcoin Core 0.17+ with an already-loaded named
+        // wallet, or legacy single-wallet chains (Dogecoin v1.14.x, older
+        // Litecoin) that auto-load a default wallet and don't implement
+        // createwallet / loadwallet / listwallets at all.
         //
         // Retry the probe for a few seconds because legacy daemons accept
         // RPC requests before their wallet has finished loading. Dogecoin
         // v1.14 in particular reliably loses this race on the first start
-        // after a fresh `xchain-node reset` — the miner crashes because
-        // `createWallet` (the fallback) isn't supported on DOGE. A handful
+        // after a fresh `xchain-node reset` (the miner crashes because
+        // `createWallet` as the fallback isn't supported on DOGE). A handful
         // of 1-second retries covers wallet load in practice.
         let probeAddress = null
         const PROBE_MAX_ATTEMPTS = 10
@@ -399,7 +419,7 @@ class XChainRegtestMiner {
                 try{
                     await this.createWallet(this.walletNameParam)
                 } catch(err){
-                    throw new Error(`Could not create wallet '${this.walletNameParam}' on regtest node (chain may not support createwallet RPC — e.g. Dogecoin v1.14.x): ${err.message}`)
+                    throw new Error(`Could not create wallet '${this.walletNameParam}' on regtest node (chain may not support createwallet RPC, e.g. Dogecoin v1.14.x): ${err.message}`)
                 }
             }
             // We took the load-or-create path, which means the daemon
@@ -414,7 +434,7 @@ class XChainRegtestMiner {
             console.log("Getting a new address to receive blocks reward")
             this.walletAddress = await this.connector.getNewAddress()
         } else {
-            // Probe succeeded — wallet is already usable, use that address
+            // Probe succeeded; wallet is already usable, use that address
             this.walletAddress = probeAddress
         }
         
@@ -433,7 +453,7 @@ class XChainRegtestMiner {
     }
     
     generateBlocks(count) {
-        if (count <= 0) return [];
+        if (!Number.isInteger(count) || count <= 0) return [];
         // Serialize all callers (auto-mine loop + generate_blocks RPC) behind a
         // single promise chain so concurrent calls never issue overlapping
         // generateToAddress requests against the node. The chain itself is kept
@@ -465,7 +485,7 @@ class XChainRegtestMiner {
         //If there are no new tx in that time, then mine a block
         console.log("Ready. Checking for new txs")
 
-        // Graceful shutdown on SIGTERM — allow current loop iteration to complete
+        // Graceful shutdown on SIGTERM: allow current loop iteration to complete
         this._sigTermHandler = () => {
             console.log("Received SIGTERM, shutting down gracefully...")
             this._shutdown = true
@@ -490,10 +510,14 @@ class XChainRegtestMiner {
                         try {
                             await this.generateBlocks(1)
                             consecutiveErrors = 0
+                            this._consecutiveErrors = 0
+                            this._blocksMined++
+                            this._lastMineAt = Date.now()
                         } catch (err){
                             consecutiveErrors++
+                            this._consecutiveErrors = consecutiveErrors
                             let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
-                            console.log("There were problems generating a new block: "+(err && err.message ? err.message : err)+" — retrying in "+backoff+"ms.")
+                            console.log("There were problems generating a new block: "+(err && err.message ? err.message : err)+"; retrying in "+backoff+"ms.")
                             await this.sleep(backoff)
                             continue
                         }
@@ -508,10 +532,12 @@ class XChainRegtestMiner {
                 try {
                     rawMempool = await this.connector.getRawMempool()
                     consecutiveErrors = 0
+                    this._consecutiveErrors = 0
                 } catch (error){
                     consecutiveErrors++
+                    this._consecutiveErrors = consecutiveErrors
                     let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
-                    console.log("There were problems getting the mempool: "+(error && error.message ? error.message : error)+" — retrying in "+backoff+"ms.")
+                    console.log("There were problems getting the mempool: "+(error && error.message ? error.message : error)+"; retrying in "+backoff+"ms.")
                     await this.sleep(backoff)
                     continue
                 }
@@ -527,13 +553,24 @@ class XChainRegtestMiner {
                         }
                     }
                     lastRawMempoolLength = rawMempool.length
+                    this._mempoolSize = rawMempool.length
                 } else {
                     initialStartToMine = 0
                     extendedStartToMine = 0
                     lastRawMempoolLength = 0
+                    this._mempoolSize = 0
                 }
             }
             await this.sleep(CHECK_BLOCK_DELAY_MS)
+        }
+    }
+
+    getStatus(){
+        return {
+            mempool_size: this._mempoolSize,
+            blocks_mined: this._blocksMined,
+            last_mine_at: this._lastMineAt,
+            consecutive_errors: this._consecutiveErrors
         }
     }
 }

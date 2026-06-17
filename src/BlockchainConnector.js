@@ -7,7 +7,7 @@
  *
  * This file is part of XChain Platform. Licensed under the GNU Affero
  * General Public License v3.0 or later; see LICENSE.md. A commercial
- * license (without AGPL source-disclosure terms) is available —
+ * license (without AGPL source-disclosure terms) is available -
  * contact legal@dankest.llc.
  *
  **********************************************************************
@@ -32,11 +32,11 @@ class BlockchainConnector {
         // walletName + walletUrl stay null until the miner confirms the
         // daemon supports named wallets (Bitcoin Core 0.17+ /wallet/<name>/
         // URI). With it set, wallet-context RPCs (sendtoaddress, getbalance,
-        // getnewaddress, getwalletinfo) target THIS wallet specifically —
-        // necessary when multiple wallets are loaded on the same node,
-        // because bare RPC calls fail with -19 "Wallet file not specified".
+        // getnewaddress, getwalletinfo) target THIS wallet specifically,
+        // which is necessary when multiple wallets are loaded on the same node
+        // (bare RPC calls fail with -19 "Wallet file not specified").
         // Left null on legacy daemons (Dogecoin v1.14 etc.) that don't
-        // implement /wallet/ URI routing — RPCs fall back to base URL.
+        // implement /wallet/ URI routing; RPCs fall back to base URL.
         this.walletName = null
         this.walletUrl  = null
     }
@@ -200,7 +200,7 @@ class BlockchainConnector {
                 params: [txid],
                 id: 1
             }
-            
+
             // Make the request to the node
             const response = await axios.post(this.url, data, {
                 auth: {
@@ -406,9 +406,9 @@ class BlockchainConnector {
             if (response.data.result) {
                 return response.data.result;
             }
-            // Surface the node's actual RPC error so failures are debuggable —
-            // e.g. LTC's "bad-txns-vin-empty" stall would have been visible at
-            // a glance instead of requiring a curl detour against the node.
+            // Surface the node's actual RPC error so failures are debuggable.
+            // For example, LTC's "bad-txns-vin-empty" stall would have been
+            // visible at a glance instead of requiring a curl detour against the node.
             const nodeErr = response.data && response.data.error
                 ? (response.data.error.message || JSON.stringify(response.data.error))
                 : 'no result, no error'
@@ -451,11 +451,11 @@ class BlockchainConnector {
             // Use POSITIONAL params for sendtoaddress, not named. Named-parameter
             // JSON-RPC is a Bitcoin Core 0.18+ feature. Dogecoin v1.14.x is
             // based on Bitcoin Core 0.14 and rejects named-param calls (returns
-            // an error or empty response — manifests as "There was a problem
+            // an error or empty response, which manifests as "There was a problem
             // sending funds" in the API layer). Positional works on every
             // supported chain (BTC v28.x, LTC v0.21.x, DOGE v1.14.x).
             //
-            // Drop the `verbose: true` flag too — that's also 0.18+ and changes
+            // Drop the `verbose: true` flag too; that is also 0.18+ and changes
             // the response shape from "<txid string>" to {"txid":"<...>","fee":...}.
             // Keeping the bare-string response form makes the code work on all
             // supported daemons.
@@ -489,7 +489,7 @@ class BlockchainConnector {
                 : 'no result, no error'
             throw new Error('sendtoaddress returned no txid: ' + nodeErr)
         } catch (error) {
-            // Preserve the underlying error message — generic "Error sending funds
+            // Preserve the underlying error message. A generic "Error sending funds
             // to address" loses information that's essential to diagnose chain-
             // specific quirks like the one this method's comment describes.
             throw new Error('sendToAddress failed: ' + (error && error.message ? error.message : String(error)))
