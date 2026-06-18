@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Chaos Tests — CE-05: Node Down During Startup
+ * Chaos Tests: CE-05: Node Down During Startup
  *
  * Tests miner initialization when Bitcoin Core is unavailable.
  * Documents W-2: finite retry window causes unrecoverable crash.
@@ -45,7 +45,7 @@ describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
     // ─── CE-05a: Node comes online within retry window ──────────────
 
     it('CE-05a: miner initializes successfully if node comes online within retry window', async function () {
-        // Node starts offline — no wallet, no blocks
+        // Node starts offline: no wallet, no blocks
         node.goOffline()
 
         const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
@@ -79,9 +79,9 @@ describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
         miner.connector.sleep.restore()
     })
 
-    // ─── CE-05b: Node stays offline — retries exhausted (W-2) ──────
+    // ─── CE-05b: Node stays offline, retries exhausted (W-2) ────────
 
-    it('CE-05b: miner initialization fails after exhausting retry windows — documented W-2', async function () {
+    it('CE-05b: miner initialization fails after exhausting retry windows (documented W-2)', async function () {
         // Node stays offline for the entire test
         node.goOffline()
 
@@ -91,9 +91,9 @@ describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
         sinon.stub(miner.connector, 'sleep').resolves()
 
         // prepareWallet will call:
-        //   1. getWalletInfo (50 retries) — fails, falls through
-        //   2. loadWallet — fails, falls through
-        //   3. createWallet (50 retries) — fails, throws
+        //   1. getWalletInfo (50 retries): fails, falls through
+        //   2. loadWallet: fails, falls through
+        //   3. createWallet (50 retries): fails, throws
         await assert.rejects(
             () => miner.prepareWallet(),
             /Error when trying to create the wallet/,
@@ -137,7 +137,7 @@ describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
         assert.ok(!(result instanceof Error),
             'prepareWallet should succeed after brief outage: ' + (result && result.message))
 
-        // Wallet was loaded (not re-created — it already existed)
+        // Wallet was loaded (it already existed, not re-created)
         assert.strictEqual(node.wallet.loaded, true)
         assert.ok(miner.walletAddress, 'Miner should have obtained a wallet address')
 

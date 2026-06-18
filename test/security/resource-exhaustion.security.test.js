@@ -86,7 +86,7 @@ describe('Security: Resource Exhaustion & DoS Prevention', function () {
             try {
                 await miner.fillMempool(1)
             } catch(e) {
-                // Expected — fails at transaction parsing stage
+                // Expected: fails at transaction parsing stage
             }
 
             assert.strictEqual(connectorStub.sendToAddress.callCount, 4)

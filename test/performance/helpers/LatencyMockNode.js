@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * LatencyMockNode — StatefulMockNode extended with configurable per-method
+ * LatencyMockNode: StatefulMockNode extended with configurable per-method
  * delays and call timing instrumentation.
  *
  * Used by performance tests to simulate realistic RPC latency while

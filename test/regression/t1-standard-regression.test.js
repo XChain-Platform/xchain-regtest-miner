@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * T1 Regression Tests — Standard Regression
+ * T1 Regression Tests: Standard Regression
  *
  * Comprehensive regression suite covering BlockchainConnector RPC methods,
  * integration seams (Miner↔Connector sequences), boundary conditions,
@@ -415,7 +415,7 @@ describe('T1 Regression: Miner↔Connector Integration Seams', function () {
         delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
     })
 
-    // ─── REG-T1-B01: Fresh node — full create+mine sequence ────────
+    // ─── REG-T1-B01: Fresh node, full create+mine sequence ──────────
 
     describe('REG-T1-B01: prepareWallet call sequences', function () {
         it('fresh node: getWalletInfo→loadWallet→createWallet→getNewAddress→getBalance→getBlockchainInfo→generateToAddress(101)', async function () {
@@ -669,9 +669,9 @@ describe('T1 Regression: Boundary Conditions', function () {
         }
     }
 
-    // ─── REG-T1-C01: Timer boundary — maxTimeToMineTxs = 0 ────────
+    // ─── REG-T1-C01: Timer boundary (maxTimeToMineTxs = 0) ────────
 
-    describe('REG-T1-C01: Timer boundary — maxTime = 0', function () {
+    describe('REG-T1-C01: Timer boundary, maxTime = 0', function () {
         it('mines immediately on next poll after first tx', async function () {
             miner.maxTimeToMineTxs = 0
             miner.addedTimeToMineTxs = 50000
@@ -692,7 +692,7 @@ describe('T1 Regression: Boundary Conditions', function () {
         })
     })
 
-    // ─── REG-T1-C02: Timer boundary — simultaneous expiry ──────────
+    // ─── REG-T1-C02: Timer boundary, simultaneous expiry ──────────
 
     describe('REG-T1-C02: Both timers expire simultaneously', function () {
         it('generates exactly one block (not two)', async function () {
@@ -739,7 +739,7 @@ describe('T1 Regression: Boundary Conditions', function () {
 
     // ─── REG-T1-C04: Mempool size unchanged between polls ──────────
 
-    describe('REG-T1-C04: Mempool size unchanged — no timer reset', function () {
+    describe('REG-T1-C04: Mempool size unchanged, no timer reset', function () {
         it('does not reset extendedStartToMine when size stays the same', async function () {
             miner.maxTimeToMineTxs = 50000
             miner.addedTimeToMineTxs = 100
@@ -763,7 +763,7 @@ describe('T1 Regression: Boundary Conditions', function () {
         })
     })
 
-    // ─── REG-T1-C05: Wallet boundary — height exactly 100 ──────────
+    // ─── REG-T1-C05: Wallet boundary, height exactly 100 ──────────
 
     describe('REG-T1-C05: Wallet height boundary at 100', function () {
         beforeEach(function () {
@@ -1020,7 +1020,7 @@ describe('T1 Regression: Security', function () {
 
     // ─── REG-T1-D04: Error sanitization (no credential leaks) ──────
 
-    describe('REG-T1-D04: Error sanitization — no credential leaks', function () {
+    describe('REG-T1-D04: Error sanitization, no credential leaks', function () {
         let connector, axiosPostStub
 
         beforeEach(function () {

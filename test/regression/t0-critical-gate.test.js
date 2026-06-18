@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * T0 Regression Tests — Critical Gate
+ * T0 Regression Tests: Critical Gate
  *
  * The fastest, most essential regression tests. These MUST pass before any
  * code is pushed. Covers: constructor defaults, timer logic, wallet preparation
@@ -396,7 +396,7 @@ describe('T0 Regression: Critical Gate', function () {
             try {
                 await miner.fillMempool(1)
             } catch (e) {
-                // May fail on crypto ops — that's fine for this test
+                // May fail on crypto ops; that's fine for this test
             }
             assert.strictEqual(miner.keepMining, true,
                 'keepMining must be restored to true by finally block')

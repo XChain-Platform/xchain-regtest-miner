@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E Tests — Category B: Mempool Monitoring and Block Generation
+ * E2E Tests: Category B: Mempool Monitoring and Block Generation
  *
  * Validates the mining loop's interaction with a stateful mock node:
  * mempool detection, timer-based block generation, and state resets.
@@ -94,7 +94,7 @@ describe('E2E: Mempool Monitoring and Block Generation', function () {
         throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
     }
 
-    // ─── B1: Single transaction — detect, wait, mine ────────────────
+    // ─── B1: Single transaction: detect, wait, mine ────────────────
 
     it('B1: detects a mempool transaction and mines a block', async function () {
         miner.maxTimeToMineTxs = 500
@@ -120,7 +120,7 @@ describe('E2E: Mempool Monitoring and Block Generation', function () {
         assert.strictEqual(node.mempool.length, 0)
     })
 
-    // ─── B2: Multiple transactions — timer extension ────────────────
+    // ─── B2: Multiple transactions: timer extension ────────────────
 
     it('B2: batches multiple transactions into one block', async function () {
         miner.maxTimeToMineTxs = 2000
@@ -174,14 +174,14 @@ describe('E2E: Mempool Monitoring and Block Generation', function () {
         assert.ok(node.height > heightBefore)
     })
 
-    // ─── B4: Empty mempool — no unnecessary mining ──────────────────
+    // ─── B4: Empty mempool: no unnecessary mining ──────────────────
 
     it('B4: does not mine when mempool is empty', async function () {
         const heightBefore = node.height
         startMinerLoop()
         await waitFor(() => miner.keepMining === true)
 
-        // Wait several polling cycles — no mining should happen
+        // Wait several polling cycles; no mining should happen
         await sleep(300)
 
         assert.strictEqual(node.height, heightBefore)

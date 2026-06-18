@@ -92,7 +92,7 @@ describe('Fuzz: mining loop state machine', function () {
             miner.maxTimeToMineTxs = 99999 // Very high so only addedTime triggers
             miner.addedTimeToMineTxs = 50
 
-            // Mempool constant size — no new txs after initial detection
+            // Mempool constant size, no new txs after initial detection
             connectorStub.getRawMempool.resolves(['txid1'])
 
             let generateCount = 0
@@ -125,7 +125,7 @@ describe('Fuzz: mining loop state machine', function () {
 
             let mempoolSize = 1
             connectorStub.getRawMempool.callsFake(async () => {
-                // Grow mempool each call — simulates new txs arriving
+                // Grow mempool each call to simulate new txs arriving
                 mempoolSize++
                 return Array.from({ length: mempoolSize }, (_, i) => 'tx_' + i)
             })
@@ -139,7 +139,7 @@ describe('Fuzz: mining loop state machine', function () {
             let loopCount = 0
             miner.sleep.callsFake(async () => {
                 loopCount++
-                clock.tick(10) // Only 10ms per loop — less than addedTime
+                clock.tick(10) // Only 10ms per loop, which is less than addedTime
                 if (loopCount >= 8) {
                     miner.keepMining = false
                     throw new Error('__LOOP_BREAK__')
@@ -160,7 +160,7 @@ describe('Fuzz: mining loop state machine', function () {
     // ─── keepMining flag fuzzing ────────────────────────────────────
 
     describe('keepMining flag toggling', function () {
-        it('respects keepMining=false — skips mempool check and mining', async function () {
+        it('respects keepMining=false (skips mempool check and mining)', async function () {
             connectorStub.getRawMempool.resolves(['txid1', 'txid2'])
 
             let loopCount = 0
@@ -224,7 +224,7 @@ describe('Fuzz: mining loop state machine', function () {
         it('fillMempool pauses mining during execution, finally restores it', async function () {
             miner.keepMining = true
 
-            // fillMempool(0) fails validation and throws — keepMining unchanged
+            // fillMempool(0) fails validation and throws, so keepMining is unchanged
             await assert.rejects(() => miner.fillMempool(0), /positive integer/)
             assert.strictEqual(miner.keepMining, true,
                 'Invalid input should not change keepMining')

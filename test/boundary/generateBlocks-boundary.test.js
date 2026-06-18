@@ -55,7 +55,7 @@ describe('Boundary: Block Generation', function () {
     // ─── G-01: generateBlocks(0) ───────────────────────────────────────
 
     describe('G-01: generateBlocks(0)', function () {
-        it('is a no-op — does not call generateToAddress (node rejects count 0)', async function () {
+        it('is a no-op: does not call generateToAddress (node rejects count 0)', async function () {
             await miner.generateBlocks(0)
             assert(connectorStub.generateToAddress.notCalled,
                 'count 0 must short-circuit before the RPC')
@@ -134,7 +134,7 @@ describe('Boundary: Block Generation', function () {
     // ─── G-06: Concurrent generateBlocks calls ─────────────────────────
 
     describe('G-06: concurrent generateBlocks calls', function () {
-        it('second call is serialized behind first — both complete in queue order', async function () {
+        it('second call is serialized behind first; both complete in queue order', async function () {
             let callOrder = []
             connectorStub.generateToAddress.callsFake(async (count, addr) => {
                 callOrder.push(count)
@@ -191,7 +191,7 @@ describe('Boundary: Block Generation', function () {
     // ─── Negative block count ──────────────────────────────────────────
 
     describe('Negative block count', function () {
-        it('is a no-op — does not call connector for negative count', async function () {
+        it('is a no-op: does not call connector for negative count', async function () {
             await miner.generateBlocks(-1)
             assert(connectorStub.generateToAddress.notCalled,
                 'negative count must short-circuit before the RPC')

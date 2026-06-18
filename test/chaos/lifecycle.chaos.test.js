@@ -11,9 +11,9 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Chaos Tests — CE-08: Process Lifecycle
+ * Chaos Tests: CE-08: Process Lifecycle
  *
- * Documents W-4: no SIGTERM handler exists — process terminates immediately.
+ * Documents W-4: no SIGTERM handler exists; process terminates immediately.
  * Tests clean restart after simulated crash.
  *
  * Note: SIGTERM cannot be tested in-process (it would kill Mocha).
@@ -48,7 +48,7 @@ describe('Chaos: Process Lifecycle (CE-08)', function () {
 
     // ─── CE-08: No SIGTERM handler (W-4 characterization) ──────────
 
-    it('CE-08: W-4 fixed — SIGTERM handler registered by start(), not constructor', async function () {
+    it('CE-08: W-4 fixed; SIGTERM handler registered by start(), not constructor', async function () {
         const miner = createMiner(node)
 
         // Constructor should NOT register a handler
@@ -87,7 +87,7 @@ describe('Chaos: Process Lifecycle (CE-08)', function () {
         node.injectMempoolTx('txid_ce08_phase1')
         await waitFor(() => node.height > heightBefore, 3000)
 
-        // Phase 2: Simulate crash — kill the miner loop
+        // Phase 2: Simulate crash by killing the miner loop
         await stopMinerLoop(miner1, sp1)
         const heightAfterCrash = node.height
 
@@ -96,7 +96,7 @@ describe('Chaos: Process Lifecycle (CE-08)', function () {
         miner2.maxTimeToMineTxs = 300
         miner2.addedTimeToMineTxs = 80
 
-        // Start the new miner — it should re-initialize cleanly
+        // Start the new miner. It should re-initialize cleanly
         // (wallet already exists, so prepareWallet takes the loadWallet path)
         const { startPromise: sp2 } = startMinerLoop(miner2)
         await waitFor(() => miner2.keepMining === true, 3000)

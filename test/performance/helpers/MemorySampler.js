@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * MemorySampler — periodic process.memoryUsage() sampling for soak tests.
+ * MemorySampler: periodic process.memoryUsage() sampling for soak tests.
  *
  * Start/stop interval-based sampling, then summarize heap growth trends.
  */

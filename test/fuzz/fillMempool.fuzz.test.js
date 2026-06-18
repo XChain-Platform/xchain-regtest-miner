@@ -233,7 +233,7 @@ describe('Fuzz: fillMempool input handling', function () {
 
     describe('fillMempool resource exhaustion concerns', function () {
         it('large txQuantity creates proportionally large address arrays', function () {
-            // This is a pure math test — we verify the array sizes without
+            // This is a pure math test: we verify the array sizes without
             // actually running fillMempool (which would be too slow/heavy)
             fc.assert(
                 fc.property(fc.integer({ min: 1, max: 100000 }), (txQuantity) => {

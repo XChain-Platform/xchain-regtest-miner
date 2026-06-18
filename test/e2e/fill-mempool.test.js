@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E Tests — Category D: fillMempool with Real Broadcasting
+ * E2E Tests: Category D: fillMempool with Real Broadcasting
  *
  * Validates the full PSBT construction and broadcasting pipeline:
  * BIP39 mnemonic → BIP32 key derivation → PSBT construction →
@@ -56,7 +56,7 @@ describe('E2E: fillMempool with Real Broadcasting', function () {
         miner.sleep = async (ms) => await originalSleep(5)
     })
 
-    // ─── D1: fillMempool(1) — single transaction ────────────────────
+    // ─── D1: fillMempool(1): single transaction ────────────────────
 
     it('D1: fillMempool(1) broadcasts valid transactions to the node', async function () {
         this.timeout(15000)
@@ -83,7 +83,7 @@ describe('E2E: fillMempool with Real Broadcasting', function () {
         assert.ok(node.callsFor('generatetoaddress').length >= 1)
     })
 
-    // ─── D2: fillMempool(3) — multiple transactions ─────────────────
+    // ─── D2: fillMempool(3): multiple transactions ─────────────────
 
     it('D2: fillMempool(3) creates 3 distinct stress transactions', async function () {
         this.timeout(15000)

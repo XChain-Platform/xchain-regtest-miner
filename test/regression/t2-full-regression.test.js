@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * T2 Regression Tests — Full Regression (E2E)
+ * T2 Regression Tests: Full Regression (E2E)
  *
  * End-to-end regression tests against a StatefulMockNode that simulates
  * a real Bitcoin Core regtest node. Validates the complete pipeline:
@@ -60,10 +60,10 @@ describe('T2 Regression: Full E2E Pipeline', function () {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // REG-T2-001: Wallet Lifecycle — Fresh Start
+    // REG-T2-001: Wallet Lifecycle, Fresh Start
     // ═══════════════════════════════════════════════════════════════════
 
-    describe('REG-T2-001: Wallet lifecycle — fresh start', function () {
+    describe('REG-T2-001: Wallet lifecycle, fresh start', function () {
         beforeEach(function () {
             node.reset()
         })
@@ -87,10 +87,10 @@ describe('T2 Regression: Full E2E Pipeline', function () {
     })
 
     // ═══════════════════════════════════════════════════════════════════
-    // REG-T2-002: Wallet Lifecycle — Restart (already loaded)
+    // REG-T2-002: Wallet Lifecycle, Restart (already loaded)
     // ═══════════════════════════════════════════════════════════════════
 
-    describe('REG-T2-002: Wallet lifecycle — restart', function () {
+    describe('REG-T2-002: Wallet lifecycle, restart', function () {
         beforeEach(function () {
             node.reset()
             node._rpc_createwallet(['xchain_regtest_wallet'])
@@ -112,10 +112,10 @@ describe('T2 Regression: Full E2E Pipeline', function () {
     })
 
     // ═══════════════════════════════════════════════════════════════════
-    // REG-T2-003: Wallet Lifecycle — Exists but unloaded
+    // REG-T2-003: Wallet Lifecycle, Exists but unloaded
     // ═══════════════════════════════════════════════════════════════════
 
-    describe('REG-T2-003: Wallet lifecycle — exists but unloaded', function () {
+    describe('REG-T2-003: Wallet lifecycle, exists but unloaded', function () {
         beforeEach(function () {
             node.reset()
             node.wallet = { exists: true, loaded: false, name: 'xchain_regtest_wallet' }
@@ -140,10 +140,10 @@ describe('T2 Regression: Full E2E Pipeline', function () {
     })
 
     // ═══════════════════════════════════════════════════════════════════
-    // REG-T2-004: Mining Loop — Mempool Detection and Block Generation
+    // REG-T2-004: Mining Loop, Mempool Detection and Block Generation
     // ═══════════════════════════════════════════════════════════════════
 
-    describe('REG-T2-004: Mining loop — mempool detection', function () {
+    describe('REG-T2-004: Mining loop, mempool detection', function () {
         let miner, startPromise
 
         beforeEach(function () {
@@ -239,10 +239,10 @@ describe('T2 Regression: Full E2E Pipeline', function () {
     })
 
     // ═══════════════════════════════════════════════════════════════════
-    // REG-T2-005: Mining Loop — Pause/Resume via keepMining
+    // REG-T2-005: Mining Loop, Pause/Resume via keepMining
     // ═══════════════════════════════════════════════════════════════════
 
-    describe('REG-T2-005: Mining loop — pause and resume', function () {
+    describe('REG-T2-005: Mining loop, pause and resume', function () {
         let miner, startPromise
 
         beforeEach(function () {
@@ -342,7 +342,7 @@ describe('T2 Regression: Full E2E Pipeline', function () {
             const heightBefore = node.height
             node.injectMempoolTx('txid_timer_001')
             await sleep(200)
-            // Long timers — should not have mined yet
+            // Long timers: should not have mined yet
             assert.strictEqual(node.height, heightBefore,
                 'Should not mine with 60s timers in 200ms')
 
@@ -392,7 +392,7 @@ describe('T2 Regression: Full E2E Pipeline', function () {
     })
 
     // ═══════════════════════════════════════════════════════════════════
-    // REG-T2-008: Error Resilience — Mining loop survives RPC errors
+    // REG-T2-008: Error Resilience, Mining loop survives RPC errors
     // ═══════════════════════════════════════════════════════════════════
 
     describe('REG-T2-008: Mining loop survives transient RPC errors', function () {

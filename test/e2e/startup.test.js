@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E Tests — Category A: Startup and Wallet Lifecycle
+ * E2E Tests: Category A: Startup and Wallet Lifecycle
  *
  * Validates the full prepareWallet flow against a stateful mock node
  * that tracks wallet creation, loading, balance, and chain height.
@@ -47,7 +47,7 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
         return miner
     }
 
-    // ─── A1: Fresh start — wallet creation and initial funding ──────
+    // ─── A1: Fresh start: wallet creation and initial funding ──────
 
     it('A1: creates wallet and mines 101 blocks on fresh node', async function () {
         const miner = createMiner()
@@ -74,7 +74,7 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
         assert.ok(balanceResult > 0)
     })
 
-    // ─── A2: Restart — wallet already loaded ────────────────────────
+    // ─── A2: Restart: wallet already loaded ────────────────────────
 
     it('A2: skips creation when wallet is already loaded', async function () {
         // Pre-condition: wallet exists and is loaded, chain has blocks, balance > 0
@@ -98,7 +98,7 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
         assert.ok(miner.walletAddress)
     })
 
-    // ─── A3: Restart — wallet exists but unloaded ───────────────────
+    // ─── A3: Restart: wallet exists but unloaded ───────────────────
 
     it('A3: loads wallet when it exists but is not loaded', async function () {
         // Pre-condition: wallet was created previously but is not loaded
@@ -124,7 +124,7 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
         assert.ok(miner.walletAddress)
     })
 
-    // ─── A4: Empty balance at height > 100 — mines 1 block ─────────
+    // ─── A4: Empty balance at height > 100: mines 1 block ─────────
 
     it('A4: mines 1 block when balance is zero and height > 100', async function () {
         // Wallet loaded, chain at height 150, but balance is 0
@@ -144,7 +144,7 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
         assert.deepStrictEqual(node.callsFor('generatetoaddress')[0].params[0], 1)
     })
 
-    // ─── A5: All wallet methods fail — throws ───────────────────────
+    // ─── A5: All wallet methods fail: throws ───────────────────────
 
     it('A5: throws when wallet cannot be created', async function () {
         // Node has no wallet, load will fail, create will fail

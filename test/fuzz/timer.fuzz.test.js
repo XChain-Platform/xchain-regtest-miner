@@ -94,7 +94,7 @@ describe('Fuzz: mining timer parameters', function () {
         })
 
         it('handles objects with non-callable toString without throwing', async function () {
-            // Previously this caused TypeError — now fixed with String() wrapping
+            // Previously this caused TypeError; now fixed with String() wrapping
             await miner.setMiningTime({ toString: 0 }, {})
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)

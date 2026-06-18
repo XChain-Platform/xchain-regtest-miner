@@ -139,7 +139,7 @@ describe('api.js', function () {
             it('surfaces an error (not ok) when fillMempool rejects on invalid tx_quantity', async function () {
                 // A float tx_quantity (e.g. from a JSON-parsed config) fails fillMempool's
                 // integer guard, which now throws. The handler must surface that as an
-                // error response — never a silent { result: 'ok' } with an empty mempool.
+                // error response, never a silent { result: 'ok' } with an empty mempool.
                 miner.fillMempool.rejects(new Error('txQuantity must be a positive integer'))
                 const result = await controller.fill_mempool({ tx_quantity: 50.5 })
                 assert.notDeepStrictEqual(result, { result: 'ok' })

@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Chaos Tests — CE-06: fillMempool Interruption
+ * Chaos Tests: CE-06: fillMempool Interruption
  *
  * Tests miner state recovery when fillMempool is interrupted by node failure.
  * Documents W-3: keepMining stuck at false after fillMempool failure.
@@ -56,7 +56,7 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
 
         assert.strictEqual(miner.fillMempoolRunning, false)
 
-        // Start fillMempool — it will try to send funds, which needs a real wallet interaction
+        // Start fillMempool (it will try to send funds, which needs a real wallet interaction)
         const fillPromise = miner.fillMempool(3).catch(e => e)
 
         // Let it get into the send loop
@@ -81,7 +81,7 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
 
     // ─── CE-06b: keepMining stuck at false (W-3) ────────────────────
 
-    it('CE-06b: keepMining is restored to true after fillMempool fails — W-3 fixed', async function () {
+    it('CE-06b: keepMining is restored to true after fillMempool fails (W-3 fixed)', async function () {
         const miner = createMiner(node)
         miner.walletAddress = 'bcrt1qseed'
 
@@ -119,7 +119,7 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
 
     // ─── CE-06c: continueMining restores mining after failure ───────
 
-    it('CE-06c: mining works immediately after failed fillMempool — W-3 fixed', async function () {
+    it('CE-06c: mining works immediately after failed fillMempool (W-3 fixed)', async function () {
         const miner = createMiner(node)
         miner.walletAddress = 'bcrt1qseed'
 

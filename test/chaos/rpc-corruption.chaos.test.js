@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Chaos Tests — CE-04: Invalid RPC Responses, CE-10: Auth Failure
+ * Chaos Tests: CE-04: Invalid RPC Responses, CE-10: Auth Failure
  *
  * CE-04: Tests miner behavior when RPC returns unexpected data shapes.
  *        Documents W-1: string.length treated as tx count (silent logic error).
@@ -47,7 +47,7 @@ describe('Chaos: RPC Response Corruption & Auth Failure', function () {
 
     describe('CE-04: RPC Returns Unexpected Data Shapes', function () {
 
-        it('CE-04a: string result is rejected by Array.isArray check — W-1 fixed', async function () {
+        it('CE-04a: string result is rejected by Array.isArray check (W-1 fixed)', async function () {
             const miner = createMiner(node)
             miner.maxTimeToMineTxs = 300
             miner.addedTimeToMineTxs = 80
@@ -62,7 +62,7 @@ describe('Chaos: RPC Response Corruption & Auth Failure', function () {
             const { startPromise } = startMinerLoop(miner)
             await waitFor(() => miner.keepMining === true)
 
-            // Wait several poll cycles — no mining should happen
+            // Wait several poll cycles; no mining should happen
             await sleep(400)
 
             assert.strictEqual(node.height, heightBefore,
@@ -89,7 +89,7 @@ describe('Chaos: RPC Response Corruption & Auth Failure', function () {
             // Let several poll cycles fail
             await sleep(200)
 
-            // Loop should still be running — errors are caught
+            // Loop should still be running; errors are caught
             assert.strictEqual(miner.keepMining, true,
                 'Mining loop should survive null mempool responses')
 
@@ -160,7 +160,7 @@ describe('Chaos: RPC Response Corruption & Auth Failure', function () {
             await waitFor(() => node.height > heightBefore, 3000)
             const heightAfterBaseline = node.height
 
-            // Change credentials — miner uses 'user'/'pass', node now requires 'admin'/'secret'
+            // Change credentials: miner uses 'user'/'pass', node now requires 'admin'/'secret'
             node.setAuthRequired('admin', 'secret')
 
             // Let auth failures accumulate

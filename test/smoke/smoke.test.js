@@ -138,7 +138,7 @@ describe('Regtest Miner Smoke Tests', function () {
             }
 
             assert(connectorStub.getRawMempool.callCount >= 1)
-            // Timer started but not expired — no block generated yet
+            // Timer started but not expired; no block generated yet
             assert(connectorStub.generateToAddress.notCalled)
         })
 

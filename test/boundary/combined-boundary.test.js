@@ -182,7 +182,7 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 if (iterCount === 2) {
                     // Change threshold to something already passed
                     miner.maxTimeToMineTxs = 50
-                    // Don't advance clock — already 100ms > 50ms
+                    // Don't advance clock; already 100ms > 50ms
                 }
                 if (iterCount >= 5) throw new Error('__LOOP_BREAK__')
             })

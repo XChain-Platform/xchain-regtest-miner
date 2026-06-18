@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E Tests — Category F: Chain State Consistency
+ * E2E Tests: Category F: Chain State Consistency
  *
  * Validates that the miner produces valid chain extensions,
  * wallet balance tracks correctly, and concurrent operations
@@ -91,13 +91,13 @@ describe('E2E: Chain State Consistency', function () {
         let balance = await miner.connector.getBalance()
         assert.strictEqual(balance, 0)
 
-        // Mine 50 blocks — none are mature yet
+        // Mine 50 blocks (none are mature yet)
         miner.walletAddress = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
         await miner.generateBlocks(50)
         balance = await miner.connector.getBalance()
         assert.strictEqual(balance, 0) // None mature (need 100 confirmations)
 
-        // Mine 51 more blocks — first block is now mature
+        // Mine 51 more blocks (first block is now mature)
         await miner.generateBlocks(51)
         balance = await miner.connector.getBalance()
         assert.ok(balance > 0, 'Expected positive balance after 101 blocks')

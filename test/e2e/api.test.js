@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E Tests — Category C: JSON-RPC API Against Live Miner
+ * E2E Tests: Category C: JSON-RPC API Against Live Miner
  *
  * Validates the full HTTP → Express → miner → connector → mock node
  * pipeline with all components running concurrently.
@@ -220,7 +220,7 @@ describe('E2E: JSON-RPC API Against Live Miner', function () {
         // Inject a transaction
         node.injectMempoolTx('txid_c4_001')
 
-        // Wait — no mining should happen
+        // Wait; no mining should happen
         await sleep(200)
         assert.strictEqual(node.height, heightBefore)
 

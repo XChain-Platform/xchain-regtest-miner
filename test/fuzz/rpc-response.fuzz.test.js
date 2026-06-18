@@ -83,7 +83,7 @@ describe('Fuzz: RPC response handling', function () {
         for (const [label, response] of fuzzedResponses) {
             it(`survives getRawMempool returning ${label}`, async function () {
                 connectorStub.getRawMempool.resolves(response)
-                // Should not crash — loop should continue gracefully
+                // Should not crash; loop should continue gracefully
                 await runLoopIterations(miner, 3)
             })
         }

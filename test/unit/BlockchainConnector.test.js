@@ -451,7 +451,7 @@ describe('BlockchainConnector', function () {
     // ─── sendToAddress ──────────────────────────────────────────────────
 
     describe('sendToAddress', function () {
-        // sendtoaddress now uses POSITIONAL params (Dogecoin v1.14 compat — see
+        // sendtoaddress now uses POSITIONAL params (Dogecoin v1.14 compat; see
         // the comment in src/BlockchainConnector.js#sendToAddress) and tolerates
         // both bare-string and {txid} response shapes.
         it('uses positional params and returns the txid', async function () {

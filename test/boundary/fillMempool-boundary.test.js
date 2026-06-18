@@ -288,7 +288,7 @@ describe('Boundary: fillMempool Chunking and Calculations', function () {
             for (let i = 0; i < txQuantity; i++) {
                 count++
             }
-            // i goes 0, 1, 2 — loop runs 3 times (0 < 2.5, 1 < 2.5, 2 < 2.5, 3 >= 2.5 stops)
+            // i goes 0, 1, 2: loop runs 3 times (0 < 2.5, 1 < 2.5, 2 < 2.5, 3 >= 2.5 stops)
             assert.strictEqual(count, 3,
                 'Float comparison: 0,1,2 all < 2.5 so loop runs 3 times')
         })

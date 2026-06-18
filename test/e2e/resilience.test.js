@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E Tests — Category E: Error Resilience
+ * E2E Tests: Category E: Error Resilience
  *
  * Validates graceful error handling when the node is unavailable,
  * operations fail, or invalid input is provided.
@@ -108,7 +108,7 @@ describe('E2E: Error Resilience', function () {
     it('E2: send_funds handles insufficient balance gracefully', async function () {
         node.reset()
         node._rpc_createwallet(['xchain_regtest_wallet'])
-        // Only mine a few blocks — limited balance
+        // Only mine a few blocks (limited balance)
         node._rpc_generatetoaddress([102, 'bcrt1qseed'])
 
         const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')

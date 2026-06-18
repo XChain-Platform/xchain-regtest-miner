@@ -46,7 +46,7 @@ describe('Security: Input Validation', function () {
         delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
     })
 
-    // ─── sendFundsToAddress — SEC-003 ──────────────────────────────────
+    // ─── sendFundsToAddress (SEC-003) ──────────────────────────────────
 
     describe('sendFundsToAddress input validation (SEC-003)', function () {
         it('rejects non-string address (number)', async function () {
@@ -183,7 +183,7 @@ describe('Security: Input Validation', function () {
         })
     })
 
-    // ─── setMiningTime — SEC-008 (timer bounds) ────────────────────────
+    // ─── setMiningTime (SEC-008, timer bounds) ──────────────────────────
 
     describe('setMiningTime timer bounds (SEC-008)', function () {
         it('rejects maxTime below minimum (SEC-008)', async function () {
@@ -272,7 +272,7 @@ describe('Security: Input Validation', function () {
         })
     })
 
-    // ─── fillMempool — SEC-002 (quantity cap) ──────────────────────────
+    // ─── fillMempool (SEC-002, quantity cap) ────────────────────────────
 
     describe('fillMempool quantity cap (SEC-002)', function () {
         it('rejects txQuantity exceeding 50000', async function () {
@@ -308,7 +308,7 @@ describe('Security: Input Validation', function () {
             try {
                 await miner.fillMempool(50000)
             } catch(e) {
-                // Expected — fails at sendFundsToAddress after passing validation
+                // Expected: fails at sendFundsToAddress after passing validation
             }
             // Verify it got past validation (fillMempoolRunning was set)
             // It should be reset by finally block

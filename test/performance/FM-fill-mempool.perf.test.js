@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Performance Tests — FM: fillMempool Performance
+ * Performance Tests: FM: fillMempool Performance
  *
  * Measures end-to-end duration and resource consumption of the fillMempool
  * operation at various scales. Uses LatencyMockNode for stateful simulation.
@@ -25,7 +25,7 @@ const PerformanceCollector = require('./helpers/PerformanceCollector')
 const MemorySampler = require('./helpers/MemorySampler')
 const { assertMaxUnder, assertHeapDeltaUnder } = require('./helpers/perfAssert')
 
-describe('Performance: FM — fillMempool', function () {
+describe('Performance: FM: fillMempool', function () {
     let node, miner, collector
 
     before(async function () {
@@ -63,9 +63,9 @@ describe('Performance: FM — fillMempool', function () {
         }
     })
 
-    // ─── FM-001: fillMempool(10) — small scale baseline ───────────────
+    // ─── FM-001: fillMempool(10), small scale baseline ────────────────
 
-    it('FM-001: fillMempool(10) — total duration and RPC call counts', async function () {
+    it('FM-001: fillMempool(10): total duration and RPC call counts', async function () {
         this.timeout(30000)
 
         const { latencyMs } = await collector.measure('fillMempool:10', () =>
@@ -82,9 +82,9 @@ describe('Performance: FM — fillMempool', function () {
         assertMaxUnder(collector, 'fillMempool:10', 15000)
     })
 
-    // ─── FM-002: fillMempool(100) — medium scale ──────────────────────
+    // ─── FM-002: fillMempool(100), medium scale ───────────────────────
 
-    it('FM-002: fillMempool(100) — duration and memory', async function () {
+    it('FM-002: fillMempool(100): duration and memory', async function () {
         this.timeout(30000)
 
         const sampler = new MemorySampler(200)
@@ -104,9 +104,9 @@ describe('Performance: FM — fillMempool', function () {
         assertHeapDeltaUnder(sampler, 50 * 1024 * 1024) // < 50MB growth
     })
 
-    // ─── FM-003: fillMempool(500) — scaling behavior ──────────────────
+    // ─── FM-003: fillMempool(500), scaling behavior ───────────────────
 
-    it('FM-003: fillMempool(500) — scaling behavior', async function () {
+    it('FM-003: fillMempool(500): scaling behavior', async function () {
         this.timeout(60000)
 
         const sampler = new MemorySampler(500)
@@ -126,9 +126,9 @@ describe('Performance: FM — fillMempool', function () {
         assertHeapDeltaUnder(sampler, 100 * 1024 * 1024) // < 100MB growth
     })
 
-    // ─── FM-004: Scaling ratio — compare fillMempool(10) vs fillMempool(100)
+    // ─── FM-004: Scaling ratio, fillMempool(10) vs fillMempool(100) ───
 
-    it('FM-004: scaling ratio — fillMempool(10) vs fillMempool(100) time', async function () {
+    it('FM-004: scaling ratio: fillMempool(10) vs fillMempool(100) time', async function () {
         this.timeout(60000)
 
         // Already measured fillMempool(10) in FM-001. Measure another baseline.
@@ -160,15 +160,15 @@ describe('Performance: FM — fillMempool', function () {
         )
     })
 
-    // ─── FM-005: Concurrent fillMempool — mutex rejection ─────────────
+    // ─── FM-005: Concurrent fillMempool, mutex rejection ─────────────
 
-    it('FM-005: concurrent fillMempool calls — second rejected immediately', async function () {
+    it('FM-005: concurrent fillMempool calls: second rejected immediately', async function () {
         this.timeout(30000)
 
         // Start first fillMempool (runs async)
         const p1 = miner.fillMempool(10)
 
-        // Immediately attempt second — should be rejected by fillMempoolRunning guard
+        // Immediately attempt second; should be rejected by fillMempoolRunning guard
         const t0 = Date.now()
         const result2 = await miner.fillMempool(10)
         const rejectionTime = Date.now() - t0

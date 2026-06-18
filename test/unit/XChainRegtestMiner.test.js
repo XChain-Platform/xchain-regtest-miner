@@ -653,14 +653,14 @@ describe('XChainRegtestMiner', function () {
         it('sets keepMining to false only after validation passes', async function () {
             miner.keepMining = true
 
-            // fillMempool(0) fails validation and throws before touching state — keepMining unchanged
+            // fillMempool(0) fails validation and throws before touching state; keepMining unchanged
             await assert.rejects(() => miner.fillMempool(0), /positive integer/)
             assert.strictEqual(miner.keepMining, true,
                 'keepMining should not change for invalid input')
 
             // fillMempool stops mining (keepMining=false) so the funding txs stay in
             // the mempool instead of being mined away, and intentionally leaves it
-            // stopped — the caller resumes explicitly via continueMining(). keepMining
+            // stopped. The caller resumes explicitly via continueMining(). keepMining
             // is set false right after validation (before any crypto), so it is false
             // whether or not the later crypto ops throw.
             try {

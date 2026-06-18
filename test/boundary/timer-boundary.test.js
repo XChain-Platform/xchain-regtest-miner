@@ -85,7 +85,7 @@ describe('Boundary: Adaptive Mining Timer Logic', function () {
             let iterCount = 0
             miner.sleep.callsFake(async () => {
                 iterCount++
-                // No clock.tick needed — 0ms timer means it fires on next check
+                // No clock.tick needed; 0ms timer means it fires on next check
                 if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
             })
 
@@ -621,7 +621,7 @@ describe('Boundary: Adaptive Mining Timer Logic', function () {
                     miner.keepMining = false
                 }
                 if (iterCount === 3) {
-                    // Resume mining — stale timers still have old timestamps
+                    // Resume mining (stale timers still have old timestamps)
                     miner.keepMining = true
                     clock.tick(100)
                 }

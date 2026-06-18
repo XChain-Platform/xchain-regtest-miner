@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Performance Tests — SL: Soak and Stability
+ * Performance Tests: SL: Soak and Stability
  *
  * Long-running tests that detect memory leaks, performance degradation,
  * and error recovery behavior over sustained periods.
@@ -25,7 +25,7 @@ const PerformanceCollector = require('./helpers/PerformanceCollector')
 const MemorySampler = require('./helpers/MemorySampler')
 const { assertNoMemoryLeak, assertHeapDeltaUnder } = require('./helpers/perfAssert')
 
-describe('Performance: SL — Soak and Stability', function () {
+describe('Performance: SL: Soak and Stability', function () {
     let node, miner, collector
     let startPromise
 
@@ -91,9 +91,9 @@ describe('Performance: SL — Soak and Stability', function () {
         throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
     }
 
-    // ─── SL-001: Idle soak — empty mempool, check memory stability ────
+    // ─── SL-001: Idle soak, empty mempool, check memory stability ────
 
-    it('SL-001: idle soak — 3 seconds, empty mempool, no memory growth', async function () {
+    it('SL-001: idle soak: 3 seconds, empty mempool, no memory growth', async function () {
         const sampler = new MemorySampler(100)
 
         startMinerLoop()
@@ -110,13 +110,13 @@ describe('Performance: SL — Soak and Stability', function () {
         collector.record('pollCount', pollCount)
         collector.record('heapGrowthKBPerSec', Math.round(sampler.summarize().heapGrowthRatePerSecond / 1024))
 
-        // Allow generous threshold — GC and JIT can cause growth in short tests
+        // Allow generous threshold: GC and JIT can cause growth in short tests
         assertNoMemoryLeak(sampler, 5 * 1024 * 1024) // < 5 MB/s growth (short soak)
     })
 
-    // ─���─ SL-002: Active soak — txs injected and mined over 3 seconds ──
+    // ─── SL-002: Active soak, txs injected and mined over 3 seconds ──
 
-    it('SL-002: active soak — inject + mine cycles over 3 seconds', async function () {
+    it('SL-002: active soak: inject + mine cycles over 3 seconds', async function () {
         miner.maxTimeToMineTxs = 300
         miner.addedTimeToMineTxs = 100
 
@@ -154,9 +154,9 @@ describe('Performance: SL — Soak and Stability', function () {
         assertNoMemoryLeak(sampler, 512 * 1024)
     })
 
-    // ─── SL-003: Burst soak — repeated inject+mine cycles ─────────────
+    // ─── SL-003: Burst soak, repeated inject+mine cycles ─────────────
 
-    it('SL-003: burst soak — 10 cycles of inject 20 txs + mine', async function () {
+    it('SL-003: burst soak: 10 cycles of inject 20 txs + mine', async function () {
         miner.maxTimeToMineTxs = 200
         miner.addedTimeToMineTxs = 80
 
@@ -188,9 +188,9 @@ describe('Performance: SL — Soak and Stability', function () {
         assertHeapDeltaUnder(sampler, 10 * 1024 * 1024) // < 10MB total growth
     })
 
-    // ─── SL-004: Error recovery — RPC failures then recovery ──────────
+    // ─── SL-004: Error recovery, RPC failures then recovery ──────────
 
-    it('SL-004: error recovery — intermittent RPC failures, then normal operation', async function () {
+    it('SL-004: error recovery: intermittent RPC failures, then normal operation', async function () {
         miner.maxTimeToMineTxs = 300
         miner.addedTimeToMineTxs = 100
 

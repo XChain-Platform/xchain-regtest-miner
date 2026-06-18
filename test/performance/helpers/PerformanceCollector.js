@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * PerformanceCollector — timing collection, percentile computation, and summary reporting.
+ * PerformanceCollector: timing collection, percentile computation, and summary reporting.
  *
  * Records latency samples for named metrics, computes statistical summaries,
  * and produces formatted text tables for CI output.

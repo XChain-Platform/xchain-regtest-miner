@@ -15,7 +15,7 @@
  *
  * Unlike MockRpcServer (which returns pre-programmed static responses),
  * this server maintains internal wallet, mempool, and chain state that
- * evolves as RPC methods are called — simulating a real bitcoind lifecycle.
+ * evolves as RPC methods are called, simulating a real bitcoind lifecycle.
  */
 
 const express = require('express')
@@ -40,7 +40,7 @@ class StatefulMockNode {
         this.mempool = []         // [{txid, hex}]
         this.transactions = {}    // txid → hex
         this.matureBalance = 0    // spendable balance (coinbases older than 100 blocks)
-        this.pendingRewards = []  // [{height, amount}] — immature coinbase rewards
+        this.pendingRewards = []  // [{height, amount}] (immature coinbase rewards)
         this.addressCounter = 0
 
         // ── RPC dispatch ────────────────────────────────────────────

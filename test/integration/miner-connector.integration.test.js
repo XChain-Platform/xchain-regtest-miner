@@ -82,7 +82,7 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
     // ─── prepareWallet Sequences ────────────────────────────────────────
 
     describe('prepareWallet call sequences', function () {
-        it('B-1: fresh node — full create+mine sequence', async function () {
+        it('B-1: fresh node, full create+mine sequence', async function () {
             // getWalletInfo fails, loadWallet fails, createWallet succeeds
             // balance = 0, height = 0 → mine 101 blocks
             connector.getBalance.callsFake(async () => {
@@ -107,7 +107,7 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
             ])
         })
 
-        it('B-2: wallet exists but unloaded — load succeeds, no mining', async function () {
+        it('B-2: wallet exists but unloaded, load succeeds, no mining', async function () {
             connector.loadWallet.callsFake(async (name) => {
                 callLog.push(`loadWallet(${name})`)
                 return { name }
@@ -125,7 +125,7 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
             assert.strictEqual(connector.generateToAddress.callCount, 0)
         })
 
-        it('B-3: wallet already loaded and funded — minimal calls', async function () {
+        it('B-3: wallet already loaded and funded, minimal calls', async function () {
             connector.getWalletInfo.callsFake(async () => {
                 callLog.push('getWalletInfo')
                 return RPC_RESPONSES.WALLET_INFO
@@ -143,7 +143,7 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
             assert.strictEqual(connector.generateToAddress.callCount, 0)
         })
 
-        it('B-4: wallet loaded, empty balance, height > 100 — mines 1 block', async function () {
+        it('B-4: wallet loaded, empty balance, height > 100, mines 1 block', async function () {
             connector.getWalletInfo.callsFake(async () => {
                 callLog.push('getWalletInfo')
                 return RPC_RESPONSES.WALLET_INFO
@@ -165,7 +165,7 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
                 'Should NOT mine 101 blocks')
         })
 
-        it('B-5: empty balance, height exactly 100 — mines 101 blocks', async function () {
+        it('B-5: empty balance, height exactly 100, mines 101 blocks', async function () {
             connector.getWalletInfo.callsFake(async () => {
                 callLog.push('getWalletInfo')
                 return RPC_RESPONSES.WALLET_INFO
@@ -185,7 +185,7 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
                 'Should mine 101 blocks at height <= 100')
         })
 
-        it('B-8: all wallet methods fail — throws', async function () {
+        it('B-8: all wallet methods fail, throws', async function () {
             connector.createWallet.callsFake(async () => {
                 callLog.push('createWallet(xchain_regtest_wallet)')
                 throw new Error('Disk full')

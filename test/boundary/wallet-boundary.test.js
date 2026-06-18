@@ -173,7 +173,7 @@ describe('Boundary: Wallet Preparation', function () {
     describe('W-09: getWalletInfo throws (not infinite loop)', function () {
         it('catches error and proceeds to load/create flow', async function () {
             // In prepareWallet, getWalletInfo failure is caught and treated as "no wallet"
-            // This is NOT the infinite retry in getWalletInfo itself —
+            // This is NOT the infinite retry in getWalletInfo itself;
             // prepareWallet just does a single try-catch
             connectorStub.getWalletInfo.rejects(new Error('connection refused'))
             connectorStub.loadWallet.resolves({ name: 'w' })

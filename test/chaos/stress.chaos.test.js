@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Chaos Tests — CE-07: Large Mempool, CE-09: Concurrent API Abuse
+ * Chaos Tests: CE-07: Large Mempool, CE-09: Concurrent API Abuse
  *
  * CE-07: Tests miner behavior with 10,000+ entries in mempool response.
  * CE-09: Tests concurrency guard and Express stability under load.
@@ -102,7 +102,7 @@ describe('Chaos: Stress Testing', function () {
             assert.ok(node.height > heightBefore,
                 'Miner should handle large mempool and mine a block')
 
-            // Memory check — heap increase should be reasonable
+            // Memory check: heap increase should be reasonable
             const heapAfter = process.memoryUsage().heapUsed
             const heapIncreaseMB = (heapAfter - heapBefore) / (1024 * 1024)
             assert.ok(heapIncreaseMB < 50,
@@ -181,7 +181,7 @@ describe('Chaos: Stress Testing', function () {
             }
         })
 
-        it('CE-09a: 10 concurrent fill_mempool calls — exactly 1 accepted, rest rejected by guard', async function () {
+        it('CE-09a: 10 concurrent fill_mempool calls; exactly 1 accepted, rest rejected by guard', async function () {
             const miner = this.miner
 
             // Stub connector.sleep so fillMempool retries don't wait
@@ -226,7 +226,7 @@ describe('Chaos: Stress Testing', function () {
             // All requests should have completed (success or error response)
             assert.strictEqual(results.length, 50, 'All 50 requests should complete')
 
-            // Some may fail due to insufficient funds — that's expected
+            // Some may fail due to insufficient funds; that's expected.
             // The key assertion is: server is still alive
             const pingResult = await rpcCall(apiPort, 'ping', {})
             assert.strictEqual(pingResult.body.result.status, 'success',

@@ -229,7 +229,7 @@ describe('Fuzz: JSON-RPC API parameters', function () {
             const cases = [{}, { address: 'a' }, { amount: 1 }, null, undefined]
             for (const params of cases) {
                 try {
-                    // These may throw due to destructuring — that's acceptable
+                    // These may throw due to destructuring; that's acceptable
                     // But they must not cause unhandled rejections
                     await controller.send_funds(params || {})
                 } catch (e) {

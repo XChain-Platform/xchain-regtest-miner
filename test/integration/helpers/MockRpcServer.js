@@ -46,7 +46,7 @@ class MockRpcServer {
                     return res.status(503).send('Service Unavailable')
                 }
                 if (handler.failMode === 'timeout') {
-                    // Don't respond — let the client timeout
+                    // Don't respond; let the client timeout
                     return
                 }
                 // Default: RPC-level error

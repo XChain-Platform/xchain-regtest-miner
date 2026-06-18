@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Performance Tests — API: API Layer Throughput
+ * Performance Tests: API Layer Throughput
  *
  * Measures JSON-RPC API response latency and throughput
  * by spinning up a real Express server with the miner.
@@ -52,7 +52,7 @@ function jsonRpcCall(port, method, params = {}) {
     })
 }
 
-describe('Performance: API — API Throughput', function () {
+describe('Performance: API Throughput', function () {
     let node, miner, collector
     let apiServer, apiPort
 
@@ -80,7 +80,7 @@ describe('Performance: API — API Throughput', function () {
         miner.balance = 50.0
         miner.keepMining = true
 
-        // Don't actually start the mining loop — just set up the API server
+        // Skip the mining loop; only set up the API server for these tests.
         const express = require('express')
         const jsonRpcRouter = require('express-json-rpc-router')
 
@@ -127,9 +127,9 @@ describe('Performance: API — API Throughput', function () {
         }
     })
 
-    // ─── API-001: Ping flood — 50 sequential pings ────────────────────
+    // ─── API-001: Ping flood, 50 sequential pings ─────────────────────
 
-    it('API-001: ping flood — 50 sequential pings', async function () {
+    it('API-001: ping flood, 50 sequential pings', async function () {
         const startTime = Date.now()
 
         for (let i = 0; i < 50; i++) {
@@ -145,9 +145,9 @@ describe('Performance: API — API Throughput', function () {
         assertThroughputAbove(collector, 'api:ping', 50, elapsed) // >= 50 pings/sec
     })
 
-    // ─── API-002: Mixed workload — interleaved methods ────────────────
+    // ─── API-002: Mixed workload, interleaved methods ─────────────────
 
-    it('API-002: mixed workload — ping + set_mining_time + set_default_mining_time', async function () {
+    it('API-002: mixed workload: ping + set_mining_time + set_default_mining_time', async function () {
         for (let round = 0; round < 10; round++) {
             await collector.measure('api:ping:mixed', async () =>
                 jsonRpcCall(apiPort, 'ping')
@@ -167,9 +167,9 @@ describe('Performance: API — API Throughput', function () {
         assertP95Under(collector, 'api:set_default_mining_time', 50)
     })
 
-    // ─── API-003: Concurrent requests — 10 pings at once ──────────────
+    // ─── API-003: Concurrent requests, 10 pings at once ──────────────
 
-    it('API-003: concurrent requests — 10 simultaneous pings', async function () {
+    it('API-003: concurrent requests, 10 simultaneous pings', async function () {
         const fns = Array.from({ length: 10 }, () => async () =>
             jsonRpcCall(apiPort, 'ping')
         )

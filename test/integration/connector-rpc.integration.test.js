@@ -275,7 +275,7 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
             server.onMethod('generatetoaddress').returns(['blockhash1'])
 
             // getWalletInfo returns null result → throws "Error getting wallet info"
-            // This is fine — the miner catches it and proceeds to loadWallet
+            // This is fine: the miner catches it and proceeds to loadWallet
 
             const info = await connector.getWalletInfo(1).catch(() => null)
             assert.strictEqual(info, null)

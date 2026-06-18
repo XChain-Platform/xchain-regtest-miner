@@ -14,7 +14,7 @@ const bip32 = BIP32Factory(ecc)
 const bip39 = require('bip39')
 const bitcoin = require('bitcoinjs-lib')
 
-// Deterministic mnemonic — all derived keys/addresses are predictable across runs
+// Deterministic mnemonic: all derived keys/addresses are predictable across runs
 const MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
 const network = bitcoin.networks.regtest
 
@@ -43,13 +43,13 @@ function deriveChildAddress(index) {
 /**
  * Build a synthetic funding transaction with an output paying `amountSats` to `toAddress`.
  * The transaction has a single dummy input (no real signature) which is fine because
- * bitcoinjs-lib's PSBT only inspects the *outputs* of the nonWitnessUtxo — it does not
+ * bitcoinjs-lib's PSBT only inspects the *outputs* of the nonWitnessUtxo; it does not
  * re-validate the previous transaction's inputs.
  */
 function createFundingTx(toAddress, amountSats) {
     const tx = new bitcoin.Transaction()
     tx.version = 2
-    // Dummy input — non-zero hash so it isn't treated as coinbase
+    // Dummy input with non-zero hash so it isn't treated as coinbase
     const dummyHash = Buffer.alloc(32, 0)
     dummyHash[0] = 0x01
     tx.addInput(dummyHash, 0)
