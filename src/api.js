@@ -130,9 +130,9 @@ async function startApi(){
             }
 
             // Return ok
-            return {"result":"ok"}
+            return "ok"
         },
-        
+
         // Stop the auto-mine loop from firing further blocks. Any block already
         // in flight at the moment of the call completes normally. Use
         // continue_mining to resume.
@@ -144,7 +144,7 @@ async function startApi(){
             }
 
             // Return ok
-            return {"result":"ok"}
+            return "ok"
         },
 
         // Function to fill the mempool with a specific number of transactions randomly created
@@ -156,7 +156,7 @@ async function startApi(){
             }
 
             // Return ok
-            return {"result":"ok"}
+            return "ok"
         },
         
         async set_mining_time({max_time, tx_added_time}){
