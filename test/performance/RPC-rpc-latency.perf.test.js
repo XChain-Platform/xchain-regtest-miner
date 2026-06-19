@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Performance Tests — RPC: RPC Method Latency
+ * Performance Tests: RPC: RPC Method Latency
  *
  * Measures raw HTTP round-trip latency for BlockchainConnector RPC methods
  * using MockRpcServer (stateless, with delay injection support).
@@ -24,7 +24,7 @@ const MockRpcServer = require('../integration/helpers/MockRpcServer')
 const PerformanceCollector = require('./helpers/PerformanceCollector')
 const { assertP95Under, assertMeanUnder, assertMaxUnder } = require('./helpers/perfAssert')
 
-describe('Performance: RPC — RPC Method Latency', function () {
+describe('Performance: RPC: RPC Method Latency', function () {
     let server, connector, collector
 
     before(async function () {
@@ -52,7 +52,7 @@ describe('Performance: RPC — RPC Method Latency', function () {
         }
     })
 
-    // ─── RPC-001: Baseline latency for core RPC methods ───────────────
+    // ─── RPC-001: Baseline latency for core RPC methods ──────────────
 
     it('RPC-001: baseline latency for core RPC methods (10 calls each)', async function () {
         const methods = [
@@ -121,7 +121,7 @@ describe('Performance: RPC — RPC Method Latency', function () {
         }
     })
 
-    // ─── RPC-002: Concurrent load — 10 simultaneous getRawMempool ─────
+    // ─── RPC-002: Concurrent load, 10 simultaneous getRawMempool ─────
 
     it('RPC-002: 10 concurrent getRawMempool calls', async function () {
         server.onMethod('getrawmempool').returns(['tx1', 'tx2', 'tx3'])
@@ -135,7 +135,7 @@ describe('Performance: RPC — RPC Method Latency', function () {
         assertP95Under(collector, 'getRawMempool:concurrent', 100)
     })
 
-    // ─── RPC-003: Under simulated node load — 50ms artificial delay ───
+    // ─── RPC-003: Under simulated node load, 50ms artificial delay ───
 
     it('RPC-003: RPC latency with 50ms simulated node delay', async function () {
         server.onMethod('getrawmempool').withDelay(50).returns([])
@@ -155,9 +155,9 @@ describe('Performance: RPC — RPC Method Latency', function () {
         assertP95Under(collector, 'generateToAddress:delayed', 150)
     })
 
-    // ─── RPC-004: Connection reuse — 100 sequential calls ─────────────
+    // ─── RPC-004: Connection reuse, 100 sequential calls ─────────────
 
-    it('RPC-004: connection reuse — 100 sequential calls, no degradation', async function () {
+    it('RPC-004: connection reuse: 100 sequential calls, no degradation', async function () {
         server.onMethod('getrawmempool').returns([])
 
         for (let i = 0; i < 100; i++) {
@@ -184,7 +184,7 @@ describe('Performance: RPC — RPC Method Latency', function () {
         assertP95Under(collector, 'getRawMempool:100seq', 50)
     })
 
-    // ─── RPC-005: Mixed concurrent methods ────────────────────────────
+    // ─── RPC-005: Mixed concurrent methods ───────────────────────────
 
     it('RPC-005: mixed concurrent RPC calls (5 different methods)', async function () {
         server.onMethod('getrawmempool').returns([])

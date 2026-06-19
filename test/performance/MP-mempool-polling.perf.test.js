@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Performance Tests — MP: Mempool Polling and Transaction Batching
+ * Performance Tests: MP: Mempool Polling and Transaction Batching
  *
  * Measures how the mining loop responds to varying mempool sizes
  * and transaction arrival rates under real wall-clock timing.
@@ -24,7 +24,7 @@ const LatencyMockNode = require('./helpers/LatencyMockNode')
 const PerformanceCollector = require('./helpers/PerformanceCollector')
 const { assertP95Under, assertMeanUnder, assertMaxUnder } = require('./helpers/perfAssert')
 
-describe('Performance: MP — Mempool Polling', function () {
+describe('Performance: MP: Mempool Polling', function () {
     let node, miner, collector
     let startPromise
 
@@ -90,7 +90,7 @@ describe('Performance: MP — Mempool Polling', function () {
         throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
     }
 
-    // ─── MP-001: Steady trickle — 1 tx every 100ms for 1 second ──��───
+    // ─── MP-001: Steady trickle, 1 tx every 100ms for 1 second ───────
 
     it('MP-001: mempool poll latency with steady trickle (10 txs over 1s)', async function () {
         miner.maxTimeToMineTxs = 300
@@ -115,7 +115,7 @@ describe('Performance: MP — Mempool Polling', function () {
         assertP95Under(collector, 'getRawMempool', 50)
     })
 
-    // ─── MP-002: Burst arrival — 100 txs injected at once ─────────────
+    // ─── MP-002: Burst arrival, 100 txs injected at once ─────────────
 
     it('MP-002: mining response time to burst of 100 txs', async function () {
         miner.maxTimeToMineTxs = 300
@@ -140,7 +140,7 @@ describe('Performance: MP — Mempool Polling', function () {
         assert.ok(lastBlock.txids.length > 50, 'Expected most txs included in block')
     })
 
-    // ─── MP-003: Continuous flood — 5 txs per poll for 2 seconds ──────
+    // ─── MP-003: Continuous flood, 5 txs per poll for 2 seconds ──────
 
     it('MP-003: block generation under continuous flood (5 tx/poll, 2s)', async function () {
         miner.maxTimeToMineTxs = 500
@@ -176,7 +176,7 @@ describe('Performance: MP — Mempool Polling', function () {
         assert.ok(blocksMined >= 1, `Expected >= 1 block mined, got ${blocksMined}`)
     })
 
-    // ─── MP-004: Timer boundary — tx arrives just before addedTime ────
+    // ─── MP-004: Timer boundary, tx arrives just before addedTime ────
 
     it('MP-004: timer extension when txs arrive near addedTimeToMineTxs boundary', async function () {
         miner.maxTimeToMineTxs = 2000
@@ -190,8 +190,8 @@ describe('Performance: MP — Mempool Polling', function () {
         // Inject first tx
         node.injectMempoolTx('txid_mp004_0')
 
-        // Inject more txs at ~150ms intervals (just under 200ms addedTime)
-        // This should keep extending the timer
+        // Inject more txs at ~150ms intervals (just under 200ms addedTime).
+        // This should keep extending the timer.
         for (let i = 1; i <= 5; i++) {
             await sleep(150)
             node.injectMempoolTx('txid_mp004_' + i)
@@ -208,7 +208,7 @@ describe('Performance: MP — Mempool Polling', function () {
         assert.strictEqual(mp004Txs.length, 6, `Expected 6 txs in block, got ${mp004Txs.length}`)
     })
 
-    // ─── MP-005: Large mempool — 5000 txids, measure poll overhead ────
+    // ─── MP-005: Large mempool, 5000 txids, measure poll overhead ────
 
     it('MP-005: getRawMempool overhead with 5000 txids in mempool', async function () {
         // Pre-populate mempool with 5000 entries

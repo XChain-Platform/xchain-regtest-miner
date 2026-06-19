@@ -11,11 +11,11 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Chaos Tests — CE-01, CE-02, CE-03: RPC Disruption
+ * Chaos Tests: CE-01, CE-02, CE-03: RPC Disruption
  *
  * CE-01: Mining loop survives complete RPC outage and resumes after recovery.
  * CE-02: Timeout on generatetoaddress does not crash the loop.
- * CE-03: 50% random RPC failure rate — mining still completes.
+ * CE-03: 50% random RPC failure rate; mining still completes.
  */
 
 const assert = require('assert')
@@ -153,7 +153,7 @@ describe('Chaos: RPC Disruption', function () {
             assert.strictEqual(timeoutFired, true,
                 'Timeout should have been triggered')
 
-            // No duplicate blocks — height only increased by expected amount
+            // No duplicate blocks: height only increased by expected amount
             assert.ok(node.height <= heightBefore + 2,
                 'Should not produce excessive duplicate blocks')
 
@@ -162,7 +162,7 @@ describe('Chaos: RPC Disruption', function () {
         })
     })
 
-    // ─── CE-03: Intermittent RPC Flapping ───────────��───────────────
+    // ─── CE-03: Intermittent RPC Flapping ───────────────────────────
 
     describe('CE-03: 50% RPC Flapping', function () {
 

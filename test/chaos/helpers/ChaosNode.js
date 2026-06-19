@@ -11,13 +11,13 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * ChaosNode — LatencyMockNode extended with fault injection capabilities
+ * ChaosNode: LatencyMockNode extended with fault injection capabilities
  * for chaos engineering experiments.
  *
  * Adds: offline simulation, per-method random failure rates, response
  * corruption, method interception, and authentication enforcement.
  *
- * Inheritance: StatefulMockNode → LatencyMockNode → ChaosNode
+ * Inheritance: StatefulMockNode -> LatencyMockNode -> ChaosNode
  */
 
 const LatencyMockNode = require('../../performance/helpers/LatencyMockNode')
@@ -27,7 +27,7 @@ class ChaosNode extends LatencyMockNode {
         super()
 
         this._offline = false
-        this._failRates = {}        // { methodName: 0.0–1.0 }
+        this._failRates = {}        // { methodName: 0.0-1.0 }
         this._corruptors = {}       // { methodName: (result) => alteredResult }
         this._interceptors = {}     // { methodName: (params, res, id) => void }
         this._authOverride = null   // null | { user, pass }
@@ -48,7 +48,7 @@ class ChaosNode extends LatencyMockNode {
         }
 
         this.app.post('/', async (req, res) => {
-            // 1. Offline — destroy socket (simulates ECONNRESET)
+            // 1. Offline: destroy socket (simulates ECONNRESET)
             if (this._offline) {
                 req.socket.destroy()
                 return
@@ -72,7 +72,7 @@ class ChaosNode extends LatencyMockNode {
             // 4. Timestamp start (same as LatencyMockNode)
             const startedAt = Date.now()
 
-            // 5. Method interceptor — full override
+            // 5. Method interceptor: full override
             if (this._interceptors[method]) {
                 return this._interceptors[method](params, res, id)
             }
@@ -131,7 +131,7 @@ class ChaosNode extends LatencyMockNode {
 
     // ── Offline simulation ──────────────────────────────────────────
 
-    /** Simulate node going down — all connections get socket destroyed. */
+    /** Simulate node going down. All connections get their socket destroyed. */
     goOffline() {
         this._offline = true
     }
@@ -146,7 +146,7 @@ class ChaosNode extends LatencyMockNode {
     /**
      * Set probability of RPC-level error for a method.
      * @param {string} method - RPC method name
-     * @param {number} rate - failure probability 0.0–1.0
+     * @param {number} rate - failure probability 0.0-1.0
      */
     setFailRate(method, rate) {
         this._failRates[method] = rate
@@ -196,7 +196,7 @@ class ChaosNode extends LatencyMockNode {
     // ── Authentication enforcement ──────────────────────────────────
 
     /**
-     * Require specific credentials — requests with wrong creds get HTTP 401.
+     * Require specific credentials. Requests with wrong creds get HTTP 401.
      * @param {string} user
      * @param {string} pass
      */

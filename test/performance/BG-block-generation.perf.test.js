@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Performance Tests — BG: Block Generation Latency
+ * Performance Tests: BG: Block Generation Latency
  *
  * Measures the time to generate blocks under varying mempool sizes
  * and request patterns. Uses LatencyMockNode for stateful simulation
@@ -25,7 +25,7 @@ const LatencyMockNode = require('./helpers/LatencyMockNode')
 const PerformanceCollector = require('./helpers/PerformanceCollector')
 const { assertP95Under, assertMeanUnder, assertMaxUnder } = require('./helpers/perfAssert')
 
-describe('Performance: BG — Block Generation Latency', function () {
+describe('Performance: BG: Block Generation Latency', function () {
     let node, miner, collector
     let startPromise
 
@@ -94,10 +94,10 @@ describe('Performance: BG — Block Generation Latency', function () {
         throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
     }
 
-    // ─── BG-001: Empty mempool — baseline generateToAddress latency ───
+    // ─── BG-001: Empty mempool, baseline generateToAddress latency ────
 
     it('BG-001: generateToAddress latency with empty mempool (20 calls)', async function () {
-        // Bypass prepareWallet — set wallet address directly
+        // Set wallet address directly, bypassing prepareWallet
         miner.walletAddress = node.addresses[0] || 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
 
         for (let i = 0; i < 20; i++) {
@@ -110,7 +110,7 @@ describe('Performance: BG — Block Generation Latency', function () {
         assertMeanUnder(collector, 'generateToAddress:empty', 30)
     })
 
-    // ─── BG-002: Small mempool (10 txs) — mining cycle latency ────────
+    // ─── BG-002: Small mempool (10 txs), mining cycle latency ─────────
 
     it('BG-002: mining cycle latency with 10 txs in mempool (5 cycles)', async function () {
         miner.maxTimeToMineTxs = 200
@@ -134,7 +134,7 @@ describe('Performance: BG — Block Generation Latency', function () {
         assertP95Under(collector, 'miningCycle:10tx', 2000)
     })
 
-    // ─── BG-003: Medium mempool (100 txs) — mining cycle latency ──────
+    // ─── BG-003: Medium mempool (100 txs), mining cycle latency ───────
 
     it('BG-003: mining cycle latency with 100 txs in mempool (3 cycles)', async function () {
         miner.maxTimeToMineTxs = 200
@@ -157,7 +157,7 @@ describe('Performance: BG — Block Generation Latency', function () {
         assertP95Under(collector, 'miningCycle:100tx', 2000)
     })
 
-    // ─── BG-004: Large mempool (1000 txs) — mining cycle latency ──────
+    // ─── BG-004: Large mempool (1000 txs), mining cycle latency ───────
 
     it('BG-004: mining cycle latency with 1000 txs in mempool', async function () {
         miner.maxTimeToMineTxs = 300
@@ -178,9 +178,9 @@ describe('Performance: BG — Block Generation Latency', function () {
         assertMaxUnder(collector, 'miningCycle:1000tx', 5000)
     })
 
-    // ─── BG-005: Rapid sequential mining (10 blocks) ──────────────────
+    // ─── BG-005: Rapid sequential mining, 10 blocks ───────────────────
 
-    it('BG-005: rapid sequential generateToAddress — 10 blocks', async function () {
+    it('BG-005: rapid sequential generateToAddress, 10 blocks', async function () {
         miner.walletAddress = node.addresses[0] || 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
 
         for (let i = 0; i < 10; i++) {
@@ -198,9 +198,9 @@ describe('Performance: BG — Block Generation Latency', function () {
         assertP95Under(collector, 'generateToAddress:sequential', 100)
     })
 
-    // ─���─ BG-006: Burst mining — generateToAddress(10) in one call ─────
+    // ─── BG-006: Burst mining, generateToAddress(10) vs 10x single ───
 
-    it('BG-006: burst mining — generateToAddress(10) in one call vs 10x single', async function () {
+    it('BG-006: burst mining: generateToAddress(10) in one call vs 10x single', async function () {
         miner.walletAddress = node.addresses[0] || 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
 
         // Single call for 10 blocks
@@ -223,7 +223,7 @@ describe('Performance: BG — Block Generation Latency', function () {
         // Burst should not be dramatically slower than sequential total
         assert.ok(
             burstMs <= sequentialTotal * 3 + 50,
-            `Burst(10)=${burstMs}ms vs 10xSingle=${sequentialTotal}ms — burst should not be >3x slower`
+            `Burst(10)=${burstMs}ms vs 10xSingle=${sequentialTotal}ms; burst should not be >3x slower`
         )
     })
 })
