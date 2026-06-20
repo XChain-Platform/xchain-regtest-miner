@@ -10,33 +10,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.18] - 2026-06-20
 
 ### Added
-- `.env.example`: added a configuration template listing every environment variable the miner reads (coin/network, coin-node RPC, API port), with safe regtest defaults and inline comments.
-
-### Fixed
-- `connector-rpc` integration test: corrected the `sendToAddress` assertion to expect positional params `['<address>', <amount>]` instead of a named-parameter object with a `verbose` flag. `BlockchainConnector` uses positional params (and omits `verbose`) for Dogecoin v1.14 compatibility, named-parameter JSON-RPC and the `verbose` flag are Bitcoin Core 0.18+ features that older daemons reject. The unit test already matched; the integration assertion was stale and failing CI.
+- Add `.env.example` configuration template listing every environment variable the miner reads, with safe regtest defaults and inline comments.
 
 ### Changed
-- `package.json`: pinned `bitcoinjs-lib` 6.1.7, `ecpair` 2.1.0, `bip32` 4.0.0, `tiny-secp256k1` 2.2.4 to exact versions (dropped the `^` caret ranges) so every install resolves a byte-identical dependency tree across operator nodes, matching the versions already frozen in `package-lock.json`. No source changes.
-- Raised the `bitcoinjs-lib` dependency floor from `^6.1.5` to `^6.1.7`, matching the version already declared by the encoder, decoder, UTXO-tracker, and SDK services. All resolved to `6.1.7` at runtime, but the miner's lower floor meant an isolated `package-lock.json` regeneration could pick up an older `6.1.x` patch than the rest of the stack, a divergence risk for a library that owns PSBT, address, and script serialization. The lockfile is regenerated; no resolved versions or source code change.
+- Pin `bitcoinjs-lib` 6.1.7, `ecpair` 2.1.0, `bip32` 4.0.0, `tiny-secp256k1` 2.2.4 to exact versions (drop `^` caret ranges) so every install resolves a byte-identical dependency tree.
+- Raise the `bitcoinjs-lib` dependency floor to `^6.1.7` to match the encoder, decoder, UTXO-tracker, and SDK services and eliminate isolated-lockfile divergence risk.
 
 ### Fixed
-- `fillMempool` now resolves bitcoinjs-lib network parameters from the full coin-network identifier (e.g. `dogecoin-regtest`, `litecoin-mainnet`) via a new `CryptoNetworks` helper, instead of indexing `bitcoin.networks` by the bare network name. `api.js` previously stripped the coin prefix before constructing the miner, so address and PSBT encoding always fell back to Bitcoin parameters regardless of the coin served. This was harmless on regtest, Bitcoin, Dogecoin and Litecoin all share Bitcoin's `0x6f` P2PKH version byte there, but produced invalid addresses for the Dogecoin/Litecoin testnet and mainnet variants the API also accepts (e.g. Dogecoin testnet `0x71`, Litecoin mainnet `0x30`). `api.js` now forwards the full coin-network identifier to the miner so the correct per-coin parameters are used.
+- Fix stale `connector-rpc` integration test assertion: `sendToAddress` now expects positional params `['<address>', <amount>]` instead of a named-parameter object with `verbose`, matching `BlockchainConnector`'s Dogecoin v1.14-compatible call style.
+- Fix `fillMempool` to resolve bitcoinjs-lib network parameters from the full coin-network identifier (e.g. `dogecoin-regtest`) via a new `CryptoNetworks` helper; `api.js` now forwards the full identifier so Dogecoin/Litecoin testnet and mainnet addresses encode correctly.
 
 ## [0.1.17] - 2026-05-30
 
 ### Fixed
-- `fillMempool` now throws on a rejected `txQuantity` (non-integer, less than 1, over the maximum) and on a concurrent invocation, instead of returning early. Previously the `fill_mempool` JSON-RPC handler ignored these early returns and always responded `{"result":"ok"}`, so a caller passing a float (e.g. from a JSON-parsed config) received a success response with an empty mempool and only discovered the problem when later broadcast/assert steps failed. The handler now surfaces the validation message in its error response.
+- Fix `fill_mempool` JSON-RPC handler to surface `fillMempool` validation errors (bad `txQuantity`, concurrent call) in its error response instead of always returning `{"result":"ok"}`.
 
 ## [0.1.16] - 2026-05-30
 
 ### Fixed
-- `generateBlocks(count)` now treats a count of 0 (or any non-positive value) as a no-op, returning an empty array instead of forwarding the request to the node. Bitcoin Core and Litecoin reject `generatetoaddress 0` with `-8: nblocks must be positive`, so callers that pass 0 as a defensive sentinel previously received an unexpected RPC error rather than an empty result.
+- Fix `generateBlocks(count)` to treat a count of 0 or less as a no-op (returns empty array) instead of forwarding to the node, which rejects `generatetoaddress 0` with an RPC error.
 
 ## [0.1.15] - 2026-05-29
 
 ### Fixed
-- `generateBlocks` now serializes concurrent callers behind a single promise queue, so the auto-mine loop and the `generate_blocks` JSON-RPC handler can no longer issue overlapping `generateToAddress` requests against the node. This eliminates a race where the node mined more blocks than the API caller expected, producing off-by-one block heights.
-- A failed mining attempt no longer wedges the serialization queue: the rejection is isolated to its own caller via a rejection-swallowing tail, so the next `generateBlocks` call still runs (previously a single failure left the queue permanently rejected and stopped all further mining).
+- Serialize concurrent `generateBlocks` callers behind a promise queue so the auto-mine loop and `generate_blocks` RPC handler can no longer issue overlapping `generateToAddress` requests.
+- Isolate a failed mining attempt to its own caller via a rejection-swallowing tail so a single failure no longer permanently wedges the serialization queue.
 
 ## [0.1.14] - 2026-04-06
 
@@ -46,197 +44,130 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.13] - 2026-04-06
 
 ### Changed
-- `README.md`: updated Documentation table to link to 4 docs (README, Architecture, Configuration, Operations) matching xchain-sdk/xchain-indexer repo README format
+- Update `README.md` Documentation table to link to 4 docs (README, Architecture, Configuration, Operations) matching the xchain-sdk/xchain-indexer format.
 
 ## [0.1.12] - 2026-04-06
 
 ### Added
-- Three-tier regression test suite (147 tests across 3 files)
-  - `test/regression/t0-critical-gate.test.js`: 45 tests covering constructor defaults, timer validation, wallet branching, mining loop core paths, fillMempool guards, input validation, API health, and connector construction
-  - `test/regression/t1-standard-regression.test.js`: 89 tests covering all 13 RPC methods, Miner↔Connector integration seams, boundary conditions (timer edges, chunking math, wallet height), security validation (input rejection, credential leak prevention), and exponential backoff behavior
-  - `test/regression/t2-full-regression.test.js`: 13 E2E tests against StatefulMockNode covering wallet lifecycle (fresh/restart/unloaded), mempool detection and block generation, pause/resume, timer override, send_funds round-trip, RPC error resilience, chain state progression, and graceful shutdown
-  - `test/regression/FLAKY_TESTS.md`: quarantine log for non-deterministic tests
-  - `npm run test:regression:t0` (< 15s gate), `test:regression:t1` (< 2min PR gate), `test:regression:t2` (< 10min nightly/release gate), `test:regression` (alias for t1)
+- Add three-tier regression test suite (147 tests): `t0-critical-gate.test.js` (45 tests, core paths), `t1-standard-regression.test.js` (89 tests, all 13 RPC methods), `t2-full-regression.test.js` (13 E2E tests vs `StatefulMockNode`); `FLAKY_TESTS.md` quarantine log; and `test:regression:t0/t1/t2` scripts.
 
 ## [0.1.11] - 2026-04-06
 
 ### Added
-- StrykerJS mutation testing infrastructure (v8.7.1 with Mocha runner)
-  - `stryker.config.js`: full mutation run across unit, smoke, boundary, security, integration, and e2e tests
-  - `stryker.unit.config.js`: fast unit-only mutation run for quick feedback
-  - `npm run test:mutation` and `npm run test:mutation:unit` scripts
-  - HTML, JSON, and clear-text reporters outputting to `reports/mutation/`
-  - perTest coverage analysis for optimized mutant-to-test mapping
-  - StringLiteral mutations excluded to reduce noise from RPC method names and error messages
-  - Thresholds: break at 60%, low at 75%, high at 90%
+- Add StrykerJS mutation testing infrastructure (v8.7.1): `stryker.config.js` (full) and `stryker.unit.config.js` (fast), reporters to `reports/mutation/`, thresholds (break 60%/low 75%/high 90%), and `npm run test:mutation` / `test:mutation:unit` scripts.
 
 ### Changed
-- `src/api.js` now guards `startApi()` behind `require.main === module` check, enabling safe instrumentation by mutation testing and other tooling
+- Guard `startApi()` in `src/api.js` behind a `require.main === module` check to allow safe instrumentation by mutation testing and other tooling.
 
 ## [0.1.10] - 2026-04-05
 
 ### Added
-- Chaos engineering test suite (22 tests across 6 files implementing 10 experiments)
-  - ChaosNode helper extending LatencyMockNode with fault injection (offline, fail rates, response corruption, method interception, auth enforcement)
-  - CE-01/02/03: RPC disruption tests (connection loss, timeout, 50% flapping)
-  - CE-04/10: RPC corruption tests (invalid response shapes, auth failure)
-  - CE-05: Startup resilience tests (node unavailable during initialization)
-  - CE-06: fillMempool interruption tests (state recovery verification)
-  - CE-07/09: Stress tests (10k+ mempool entries, concurrent API abuse)
-  - CE-08: Process lifecycle tests (SIGTERM handler, crash/restart)
-- `npm run test:chaos` script
-- Graceful shutdown via SIGTERM handler in mining loop (W-4 fix)
-- Exponential backoff for mining loop error retries, capped at 30s (W-5 fix)
+- Add chaos engineering test suite (22 tests, 10 experiments): `ChaosNode` helper with fault injection (offline, fail rates, corruption, auth), plus CE-01 through CE-10 covering RPC disruption, corruption, startup resilience, `fillMempool` interruption, stress, and process lifecycle.
+- Add `npm run test:chaos` script.
+- Add graceful shutdown via SIGTERM handler in mining loop (W-4).
+- Add exponential backoff for mining loop error retries, capped at 30s (W-5).
 
 ### Fixed
-- getRawMempool now validates response is an Array via `Array.isArray()`, preventing string responses from causing phantom mining (W-1)
-- createWallet default retries increased from 10 to 50, matching getWalletInfo and providing a wider startup window (W-2)
-- fillMempool now restores `keepMining=true` in its finally block, preventing stuck mining state after failures (W-3)
-- fillMempool validation moved before `keepMining=false` assignment, so invalid inputs no longer disrupt mining state
+- Validate `getRawMempool` response with `Array.isArray()` to prevent string responses from triggering phantom mining (W-1).
+- Increase `createWallet` default retries from 10 to 50 to match `getWalletInfo` and widen the startup window (W-2).
+- Restore `keepMining=true` in `fillMempool`'s `finally` block to prevent stuck mining state after failures (W-3).
+- Move `fillMempool` input validation before the `keepMining=false` assignment so invalid inputs no longer disrupt mining state.
 
 ## [0.1.9] - 2026-04-05
 
 ### Added
-- Performance and load testing suite (28 tests across 6 categories)
-  - Block generation latency (BG): empty/small/medium/large mempool, sequential and burst mining
-  - Mempool polling (MP): steady trickle, burst arrival, continuous flood, timer boundary, 5000-txid overhead
-  - fillMempool scaling (FM): 10/100/500 txs, scaling ratio analysis, mutex rejection timing
-  - RPC latency (RPC): baseline all methods, concurrent load, simulated delay, connection reuse, mixed concurrent
-  - Soak stability (SL): idle soak, active soak, burst soak, error recovery
-  - API throughput (API): ping flood, mixed workload, concurrent requests
-- Performance test helpers: PerformanceCollector (timing/percentiles), MemorySampler (heap tracking), LatencyMockNode (configurable RPC delays), perfAssert (threshold assertions)
-- `npm run test:performance` script
+- Add performance and load testing suite (28 tests): block generation latency, mempool polling, `fillMempool` scaling, RPC latency, soak stability, and API throughput categories.
+- Add `PerformanceCollector`, `MemorySampler`, `LatencyMockNode`, and `perfAssert` test helpers.
+- Add `npm run test:performance` script.
 
 ## [0.1.8] - 2026-04-05
 
 ### Added
-- Strengthened security test suite (159 tests, up from 114)
-  - BlockchainConnector: full error object property checks (`.config`, `.response` must be undefined on thrown errors)
-  - BlockchainConnector: `getNetworkInfo` and `getBlockchainInfo` error sanitization coverage (previously untested)
-  - Environment validation: NETWORK value restriction tests (regtest/testnet/mainnet only, case-sensitive)
-  - Environment validation: NODE_URL localhost warning tests (warns on non-localhost, does not exit)
-- `.dockerignore` file excluding `.env`, `node_modules`, `test`, `.git`, and markdown files from Docker builds
+- Strengthen security test suite to 159 tests (up from 114): adds `BlockchainConnector` error-object property checks, `getNetworkInfo`/`getBlockchainInfo` sanitization coverage, NETWORK value restriction tests, and NODE_URL localhost warning tests.
+- Add `.dockerignore` excluding `.env`, `node_modules`, `test`, `.git`, and markdown files from Docker builds.
 
 ### Fixed
-- Completed RPC credential leak remediation across all BlockchainConnector methods (SEC-004)
-  - `getNetworkInfo`, `getBlockchainInfo`: added try-catch, throw clean `new Error()` instead of propagating raw axios errors
-  - `getBlockHash`, `getBlock`, `getRawMempool`, `getMempoolEntry`, `loadWallet`, `getNewAddress`, `generateToAddress`, `getBalance`: replaced `console.error(error.message); throw error` with `throw new Error('...')` to prevent credential-bearing error objects from propagating
-  - `createWallet`: removed `console.error` in outer catch, throw clean error
-  - `getWalletInfo`: removed `console.error` in retry loop to prevent credential logging
-- NETWORK environment variable now validated against allowed values: regtest, testnet, mainnet (SEC-018)
-- NODE_URL now logs a warning when set to a non-localhost value, alerting that RPC credentials will transit the network in plaintext (SEC-017)
+- Complete RPC credential leak remediation across all `BlockchainConnector` methods: `getNetworkInfo`, `getBlockchainInfo`, `getBlockHash`, `getBlock`, `getRawMempool`, `getMempoolEntry`, `loadWallet`, `getNewAddress`, `generateToAddress`, `getBalance`, `createWallet`, and `getWalletInfo` all throw clean `new Error()` instead of propagating raw axios errors (SEC-004).
+- Validate the NETWORK environment variable against allowed values: regtest, testnet, mainnet (SEC-018).
+- Warn when NODE_URL is set to a non-localhost value to alert that RPC credentials will transit the network in plaintext (SEC-017).
 
 ### Changed
-- Dockerfile hardened: pinned base image (`node:20-alpine`), non-root user, `npm ci --omit=dev`, removed `.env` copy, added `HEALTHCHECK`
-- Removed `.env` file from Docker image build (SEC-015), credentials must be passed via environment variables at runtime
+- Harden Dockerfile: pin base image (`node:20-alpine`), add non-root user, use `npm ci --omit=dev`, remove `.env` copy, add `HEALTHCHECK`.
+- Remove `.env` from the Docker image build; credentials must be passed via environment variables at runtime (SEC-015).
 
 ## [0.1.7] - 2026-04-05
 
 ### Added
-- Security test suite (114 tests) covering all hardening fixes
-  - Input validation: sendFundsToAddress address/amount type checking, boundary values, invalid type rejection
-  - Timer bounds: setMiningTime min/max enforcement (1000ms–3600000ms), error return objects
-  - fillMempool quantity cap: rejection above 50,000, memory exhaustion prevention
-  - Resource exhaustion: sendFundsToAddress retry limit (50), fillMempool mutex, concurrent call rejection
-  - Error sanitization: RPC credential non-disclosure across all BlockchainConnector methods
-  - Environment validation: missing vars, empty vars, invalid port numbers
-  - API hardening: generic error messages, prototype pollution resistance, XSS non-reflection
-- `npm run test:security` script
+- Add security test suite (114 tests) covering input validation, timer bounds, `fillMempool` quantity cap, resource exhaustion, RPC credential non-disclosure, environment validation, and API hardening.
+- Add `npm run test:security` script.
 
 ### Fixed
-- Infinite retry loop in `fillMempool` when `sendFundsToAddress` perpetually fails, added 50-retry limit with backoff (SEC-001)
-- Unbounded memory allocation via `fillMempool` with large `txQuantity`: added 50,000 cap (SEC-002)
-- Missing input validation on `sendFundsToAddress`: now requires non-empty string address and positive finite number amount (SEC-003)
-- RPC credential leakage in `sendToAddress` and `sendRawTransaction` error paths, errors now throw clean messages without axios internals (SEC-004)
-- Missing environment variable validation at startup, `validateEnvVars()` checks all 6 required vars and validates port ranges (SEC-005)
-- Race condition on concurrent `fillMempool` calls, added `fillMempoolRunning` mutex with try/finally cleanup (SEC-006)
-- Missing timer bounds on `setMiningTime`: enforced 1000ms minimum and 3600000ms maximum, returns error objects on invalid input (SEC-008)
-- User input reflected in API error messages (`send_funds`, `fill_mempool`), now uses generic error strings (SEC-012)
-- `setMiningTime` silently rejecting invalid input, now returns `{error: "..."}` to caller (SEC-013)
-- Full error objects logged to console in `createWallet` and `prepareWallet`: sanitized to clean error messages (SEC-004)
+- Add 50-retry limit with backoff to `fillMempool` to prevent infinite retry when `sendFundsToAddress` perpetually fails (SEC-001).
+- Cap `fillMempool` `txQuantity` at 50,000 to prevent unbounded memory allocation (SEC-002).
+- Add input validation to `sendFundsToAddress`: requires non-empty string address and positive finite number amount (SEC-003).
+- Throw clean error messages from `sendToAddress` and `sendRawTransaction` error paths to prevent RPC credential leakage (SEC-004).
+- Add `validateEnvVars()` at startup checking all 6 required vars and validating port ranges (SEC-005).
+- Add `fillMempoolRunning` mutex with `try/finally` cleanup to prevent races on concurrent `fillMempool` calls (SEC-006).
+- Enforce 1000ms minimum and 3600000ms maximum on `setMiningTime`; return error objects on invalid input (SEC-008).
+- Use generic error strings in `send_funds` and `fill_mempool` API error messages to prevent user input reflection (SEC-012).
+- Return `{error: "..."}` from `setMiningTime` on invalid input instead of silently rejecting it (SEC-013).
+- Sanitize full error objects logged in `createWallet` and `prepareWallet` to clean error messages (SEC-004).
 
 ## [0.1.6] - 2026-04-05
 
 ### Fixed
-- TypeError crash when `setMiningTime` logs non-stringifiable objects (e.g., `{toString: 0}`), wrapped error logging in try-catch
-- TypeError crash in `send_funds` and `fill_mempool` API error handlers for non-stringifiable parameter values, wrapped error message construction in try-catch
-- Infinite loop in `fillMempool` when `getRawTransaction` perpetually returns null, added 50-retry limit with 1s backoff
-- `fillMempool` accepting non-positive-integer `txQuantity` values (Infinity caused OOM, floats/strings caused undefined behavior), added input validation requiring positive integer
-- `setMiningTime` accepting zero and negative values which caused excessive RPC calls, added `> 0` validation for both parameters
+- Fix TypeError crash in `setMiningTime` logging non-stringifiable objects (e.g. `{toString: 0}`) by wrapping error logging in try-catch.
+- Fix TypeError crash in `send_funds` and `fill_mempool` API error handlers for non-stringifiable parameter values by wrapping error message construction in try-catch.
+- Add 50-retry limit with 1s backoff to `fillMempool` to stop infinite loop when `getRawTransaction` perpetually returns null.
+- Add input validation to `fillMempool` requiring a positive integer `txQuantity` (Infinity caused OOM; floats/strings caused undefined behavior).
+- Add `> 0` validation to both `setMiningTime` parameters to prevent excessive RPC calls from zero and negative values.
 
 ## [0.1.5] - 2026-04-05
 
 ### Added
-- Fuzz test suite (115 tests) using fast-check for property-based testing
-  - JSON-RPC API parameter fuzzing: arbitrary types, boundary values, malformed objects for all 6 methods
-  - Mining timer fuzzing: integer boundaries, non-integer rejection, zero/negative edge cases, rapid sequential calls
-  - fillMempool input fuzzing: txQuantity boundaries (0, -1, NaN, Infinity), chunk math verification, infinite loop detection
-  - RPC response fuzzing: malformed mempool responses, error resilience, fluctuating sizes, wallet setup edge cases
-  - Mining loop state fuzzing: timer transitions, keepMining flag toggling, interleaved errors, random event sequences
-- `fast-check` dev dependency for property-based/fuzz testing
-- `npm run test:fuzz` and `npm run test:fuzz:quick` scripts
+- Add fuzz test suite (115 tests) using fast-check: JSON-RPC API parameter fuzzing, mining timer fuzzing, `fillMempool` input fuzzing, RPC response fuzzing, and mining loop state fuzzing.
+- Add `fast-check` dev dependency for property-based testing.
+- Add `npm run test:fuzz` and `npm run test:fuzz:quick` scripts.
 
 ## [0.1.4] - 2026-04-05
 
 ### Fixed
-- Mining loop crash when `getRawMempool` returns null, added null guard before `.length` access
-- `fillMempool` intermediate block mining firing on every chunk after the 20th, reset `processedChunkCount` after mining
-- `getBalance` silently accepting `null` as a valid balance (due to `isNaN(null)` returning false), added explicit null/undefined check
+- Fix mining loop crash when `getRawMempool` returns null by adding a null guard before `.length` access.
+- Fix `fillMempool` to reset `processedChunkCount` after intermediate mining, preventing it from firing on every chunk after the 20th.
+- Fix `getBalance` silently accepting `null` as a valid balance (caused by `isNaN(null)` returning false) by adding an explicit null/undefined check.
 
 ## [0.1.3] - 2026-04-05
 
 ### Added
-- Boundary test suite (184 tests) covering edge-case behavior across all components
-  - Adaptive mining timer: zero/negative/MAX_SAFE_INTEGER values, simultaneous expiry, state transitions
-  - Mempool polling: empty/single/burst/shrink scenarios, null response handling, rapid changes
-  - fillMempool chunking: tx_quantity at 0/1/2499/2500/2501, chunk mining threshold, BIP32 index math
-  - Combined boundaries: timer+mempool interactions, mid-countdown threshold changes, double-error recovery
-  - Wallet preparation: height 99/100/101 boundary, floating-point balance, -0 edge case, null walletInfo
-  - API input validation: type rejection (float/string/null/Infinity), partial validity, pass-through behavior
-  - RPC retry: exact retry counts for createWallet/getWalletInfo, response shape edge cases, null balance
-  - Block generation: count 0/1/101/negative, null walletAddress, concurrent calls
+- Add boundary test suite (184 tests) covering adaptive mining timer, mempool polling, `fillMempool` chunking, combined timer+mempool interactions, wallet preparation, API input validation, RPC retry, and block generation edge cases.
 
 ## [0.1.2] - 2026-04-05
 
 ### Added
-- E2E test suite (26 tests) validating full mining pipeline against a stateful mock node
-  - Startup/wallet lifecycle: fresh creation, restart, unloaded recovery, empty balance, failure
-  - Mining loop: mempool detection, timer batching, max timer forcing, idle behavior, multi-cycle
-  - JSON-RPC API: ping, send_funds, timing changes, pause/resume with live miner
-  - fillMempool: real PSBT construction and broadcasting (single and multi-transaction)
-  - Error resilience: RPC recovery, insufficient balance, invalid input validation
-  - Chain state: block continuity, balance tracking, transaction inclusion
-- StatefulMockNode test helper simulating Bitcoin Core regtest node with wallet, mempool, and chain state
-- `npm run test:e2e` script (runs in ~3s with no external dependencies)
+- Add E2E test suite (26 tests) validating the full mining pipeline against `StatefulMockNode`: startup/wallet lifecycle, mining loop, JSON-RPC API, `fillMempool` PSBT construction, error resilience, and chain state tracking.
+- Add `StatefulMockNode` test helper simulating Bitcoin Core regtest node with wallet, mempool, and chain state.
+- Add `npm run test:e2e` script (runs in ~3s with no external dependencies).
 
 ## [0.1.1] - 2026-04-05
 
 ### Added
-- Smoke test suite (12 tests) for fast health-check validation of core functionality
-  - BlockchainConnector instantiation and credential wiring
-  - Wallet preparation flows (fresh node create+fund, existing wallet load)
-  - Mining loop: mempool detection, timer-based block generation, max timer forcing, pause/resume
-  - JSON-RPC API controller dispatch (ping, send_funds, set_mining_time)
-- `npm run test:smoke` script (runs in ~200ms with no external dependencies)
+- Add smoke test suite (12 tests) for fast health-check validation: `BlockchainConnector` instantiation, wallet preparation flows, mining loop core paths, and JSON-RPC API dispatch.
+- Add `npm run test:smoke` script (runs in ~200ms with no external dependencies).
 
 ## [0.1.0] - 2026-04-05
 
 ### Added
-- Unit test suite (120 tests) covering BlockchainConnector, XChainRegtestMiner, and api.js
-- Integration test suite (80 tests) covering four integration seams:
-  - Seam A: HTTP client ↔ Express JSON-RPC controller with real middleware stack
-  - Seam B: Miner ↔ Connector call sequences (prepareWallet, mining loop)
-  - Seam C: fillMempool ↔ bitcoinjs-lib PSBT crypto pipeline with real crypto libraries
-  - Seam D: BlockchainConnector ↔ MockRpcServer RPC round-trips
-- MockRpcServer test helper simulating Bitcoin Core JSON-RPC interface
-- Test fixtures with deterministic BIP39 mnemonic for reproducible crypto tests
-- Mocha and Sinon as dev dependencies with `npm test` script
+- Add unit test suite (120 tests) covering `BlockchainConnector`, `XChainRegtestMiner`, and `api.js`.
+- Add integration test suite (80 tests) covering four seams: HTTP client to Express controller (A), Miner to Connector call sequences (B), `fillMempool` to bitcoinjs-lib PSBT pipeline (C), and `BlockchainConnector` to `MockRpcServer` round-trips (D).
+- Add `MockRpcServer` test helper simulating the Bitcoin Core JSON-RPC interface.
+- Add test fixtures with deterministic BIP39 mnemonic for reproducible crypto tests.
+- Add Mocha and Sinon as dev dependencies with `npm test` script.
 
 ### Fixed
-- Removed duplicate `getBlock()` method definition in BlockchainConnector.js
-- Added max retry limit (default 50) to `getWalletInfo()` to prevent infinite loops
-- Fixed `lastRawMempoolLength` never being updated in the mining loop, which caused the extended timer to reset every poll cycle instead of only on new transactions
-- Removed Promise constructor anti-pattern from `fillMempool()`, `sendFundsToAddress()`, and `createWallet()`
+- Remove duplicate `getBlock()` method definition in `BlockchainConnector.js`.
+- Add max retry limit (default 50) to `getWalletInfo()` to prevent infinite loops.
+- Fix `lastRawMempoolLength` never being updated in the mining loop, causing the extended timer to reset every poll cycle instead of only on new transactions.
+- Remove Promise constructor anti-pattern from `fillMempool()`, `sendFundsToAddress()`, and `createWallet()`.
 
 ### Changed
-- Converted module-level mutable timing variables (`MAX_TIME_TO_MINE_TXS`, `ADDED_TIME_TO_MINE_TXS`) to instance properties (`maxTimeToMineTxs`, `addedTimeToMineTxs`) for per-instance isolation and testability
+- Convert module-level mutable timing variables (`MAX_TIME_TO_MINE_TXS`, `ADDED_TIME_TO_MINE_TXS`) to instance properties (`maxTimeToMineTxs`, `addedTimeToMineTxs`) for per-instance isolation and testability.
