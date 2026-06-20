@@ -10,17 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.18] - 2026-06-20
 
 ### Added
-- `.env.example` — added a configuration template listing every environment variable the miner reads (coin/network, coin-node RPC, API port), with safe regtest defaults and inline comments.
+- `.env.example`: added a configuration template listing every environment variable the miner reads (coin/network, coin-node RPC, API port), with safe regtest defaults and inline comments.
 
 ### Fixed
-- `connector-rpc` integration test: corrected the `sendToAddress` assertion to expect positional params `['<address>', <amount>]` instead of a named-parameter object with a `verbose` flag. `BlockchainConnector` uses positional params (and omits `verbose`) for Dogecoin v1.14 compatibility — named-parameter JSON-RPC and the `verbose` flag are Bitcoin Core 0.18+ features that older daemons reject. The unit test already matched; the integration assertion was stale and failing CI.
+- `connector-rpc` integration test: corrected the `sendToAddress` assertion to expect positional params `['<address>', <amount>]` instead of a named-parameter object with a `verbose` flag. `BlockchainConnector` uses positional params (and omits `verbose`) for Dogecoin v1.14 compatibility, named-parameter JSON-RPC and the `verbose` flag are Bitcoin Core 0.18+ features that older daemons reject. The unit test already matched; the integration assertion was stale and failing CI.
 
 ### Changed
-- `package.json` — pinned `bitcoinjs-lib` 6.1.7, `ecpair` 2.1.0, `bip32` 4.0.0, `tiny-secp256k1` 2.2.4 to exact versions (dropped the `^` caret ranges) so every install resolves a byte-identical dependency tree across operator nodes, matching the versions already frozen in `package-lock.json`. No source changes.
-- Raised the `bitcoinjs-lib` dependency floor from `^6.1.5` to `^6.1.7`, matching the version already declared by the encoder, decoder, UTXO-tracker, and SDK services. All resolved to `6.1.7` at runtime, but the miner's lower floor meant an isolated `package-lock.json` regeneration could pick up an older `6.1.x` patch than the rest of the stack — a divergence risk for a library that owns PSBT, address, and script serialization. The lockfile is regenerated; no resolved versions or source code change.
+- `package.json`: pinned `bitcoinjs-lib` 6.1.7, `ecpair` 2.1.0, `bip32` 4.0.0, `tiny-secp256k1` 2.2.4 to exact versions (dropped the `^` caret ranges) so every install resolves a byte-identical dependency tree across operator nodes, matching the versions already frozen in `package-lock.json`. No source changes.
+- Raised the `bitcoinjs-lib` dependency floor from `^6.1.5` to `^6.1.7`, matching the version already declared by the encoder, decoder, UTXO-tracker, and SDK services. All resolved to `6.1.7` at runtime, but the miner's lower floor meant an isolated `package-lock.json` regeneration could pick up an older `6.1.x` patch than the rest of the stack, a divergence risk for a library that owns PSBT, address, and script serialization. The lockfile is regenerated; no resolved versions or source code change.
 
 ### Fixed
-- `fillMempool` now resolves bitcoinjs-lib network parameters from the full coin-network identifier (e.g. `dogecoin-regtest`, `litecoin-mainnet`) via a new `CryptoNetworks` helper, instead of indexing `bitcoin.networks` by the bare network name. `api.js` previously stripped the coin prefix before constructing the miner, so address and PSBT encoding always fell back to Bitcoin parameters regardless of the coin served. This was harmless on regtest — Bitcoin, Dogecoin and Litecoin all share Bitcoin's `0x6f` P2PKH version byte there — but produced invalid addresses for the Dogecoin/Litecoin testnet and mainnet variants the API also accepts (e.g. Dogecoin testnet `0x71`, Litecoin mainnet `0x30`). `api.js` now forwards the full coin-network identifier to the miner so the correct per-coin parameters are used.
+- `fillMempool` now resolves bitcoinjs-lib network parameters from the full coin-network identifier (e.g. `dogecoin-regtest`, `litecoin-mainnet`) via a new `CryptoNetworks` helper, instead of indexing `bitcoin.networks` by the bare network name. `api.js` previously stripped the coin prefix before constructing the miner, so address and PSBT encoding always fell back to Bitcoin parameters regardless of the coin served. This was harmless on regtest, Bitcoin, Dogecoin and Litecoin all share Bitcoin's `0x6f` P2PKH version byte there, but produced invalid addresses for the Dogecoin/Litecoin testnet and mainnet variants the API also accepts (e.g. Dogecoin testnet `0x71`, Litecoin mainnet `0x30`). `api.js` now forwards the full coin-network identifier to the miner so the correct per-coin parameters are used.
 
 ## [0.1.17] - 2026-05-30
 
@@ -46,24 +46,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.13] - 2026-04-06
 
 ### Changed
-- `README.md` — updated Documentation table to link to 4 docs (README, Architecture, Configuration, Operations) matching xchain-sdk/xchain-indexer repo README format
+- `README.md`: updated Documentation table to link to 4 docs (README, Architecture, Configuration, Operations) matching xchain-sdk/xchain-indexer repo README format
 
 ## [0.1.12] - 2026-04-06
 
 ### Added
 - Three-tier regression test suite (147 tests across 3 files)
-  - `test/regression/t0-critical-gate.test.js` — 45 tests covering constructor defaults, timer validation, wallet branching, mining loop core paths, fillMempool guards, input validation, API health, and connector construction
-  - `test/regression/t1-standard-regression.test.js` — 89 tests covering all 13 RPC methods, Miner↔Connector integration seams, boundary conditions (timer edges, chunking math, wallet height), security validation (input rejection, credential leak prevention), and exponential backoff behavior
-  - `test/regression/t2-full-regression.test.js` — 13 E2E tests against StatefulMockNode covering wallet lifecycle (fresh/restart/unloaded), mempool detection and block generation, pause/resume, timer override, send_funds round-trip, RPC error resilience, chain state progression, and graceful shutdown
-  - `test/regression/FLAKY_TESTS.md` — quarantine log for non-deterministic tests
+  - `test/regression/t0-critical-gate.test.js`: 45 tests covering constructor defaults, timer validation, wallet branching, mining loop core paths, fillMempool guards, input validation, API health, and connector construction
+  - `test/regression/t1-standard-regression.test.js`: 89 tests covering all 13 RPC methods, Miner↔Connector integration seams, boundary conditions (timer edges, chunking math, wallet height), security validation (input rejection, credential leak prevention), and exponential backoff behavior
+  - `test/regression/t2-full-regression.test.js`: 13 E2E tests against StatefulMockNode covering wallet lifecycle (fresh/restart/unloaded), mempool detection and block generation, pause/resume, timer override, send_funds round-trip, RPC error resilience, chain state progression, and graceful shutdown
+  - `test/regression/FLAKY_TESTS.md`: quarantine log for non-deterministic tests
   - `npm run test:regression:t0` (< 15s gate), `test:regression:t1` (< 2min PR gate), `test:regression:t2` (< 10min nightly/release gate), `test:regression` (alias for t1)
 
 ## [0.1.11] - 2026-04-06
 
 ### Added
 - StrykerJS mutation testing infrastructure (v8.7.1 with Mocha runner)
-  - `stryker.config.js` — full mutation run across unit, smoke, boundary, security, integration, and e2e tests
-  - `stryker.unit.config.js` — fast unit-only mutation run for quick feedback
+  - `stryker.config.js`: full mutation run across unit, smoke, boundary, security, integration, and e2e tests
+  - `stryker.unit.config.js`: fast unit-only mutation run for quick feedback
   - `npm run test:mutation` and `npm run test:mutation:unit` scripts
   - HTML, JSON, and clear-text reporters outputting to `reports/mutation/`
   - perTest coverage analysis for optimized mutant-to-test mapping
@@ -128,7 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Dockerfile hardened: pinned base image (`node:20-alpine`), non-root user, `npm ci --omit=dev`, removed `.env` copy, added `HEALTHCHECK`
-- Removed `.env` file from Docker image build (SEC-015) — credentials must be passed via environment variables at runtime
+- Removed `.env` file from Docker image build (SEC-015), credentials must be passed via environment variables at runtime
 
 ## [0.1.7] - 2026-04-05
 
@@ -144,25 +144,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `npm run test:security` script
 
 ### Fixed
-- Infinite retry loop in `fillMempool` when `sendFundsToAddress` perpetually fails — added 50-retry limit with backoff (SEC-001)
-- Unbounded memory allocation via `fillMempool` with large `txQuantity` — added 50,000 cap (SEC-002)
-- Missing input validation on `sendFundsToAddress` — now requires non-empty string address and positive finite number amount (SEC-003)
-- RPC credential leakage in `sendToAddress` and `sendRawTransaction` error paths — errors now throw clean messages without axios internals (SEC-004)
-- Missing environment variable validation at startup — `validateEnvVars()` checks all 6 required vars and validates port ranges (SEC-005)
-- Race condition on concurrent `fillMempool` calls — added `fillMempoolRunning` mutex with try/finally cleanup (SEC-006)
-- Missing timer bounds on `setMiningTime` — enforced 1000ms minimum and 3600000ms maximum, returns error objects on invalid input (SEC-008)
-- User input reflected in API error messages (`send_funds`, `fill_mempool`) — now uses generic error strings (SEC-012)
-- `setMiningTime` silently rejecting invalid input — now returns `{error: "..."}` to caller (SEC-013)
-- Full error objects logged to console in `createWallet` and `prepareWallet` — sanitized to clean error messages (SEC-004)
+- Infinite retry loop in `fillMempool` when `sendFundsToAddress` perpetually fails, added 50-retry limit with backoff (SEC-001)
+- Unbounded memory allocation via `fillMempool` with large `txQuantity`: added 50,000 cap (SEC-002)
+- Missing input validation on `sendFundsToAddress`: now requires non-empty string address and positive finite number amount (SEC-003)
+- RPC credential leakage in `sendToAddress` and `sendRawTransaction` error paths, errors now throw clean messages without axios internals (SEC-004)
+- Missing environment variable validation at startup, `validateEnvVars()` checks all 6 required vars and validates port ranges (SEC-005)
+- Race condition on concurrent `fillMempool` calls, added `fillMempoolRunning` mutex with try/finally cleanup (SEC-006)
+- Missing timer bounds on `setMiningTime`: enforced 1000ms minimum and 3600000ms maximum, returns error objects on invalid input (SEC-008)
+- User input reflected in API error messages (`send_funds`, `fill_mempool`), now uses generic error strings (SEC-012)
+- `setMiningTime` silently rejecting invalid input, now returns `{error: "..."}` to caller (SEC-013)
+- Full error objects logged to console in `createWallet` and `prepareWallet`: sanitized to clean error messages (SEC-004)
 
 ## [0.1.6] - 2026-04-05
 
 ### Fixed
-- TypeError crash when `setMiningTime` logs non-stringifiable objects (e.g., `{toString: 0}`) — wrapped error logging in try-catch
-- TypeError crash in `send_funds` and `fill_mempool` API error handlers for non-stringifiable parameter values — wrapped error message construction in try-catch
-- Infinite loop in `fillMempool` when `getRawTransaction` perpetually returns null — added 50-retry limit with 1s backoff
-- `fillMempool` accepting non-positive-integer `txQuantity` values (Infinity caused OOM, floats/strings caused undefined behavior) — added input validation requiring positive integer
-- `setMiningTime` accepting zero and negative values which caused excessive RPC calls — added `> 0` validation for both parameters
+- TypeError crash when `setMiningTime` logs non-stringifiable objects (e.g., `{toString: 0}`), wrapped error logging in try-catch
+- TypeError crash in `send_funds` and `fill_mempool` API error handlers for non-stringifiable parameter values, wrapped error message construction in try-catch
+- Infinite loop in `fillMempool` when `getRawTransaction` perpetually returns null, added 50-retry limit with 1s backoff
+- `fillMempool` accepting non-positive-integer `txQuantity` values (Infinity caused OOM, floats/strings caused undefined behavior), added input validation requiring positive integer
+- `setMiningTime` accepting zero and negative values which caused excessive RPC calls, added `> 0` validation for both parameters
 
 ## [0.1.5] - 2026-04-05
 
@@ -179,9 +179,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.4] - 2026-04-05
 
 ### Fixed
-- Mining loop crash when `getRawMempool` returns null — added null guard before `.length` access
-- `fillMempool` intermediate block mining firing on every chunk after the 20th — reset `processedChunkCount` after mining
-- `getBalance` silently accepting `null` as a valid balance (due to `isNaN(null)` returning false) — added explicit null/undefined check
+- Mining loop crash when `getRawMempool` returns null, added null guard before `.length` access
+- `fillMempool` intermediate block mining firing on every chunk after the 20th, reset `processedChunkCount` after mining
+- `getBalance` silently accepting `null` as a valid balance (due to `isNaN(null)` returning false), added explicit null/undefined check
 
 ## [0.1.3] - 2026-04-05
 
