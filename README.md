@@ -32,19 +32,19 @@ Auto-mining service for XChain Platform regtest environments. Polls the mempool 
 
 ## Documentation
 
-Full regtest miner documentation is available in the [xchain-documentation](https://github.com/XChain-platform/xchain-documentation/tree/master/components/regtest-miner) repository:
+Full regtest miner documentation is available in the [xchain-documentation](https://github.com/XChain-Platform/xchain-documentation/tree/master/components/regtest-miner) repository:
 
 | Document | Description |
 |---|---|
-| [README](https://github.com/XChain-platform/xchain-documentation/blob/master/components/regtest-miner/README.md) | Overview, features, installation, quick start, scripts, dependencies |
-| [Architecture](https://github.com/XChain-platform/xchain-documentation/blob/master/components/regtest-miner/ARCHITECTURE.md) | Component diagram, source files, mining loop, wallet lifecycle, fillMempool |
-| [Configuration](https://github.com/XChain-platform/xchain-documentation/blob/master/components/regtest-miner/CONFIGURATION.md) | Environment variables, internal constants, timer behavior, backoff |
-| [Operations](https://github.com/XChain-platform/xchain-documentation/blob/master/components/regtest-miner/OPERATIONS.md) | JSON-RPC API endpoints, startup sequence, Docker, troubleshooting |
+| [README](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/regtest-miner/README.md) | Overview, features, installation, quick start, scripts, dependencies |
+| [Architecture](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/regtest-miner/ARCHITECTURE.md) | Component diagram, source files, mining loop, wallet lifecycle, fillMempool |
+| [Configuration](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/regtest-miner/CONFIGURATION.md) | Environment variables, internal constants, timer behavior, backoff |
+| [Operations](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/regtest-miner/OPERATIONS.md) | JSON-RPC API endpoints, startup sequence, Docker, troubleshooting |
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/XChain-platform/xchain-regtest-miner.git
+git clone https://github.com/XChain-Platform/xchain-regtest-miner.git
 cd xchain-regtest-miner
 npm install
 ```
