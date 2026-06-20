@@ -57,6 +57,7 @@ class XChainRegtestMiner {
       this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
       this.fillMempoolRunning = false
       this._generateQueue = Promise.resolve()
+      this.walletReady = false
       this._mempoolSize = 0
       this._blocksMined = 0
       this._lastMineAt = null
@@ -349,6 +350,11 @@ class XChainRegtestMiner {
 
     async pauseMining(){
         this.keepMining = false
+        // Barrier: a pause that lands between the loop's keepMining check and its
+        // generateBlocks(1) would let one more block settle after pause() resolves,
+        // breaking a height-deterministic generateBlocks section. Await the in-flight
+        // mine so callers get a true barrier.
+        await this._generateQueue
     }
 
     async continueMining(){
@@ -450,8 +456,13 @@ class XChainRegtestMiner {
                 await this.generateBlocks(1)
             }
         }
+
+        // Wallet is fully prepared (address assigned, coinbase matured): wallet-dependent
+        // RPCs (generateToAddress) are now safe. Callers gate on this via ping/status,
+        // closing the cold-start race where ping returned success before walletAddress was set.
+        this.walletReady = true
     }
-    
+
     generateBlocks(count) {
         if (!Number.isInteger(count) || count <= 0) return [];
         // Serialize all callers (auto-mine loop + generate_blocks RPC) behind a
@@ -567,6 +578,7 @@ class XChainRegtestMiner {
 
     getStatus(){
         return {
+            wallet_ready: this.walletReady,
             mempool_size: this._mempoolSize,
             blocks_mined: this._blocksMined,
             last_mine_at: this._lastMineAt,

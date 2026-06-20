@@ -97,7 +97,10 @@ async function startApi(){
     const jsonRpcController = {
         // Function to check if xchain-regtest-miner is up
         async ping() {
-            return {status:"success"};
+            // ready reflects wallet preparation (mine-readiness), not just that the port is
+            // listening: start() runs prepareWallet() detached, so a cold start after a reset
+            // can answer ping before walletAddress is set. Callers that mine should gate on ready.
+            return {status:"success", ready: !!miner.walletReady};
         },
 
         // Return current loop state so operators and CI can distinguish
