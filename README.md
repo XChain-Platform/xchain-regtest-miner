@@ -4,14 +4,14 @@
 # XChain Platform Regtest Miner
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.14-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.1.18-blue" alt="Version">
   <img src="https://img.shields.io/badge/tests-901%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
-  <img src="https://img.shields.io/badge/license-Dankest%20Community-orange" alt="License">
+  <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/coverage-unit%20%7C%20integration%20%7C%20e2e%20%7C%20fuzz%20%7C%20chaos%20%7C%20mutation%20%7C%20boundary%20%7C%20smoke%20%7C%20security%20%7C%20performance%20%7C%20regression-brightgreen" alt="Coverage">
+  <img src="https://img.shields.io/badge/coverage-unit%20%7C%20integration%20%7C%20e2e%20%7C%20smoke%20%7C%20boundary%20%7C%20security%20%7C%20fuzz%20%7C%20chaos%20%7C%20performance%20%7C%20mutation%20%7C%20regression-brightgreen" alt="Coverage">
 </p>
 
 Auto-mining service for XChain Platform regtest environments. Polls the mempool every second, batches transactions using an adaptive dual-timer system (30s max / 5s extension), and mines blocks via `generatetoaddress`. Exposes a JSON-RPC API for test orchestration including fund transfers, mempool stress testing, and runtime timer configuration.
@@ -20,7 +20,7 @@ Auto-mining service for XChain Platform regtest environments. Polls the mempool 
 
 - **Adaptive dual-timer mining:** 30-second max timer with 5-second extension on each new transaction, configurable at runtime via JSON-RPC
 - **Automatic wallet management:** creates, loads, and funds a regtest wallet on startup; mines 101 bootstrap blocks on a fresh chain for coinbase maturity
-- **JSON-RPC control API:** 6 endpoints (`ping`, `send_funds`, `fill_mempool`, `continue_mining`, `set_mining_time`, `set_default_mining_time`) for test orchestration
+- **JSON-RPC control API:** 7 endpoints (`ping`, `send_funds`, `generate_blocks`, `fill_mempool`, `continue_mining`, `set_mining_time`, `set_default_mining_time`) for test orchestration
 - **Mempool stress testing:** `fill_mempool` constructs and broadcasts thousands of raw Bitcoin transactions using BIP32/BIP39 key derivation and PSBT signing
 - **Exponential backoff:** automatic retry with capped exponential backoff (1s to 30s) on RPC connection failures
 - **Graceful shutdown:** SIGTERM handler allows the current mining loop iteration to complete before exiting
@@ -115,14 +115,3 @@ with a commercial license available for proprietary use.
 You may use, modify, and distribute this material under the terms of the License.
 See [LICENSE](./LICENSE.md) and [NOTICE](./NOTICE.md) for full terms.
 See the [licensing overview](https://docs.xchain.io/legal/licensing).
-
-## License
-
-XChain Platform is **open source**, dual-licensed under:
-
-- the **[GNU Affero General Public License v3.0](./LICENSE.md)** (`AGPL-3.0-or-later`), free for everyone, and
-- a **[commercial license](https://docs.xchain.io/legal/commercial-license)** for companies that need to keep modifications private.
-
-See the **[licensing overview](https://docs.xchain.io/legal/licensing)** for which one applies to you. "XChain" is a trademark of Dankest, LLC. See the **[Trademark Policy](https://docs.xchain.io/legal/trademark)**.
-
-Copyright © 2025-2026 Dankest, LLC.
