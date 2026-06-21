@@ -14,10 +14,23 @@ const CryptoNetworks = require('../../src/CryptoNetworks')
 
 describe('CryptoNetworks.getBitcoinJsNetwork', function () {
 
-    it('returns the bitcoinjs-lib built-ins for bitcoin networks', function () {
-        assert.strictEqual(CryptoNetworks.getBitcoinJsNetwork('bitcoin-mainnet'), bitcoin.networks.bitcoin)
-        assert.strictEqual(CryptoNetworks.getBitcoinJsNetwork('bitcoin-testnet'), bitcoin.networks.testnet)
-        assert.strictEqual(CryptoNetworks.getBitcoinJsNetwork('bitcoin-regtest'), bitcoin.networks.regtest)
+    it('returns the bitcoinjs-lib bitcoin params augmented with relay policy fields', function () {
+        // getBitcoinJsNetwork spreads the bitcoinjs-lib built-in and adds the
+        // relay-policy fields (dustThreshold, etc.), so it is a fresh object,
+        // not the built-in by reference. Assert the built-in fields carry
+        // through and the augmented field is present.
+        for (const [name, builtin] of [
+            ['bitcoin-mainnet', bitcoin.networks.bitcoin],
+            ['bitcoin-testnet', bitcoin.networks.testnet],
+            ['bitcoin-regtest', bitcoin.networks.regtest],
+        ]) {
+            const net = CryptoNetworks.getBitcoinJsNetwork(name)
+            assert.strictEqual(net.bech32, builtin.bech32)
+            assert.strictEqual(net.pubKeyHash, builtin.pubKeyHash)
+            assert.strictEqual(net.scriptHash, builtin.scriptHash)
+            assert.strictEqual(net.wif, builtin.wif)
+            assert.strictEqual(net.dustThreshold, 546)
+        }
     })
 
     it('returns dogecoin-mainnet params', function () {
