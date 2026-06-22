@@ -460,6 +460,65 @@ class BlockchainConnector {
         }
     }
     
+    // Marks a block (identified by its hash) as invalid, causing the node to
+    // roll back to a fork point. Combined with reconsiderBlock this enables
+    // deterministic reorg testing: invalidate the tip, mine a competing branch,
+    // then reconsider to let the node pick the longest chain.
+    async invalidateBlock(blockHash) {
+        try {
+            const data = {
+                jsonrpc: '2.0',
+                method: 'invalidateblock',
+                params: [blockHash],
+                id: 1,
+            }
+
+            const response = await axios.post(this.url, data, {
+                auth: {
+                    username: this.rpcUser,
+                    password: this.rpcPassword,
+                }
+            })
+
+            // invalidateblock returns null on success (no error field = success).
+            if (response.data && response.data.error) {
+                throw new Error('invalidateblock RPC error: ' + response.data.error.message)
+            }
+            return true
+        } catch (error) {
+            throw new Error('invalidateBlock failed: ' + (error && error.message ? error.message : String(error)))
+        }
+    }
+
+    // Removes a block from the invalid set, allowing the node to re-evaluate
+    // it as part of the best chain. Use after invalidateBlock once the competing
+    // branch has been mined to trigger reorg resolution.
+    async reconsiderBlock(blockHash) {
+        try {
+            const data = {
+                jsonrpc: '2.0',
+                method: 'reconsiderblock',
+                params: [blockHash],
+                id: 1,
+            }
+
+            const response = await axios.post(this.url, data, {
+                auth: {
+                    username: this.rpcUser,
+                    password: this.rpcPassword,
+                }
+            })
+
+            // reconsiderblock returns null on success (no error field = success).
+            if (response.data && response.data.error) {
+                throw new Error('reconsiderblock RPC error: ' + response.data.error.message)
+            }
+            return true
+        } catch (error) {
+            throw new Error('reconsiderBlock failed: ' + (error && error.message ? error.message : String(error)))
+        }
+    }
+
     async sendRawTransaction(txHex){
         try {
             const data = {

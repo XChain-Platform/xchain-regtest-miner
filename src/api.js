@@ -44,6 +44,12 @@ const NODE_USER =  process.env.NODE_USER
 const NODE_PASSWORD =  process.env.NODE_PASSWORD
 const REGTEST_MINER_API_PORT = process.env.REGTEST_MINER_API_PORT
 
+// Optional API key for the miner's own JSON-RPC surface. When set, every request
+// must supply the matching value in the X-API-Key header; unset (default) means
+// no auth so existing unauthenticated callers (e2e harness, docker-compose stacks)
+// are unaffected. Mirrors the opt-in pattern used by xchain-encoder and xchain-hub.
+const MINER_API_KEY = process.env.MINER_API_KEY || null
+
 const REQUIRED_ENV_VARS = ['NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER', 'NODE_PASSWORD', 'REGTEST_MINER_API_PORT']
 
 function validateEnvVars() {
@@ -93,6 +99,20 @@ async function startApi(){
     // Allow CORS for development
     app.use(cors());
 
+    // When MINER_API_KEY is set, enforce it via X-API-Key header. Requests without
+    // the correct key receive 401 before reaching any RPC handler. When the env var
+    // is absent the middleware is skipped entirely so unauthenticated callers
+    // (e2e harness, docker-compose stacks) continue to work with no config change.
+    if (MINER_API_KEY) {
+        console.log('MINER_API_KEY is set: API key authentication is enabled')
+        app.use((req, res, next) => {
+            const provided = req.headers['x-api-key']
+            if (provided !== MINER_API_KEY) {
+                return res.status(401).json({ error: 'Unauthorized: missing or invalid X-API-Key' })
+            }
+            next()
+        })
+    }
 
     const jsonRpcController = {
         // Function to check if xchain-regtest-miner is up
@@ -192,6 +212,29 @@ async function startApi(){
                 return { "count": hashes.length, "hashes": hashes }
             } catch (err){
                 return { "error": "There was a problem generating blocks: " + (err && err.message) }
+            }
+        },
+
+        // Mark a block as invalid so the node rolls back to the fork point.
+        // Auto-mining is paused; call continue_mining when the reorg is complete.
+        // Enables deterministic reorg tests without dropping to raw node RPC.
+        async invalidate_block({block_hash}) {
+            try {
+                await miner.invalidateBlock(block_hash)
+                return "ok"
+            } catch (err) {
+                return { "error": "There was a problem invalidating the block: " + (err && err.message ? err.message : err) }
+            }
+        },
+
+        // Remove a block from the invalid set so the node can re-evaluate chain
+        // selection. Call after mining the competing branch, before continue_mining.
+        async reconsider_block({block_hash}) {
+            try {
+                await miner.reconsiderBlock(block_hash)
+                return "ok"
+            } catch (err) {
+                return { "error": "There was a problem reconsidering the block: " + (err && err.message ? err.message : err) }
             }
         }
     }

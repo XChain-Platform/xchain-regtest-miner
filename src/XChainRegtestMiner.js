@@ -22,11 +22,11 @@
 const BlockchainConnector = require('./BlockchainConnector.js')
 const CryptoNetworks = require('./CryptoNetworks.js')
 
-// NOTE: CHECK_BLOCK_DELAY_MS and MIN_MINING_TIME are intentionally kept equal
-// (both 1000ms). This means a timer set at exactly MIN_MINING_TIME may fire
-// anywhere between 1× and 2× the intended delay depending on poll phase.
-// Tighten CHECK_BLOCK_DELAY_MS (e.g. 100ms) if sub-second timing precision matters.
-const CHECK_BLOCK_DELAY_MS = 1000 //1 second to continously ask for new block when all has been parsed
+// CHECK_BLOCK_DELAY_MS controls how often the loop wakes to poll the mempool and
+// check timers. It is intentionally much shorter than MIN_MINING_TIME (1000ms) so
+// that the loop fires close to the timer deadline rather than up to 1× late. A 100ms
+// poll adds only ~100ms worst-case overshoot instead of the previous 1000ms (100%).
+const CHECK_BLOCK_DELAY_MS = 100 //100ms poll interval; decoupled from MIN_MINING_TIME
 const SATOSHI_UNIT = 100000000.0
 
 const DEFAULT_MAX_TIME_TO_MINE_TXS = 30000 //max 30 seconds to mine a block after the first tx is found in the mempool
@@ -346,6 +346,28 @@ class XChainRegtestMiner {
             } finally {
                 this.fillMempoolRunning = false
             }
+    }
+
+    // Invalidates a block by hash, triggering a node-side rollback to the fork
+    // point. Auto-mining is paused beforehand so the miner does not race ahead
+    // with new blocks while the reorg is being constructed; callers must call
+    // continueMining() when done.
+    async invalidateBlock(blockHash) {
+        if (typeof blockHash !== 'string' || blockHash.length === 0) {
+            throw new Error('invalidateBlock: blockHash must be a non-empty string')
+        }
+        await this.pauseMining()
+        return await this.connector.invalidateBlock(blockHash)
+    }
+
+    // Re-enables consideration of a previously invalidated block, letting the
+    // node resolve which chain is longest. Should be called after the competing
+    // branch is mined and before continueMining().
+    async reconsiderBlock(blockHash) {
+        if (typeof blockHash !== 'string' || blockHash.length === 0) {
+            throw new Error('reconsiderBlock: blockHash must be a non-empty string')
+        }
+        return await this.connector.reconsiderBlock(blockHash)
     }
 
     async pauseMining(){

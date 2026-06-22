@@ -197,6 +197,37 @@ describe('XChainRegtestMiner', function () {
         })
     })
 
+    // ─── invalidateBlock / reconsiderBlock ──────────────────────────────
+
+    describe('invalidateBlock', function () {
+        it('pauses mining and calls connector.invalidateBlock', async function () {
+            connectorStub.invalidateBlock = sinon.stub().resolves(true)
+            const pauseSpy = sinon.spy(miner, 'pauseMining')
+            await miner.invalidateBlock('deadbeef')
+            assert(pauseSpy.calledOnce, 'pauseMining should be called before invalidating')
+            assert(connectorStub.invalidateBlock.calledWith('deadbeef'))
+        })
+
+        it('rejects when blockHash is not a string', async function () {
+            connectorStub.invalidateBlock = sinon.stub().resolves(true)
+            await assert.rejects(() => miner.invalidateBlock(null), /blockHash must be a non-empty string/)
+        })
+    })
+
+    describe('reconsiderBlock', function () {
+        it('calls connector.reconsiderBlock with the hash', async function () {
+            connectorStub.reconsiderBlock = sinon.stub().resolves(true)
+            const result = await miner.reconsiderBlock('deadbeef')
+            assert.strictEqual(result, true)
+            assert(connectorStub.reconsiderBlock.calledWith('deadbeef'))
+        })
+
+        it('rejects when blockHash is not a string', async function () {
+            connectorStub.reconsiderBlock = sinon.stub().resolves(true)
+            await assert.rejects(() => miner.reconsiderBlock(''), /blockHash must be a non-empty string/)
+        })
+    })
+
     // ─── prepareWallet ──────────────────────────────────────────────────
 
     describe('prepareWallet', function () {
@@ -755,8 +786,18 @@ describe('XChainRegtestMiner', function () {
         it('resolves after the specified delay', async function () {
             const fakeClock = sinon.useFakeTimers()
             const promise = miner.sleep(100)
+
+            // Before the delay has elapsed the promise must still be pending.
+            // Race it against an immediately-resolved sentinel: if sleep resolved
+            // early the sentinel would lose, so the sentinel winning proves pending.
+            const sentinel = Promise.resolve('sentinel')
+            const earlyWinner = await Promise.race([promise.then(() => 'sleep'), sentinel])
+            assert.strictEqual(earlyWinner, 'sentinel', 'sleep resolved before the delay elapsed')
+
+            // Advance time past the delay; now sleep must resolve.
             fakeClock.tick(100)
             await promise
+
             fakeClock.restore()
         })
     })

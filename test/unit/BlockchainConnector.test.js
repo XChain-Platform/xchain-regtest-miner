@@ -391,11 +391,15 @@ describe('BlockchainConnector', function () {
             assertRpcCall('generatetoaddress', [2, 'addr1'])
         })
 
-        it('uses 60s timeout', async function () {
+        it('does not override the timeout, inheriting the NODE_RPC_TIMEOUT default', async function () {
+            // generateToAddress no longer hardcodes timeout:60000; it inherits
+            // axios.defaults.timeout (NODE_RPC_TIMEOUT, default 60000) like every
+            // other connector call, so the per-request config carries no timeout.
             axiosPostStub.resolves(rpcSuccess(['hash']))
             await connector.generateToAddress(1, 'addr')
             const config = axiosPostStub.firstCall.args[2]
-            assert.strictEqual(config.timeout, 60000)
+            assert.strictEqual(config.timeout, undefined)
+            assert.strictEqual(axios.defaults.timeout, 60000)
         })
 
         it('throws when result is falsy', async function () {
@@ -479,6 +483,48 @@ describe('BlockchainConnector', function () {
         })
     })
 
+    // ─── invalidateBlock ────────────────────────────────────────────────
+
+    describe('invalidateBlock', function () {
+        it('calls invalidateblock RPC and returns true on success', async function () {
+            axiosPostStub.resolves({ data: { result: null, error: null, id: 1 } })
+            const result = await connector.invalidateBlock('abc123')
+            assert.strictEqual(result, true)
+            assertRpcCall('invalidateblock', ['abc123'])
+        })
+
+        it('throws when the node returns an RPC error', async function () {
+            axiosPostStub.resolves({ data: { result: null, error: { code: -8, message: 'Block not found' }, id: 1 } })
+            await assert.rejects(() => connector.invalidateBlock('badhash'), /invalidateBlock failed.*Block not found/)
+        })
+
+        it('throws on network error', async function () {
+            axiosPostStub.rejects(new Error('connection refused'))
+            await assert.rejects(() => connector.invalidateBlock('abc123'), /invalidateBlock failed.*connection refused/)
+        })
+    })
+
+    // ─── reconsiderBlock ────────────────────────────────────────────────
+
+    describe('reconsiderBlock', function () {
+        it('calls reconsiderblock RPC and returns true on success', async function () {
+            axiosPostStub.resolves({ data: { result: null, error: null, id: 1 } })
+            const result = await connector.reconsiderBlock('abc123')
+            assert.strictEqual(result, true)
+            assertRpcCall('reconsiderblock', ['abc123'])
+        })
+
+        it('throws when the node returns an RPC error', async function () {
+            axiosPostStub.resolves({ data: { result: null, error: { code: -8, message: 'Block not found' }, id: 1 } })
+            await assert.rejects(() => connector.reconsiderBlock('badhash'), /reconsiderBlock failed.*Block not found/)
+        })
+
+        it('throws on network error', async function () {
+            axiosPostStub.rejects(new Error('timeout'))
+            await assert.rejects(() => connector.reconsiderBlock('abc123'), /reconsiderBlock failed.*timeout/)
+        })
+    })
+
     // ─── sendRawTransaction ─────────────────────────────────────────────
 
     describe('sendRawTransaction', function () {
@@ -511,8 +557,18 @@ describe('BlockchainConnector', function () {
         it('resolves after the specified delay', async function () {
             const clock = sinon.useFakeTimers()
             const promise = connector.sleep(100)
+
+            // Before the delay has elapsed the promise must still be pending.
+            // Race it against an immediately-resolved sentinel: if sleep resolved
+            // early the sentinel would lose, so the sentinel winning proves pending.
+            const sentinel = Promise.resolve('sentinel')
+            const earlyWinner = await Promise.race([promise.then(() => 'sleep'), sentinel])
+            assert.strictEqual(earlyWinner, 'sentinel', 'sleep resolved before the delay elapsed')
+
+            // Advance time past the delay; now sleep must resolve.
             clock.tick(100)
             await promise
+
             clock.restore()
         })
     })
