@@ -367,7 +367,9 @@ class BlockchainConnector {
                     username: this.rpcUser,
                     password: this.rpcPassword,
                 },
-                timeout:60000
+                // Inherit axios.defaults.timeout (NODE_RPC_TIMEOUT, default 60000)
+                // rather than hardcoding, so the mining RPC honors the same env knob
+                // as every other call on this connector.
             })
 
             if (response.data.result) {
