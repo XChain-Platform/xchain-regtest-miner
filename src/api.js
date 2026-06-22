@@ -50,6 +50,13 @@ const REGTEST_MINER_API_PORT = process.env.REGTEST_MINER_API_PORT
 // are unaffected. Mirrors the opt-in pattern used by xchain-encoder and xchain-hub.
 const MINER_API_KEY = process.env.MINER_API_KEY || null
 
+// Read-only health/observability RPC methods that bypass the MINER_API_KEY gate. The
+// bundled Docker HEALTHCHECK POSTs `ping` with no X-API-Key, so gating it would 401 every
+// probe and mark the container permanently unhealthy (stalling any
+// `depends_on: service_healthy` bring-up). Exported so the auth contract is asserted
+// directly rather than via a drift-prone mirror.
+const UNAUTHENTICATED_METHODS = new Set(['ping', 'status'])
+
 const REQUIRED_ENV_VARS = ['NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER', 'NODE_PASSWORD', 'REGTEST_MINER_API_PORT']
 
 function validateEnvVars() {
@@ -103,9 +110,16 @@ async function startApi(){
     // the correct key receive 401 before reaching any RPC handler. When the env var
     // is absent the middleware is skipped entirely so unauthenticated callers
     // (e2e harness, docker-compose stacks) continue to work with no config change.
+    //
+    // The read-only health/observability methods (UNAUTHENTICATED_METHODS: ping, status)
+    // are exempt; bodyParser.json() (above) has already populated req.body, so the method
+    // is readable here.
     if (MINER_API_KEY) {
         console.log('MINER_API_KEY is set: API key authentication is enabled')
         app.use((req, res, next) => {
+            if (UNAUTHENTICATED_METHODS.has(req.body && req.body.method)) {
+                return next()
+            }
             const provided = req.headers['x-api-key']
             if (provided !== MINER_API_KEY) {
                 return res.status(401).json({ error: 'Unauthorized: missing or invalid X-API-Key' })
@@ -253,4 +267,4 @@ if (require.main === module) {
     startApi()
 }
 
-module.exports = { startApi }
+module.exports = { startApi, UNAUTHENTICATED_METHODS }

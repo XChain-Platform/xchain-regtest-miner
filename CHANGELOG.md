@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Exempt the read-only `ping` and `status` methods from the `MINER_API_KEY` gate so the bundled Docker healthcheck (which POSTs `ping` with no `X-API-Key`) no longer 401s into a permanently-unhealthy container when auth is enabled.
+
+### Added
+- Surface `mining_paused` in `getStatus()` so an unpaired `fill_mempool`/`invalidate_block` is observable as a deliberate pause rather than reading as a node hang.
+
 ## [0.1.18] - 2026-06-20
 
 ### Added

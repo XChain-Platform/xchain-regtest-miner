@@ -604,7 +604,11 @@ class XChainRegtestMiner {
             mempool_size: this._mempoolSize,
             blocks_mined: this._blocksMined,
             last_mine_at: this._lastMineAt,
-            consecutive_errors: this._consecutiveErrors
+            consecutive_errors: this._consecutiveErrors,
+            // Surface the paused state so a fill_mempool / invalidate_block that was never
+            // paired with continue_mining is observable as a deliberate pause rather than
+            // reading as a node hang (the loop holds keepMining=false until resumed).
+            mining_paused: !this.keepMining
         }
     }
 }
