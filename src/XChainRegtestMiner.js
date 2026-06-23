@@ -109,6 +109,10 @@ class XChainRegtestMiner {
             }
 
             this.keepMining = false //Stop the mining so the txs stay in mempool
+            // Mirror pauseMining's barrier: wait for any in-flight generateBlocks(1)
+            // to settle before proceeding, so a mine that started just before the
+            // flag flip can't land a new block while fillMempool is running.
+            await this._generateQueue
             this.fillMempoolRunning = true
             try {
             console.log("Filling mempool with "+txQuantity+" transactions")
@@ -261,7 +265,12 @@ class XChainRegtestMiner {
                 psbt.addInput({
                     hash: txid,
                     index: utxoIndex,
-                    sequence: transaction.outs[utxoIndex].sequence,
+                    // transaction.outs[n].sequence doesn't exist (.sequence is an
+                    // input field, not an output field); reading it always yields
+                    // undefined, which bitcoinjs-lib coerces to 0 (disabling RBF
+                    // signalling but also rejecting some nodes). Use the standard
+                    // final-sequence value instead.
+                    sequence: 0xffffffff,
                     nonWitnessUtxo: Buffer.from(rawTransaction, 'hex')
                 })
             
@@ -306,7 +315,6 @@ class XChainRegtestMiner {
             await this.generateBlocks(1)
             
             //Create txQuantity transactions to stress the mempool
-            let outputIndex = 0
             for (let nextAddressIndex in addresses){
                 let nextAddress = addresses[nextAddressIndex]
                 let psbt = new bitcoin.Psbt({ network: network })
@@ -339,8 +347,6 @@ class XChainRegtestMiner {
                 
                 
                 await this.connector.sendRawTransaction(outputTxHex)
-                
-                outputIndex++
             }
 
             } finally {
