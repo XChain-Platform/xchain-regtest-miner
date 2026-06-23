@@ -129,7 +129,7 @@ class BlockchainConnector {
             const data = {
                 jsonrpc: '2.0',
                 method: 'getblock',
-                params: [blockhash, (hexFormat?0:1)],
+                params: [blockhash, !hexFormat],  // getblock verbose is a boolean (false=hex, true=json); Dogecoin 1.14 rejects integer verbosity. Bitcoin Core coerces the boolean, so this is safe cross-node
                 id: 1,
             }
 

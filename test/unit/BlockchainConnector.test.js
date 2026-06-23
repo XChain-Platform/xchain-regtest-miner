@@ -136,19 +136,20 @@ describe('BlockchainConnector', function () {
     // ─── getBlock ───────────────────────────────────────────────────────
 
     describe('getBlock', function () {
-        it('sends params with verbosity 0 for hex format (default)', async function () {
+        it('sends boolean false verbose for hex format (default)', async function () {
             axiosPostStub.resolves(rpcSuccess('0100000000...'))
             const result = await connector.getBlock('blockhash123')
             assert.strictEqual(result, '0100000000...')
-            assertRpcCall('getblock', ['blockhash123', 0])
+            // getblock verbose is a boolean (false=hex); Dogecoin 1.14 rejects integer verbosity.
+            assertRpcCall('getblock', ['blockhash123', false])
         })
 
-        it('sends params with verbosity 1 when hexFormat is false', async function () {
+        it('sends boolean true verbose when hexFormat is false', async function () {
             const blockObj = { hash: 'blockhash123', height: 1 }
             axiosPostStub.resolves(rpcSuccess(blockObj))
             const result = await connector.getBlock('blockhash123', false)
             assert.deepStrictEqual(result, blockObj)
-            assertRpcCall('getblock', ['blockhash123', 1])
+            assertRpcCall('getblock', ['blockhash123', true])
         })
 
         it('throws clean error on network error', async function () {
