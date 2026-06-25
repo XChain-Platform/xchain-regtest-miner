@@ -73,9 +73,13 @@ function validateEnvVars() {
             process.exit(1)
         }
     }
-    const validNetworks = ['regtest', 'testnet', 'mainnet']
+    // Refuse mainnet outright. This tool auto-mines and exposes an
+    // unauthenticated send_funds endpoint by default; pointed at a live mainnet
+    // node it would drain a funded wallet via sendtoaddress. regtest is the
+    // intended target; testnet is tolerated for faucet-style flows (valueless coins).
+    const validNetworks = ['regtest', 'testnet']
     if (!validNetworks.includes(NETWORK)) {
-        console.error('NETWORK must resolve to one of: ' + validNetworks.join(', ') + ' (got: ' + process.env.NETWORK + ')')
+        console.error('NETWORK must resolve to one of: ' + validNetworks.join(', ') + ' (got: ' + process.env.NETWORK + '). mainnet is refused.')
         process.exit(1)
     }
     const nodeUrl = process.env.NODE_URL
