@@ -413,6 +413,29 @@ class BlockchainConnector {
         }
     }
 
+    // Pin a fixed wallet fee rate (coins/kB) so sendtoaddress never consults
+    // estimatesmartfee. On a matured regtest chain estimatesmartfee inflates to
+    // absurd values (observed 0.49 LTC/kB after ~1200 blocks of fee history),
+    // and the wallet then computes a fee that exceeds the default -maxtxfee
+    // ceiling and rejects funding sends with RPC error -6 ("Fee exceeds
+    // maximum configured by user"). That silently broke every funded-address
+    // test in the back half of a long e2e run. settxfee is an ancient RPC
+    // present on all supported daemons (BTC v28, LTC v0.21, DOGE v1.14), and a
+    // fixed low rate is correct on regtest where coins are valueless. Returns
+    // true on success; a daemon that rejects settxfee is tolerated (caller
+    // logs and proceeds on the estimate path).
+    async setTxFee(feePerKb){
+        try {
+            const data = { jsonrpc: '2.0', method: 'settxfee', params: [feePerKb], id: 1 }
+            const response = await axios.post(this._walletEndpoint(), data, {
+                auth: { username: this.rpcUser, password: this.rpcPassword }
+            })
+            return response.data && response.data.result === true
+        } catch (error) {
+            return false
+        }
+    }
+
     async sendToAddress(address, amount){
         try {
             // Use POSITIONAL params for sendtoaddress, not named. Named-parameter

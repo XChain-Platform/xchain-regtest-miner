@@ -485,6 +485,18 @@ class XChainRegtestMiner {
             }
         }
 
+        // Pin a fixed, low wallet fee rate so funding sends (sendtoaddress) never
+        // consult estimatesmartfee, which inflates on a matured regtest chain and
+        // trips the daemon's -maxtxfee ceiling (RPC error -6), silently breaking
+        // funded-address tests late in a long e2e run. 0.001 coins/kB is well above
+        // every supported chain's relayfee floor (BTC/LTC 0.00001, DOGE 0.001) so
+        // txs still relay, and valueless on regtest. Best-effort: a daemon that
+        // rejects settxfee just falls back to the estimate path.
+        const feePinned = await this.connector.setTxFee(0.001)
+        console.log(feePinned
+            ? 'Pinned wallet fee rate to 0.001/kB (regtest estimatesmartfee bypass)'
+            : 'settxfee not honored by this daemon; funding sends use the fee estimate')
+
         // Wallet is fully prepared (address assigned, coinbase matured): wallet-dependent
         // RPCs (generateToAddress) are now safe. Callers gate on this via ping/status,
         // closing the cold-start race where ping returned success before walletAddress was set.

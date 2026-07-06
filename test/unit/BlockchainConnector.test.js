@@ -484,6 +484,29 @@ describe('BlockchainConnector', function () {
         })
     })
 
+    // ─── setTxFee ───────────────────────────────────────────────────────
+
+    describe('setTxFee', function () {
+        it('calls settxfee with the fee rate and returns true on success', async function () {
+            axiosPostStub.resolves(rpcSuccess(true))
+            const result = await connector.setTxFee(0.001)
+            assert.strictEqual(result, true)
+            assertRpcCall('settxfee', [0.001])
+        })
+
+        it('returns false (tolerated) when the daemon rejects settxfee', async function () {
+            // A daemon that does not honor settxfee must not break wallet prep;
+            // funding then falls back to the fee-estimate path.
+            axiosPostStub.resolves({ data: { result: false, error: null, id: 1 } })
+            assert.strictEqual(await connector.setTxFee(0.001), false)
+        })
+
+        it('returns false on a network error rather than throwing', async function () {
+            axiosPostStub.rejects(new Error('ECONNREFUSED'))
+            assert.strictEqual(await connector.setTxFee(0.001), false)
+        })
+    })
+
     // ─── invalidateBlock ────────────────────────────────────────────────
 
     describe('invalidateBlock', function () {
