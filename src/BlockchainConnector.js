@@ -375,15 +375,19 @@ class BlockchainConnector {
             if (response.data.result) {
                 return response.data.result;
             }
-            // Surface the node's actual RPC error so failures are debuggable.
-            // For example, LTC's "bad-txns-vin-empty" stall would have been
-            // visible at a glance instead of requiring a curl detour against the node.
+            // Surface the node's own RPC error to the LOG so failures are debuggable
+            // (e.g. LTC's "bad-txns-vin-empty" stall), but THROW a static message: the
+            // node's message is safe to log, whereas a transport axios error.message
+            // carries the internal RPC host:port (connect ECONNREFUSED host:18332). The
+            // sanitization security suite and every other connector method require a
+            // static thrown message with no host/port.
             const nodeErr = response.data && response.data.error
                 ? (response.data.error.message || JSON.stringify(response.data.error))
                 : 'no result, no error'
-            throw new Error('generatetoaddress returned no result: ' + nodeErr)
+            console.error('generatetoaddress returned no result: ' + nodeErr)
+            throw new Error('Error generating to address')
         } catch (error) {
-            throw new Error('generateToAddress failed: ' + (error && error.message ? error.message : String(error)))
+            throw new Error('Error generating to address')
         }
     }
 
@@ -474,12 +478,13 @@ class BlockchainConnector {
             const nodeErr = response.data && response.data.error
                 ? (nodeErr => nodeErr.message || JSON.stringify(nodeErr))(response.data.error)
                 : 'no result, no error'
-            throw new Error('sendtoaddress returned no txid: ' + nodeErr)
+            // Log the node's own (safe) RPC error for diagnosis, but throw a static
+            // message: a transport axios error.message leaks the RPC host:port, and the
+            // sanitization security suite requires a clean static thrown message.
+            console.error('sendtoaddress returned no txid: ' + nodeErr)
+            throw new Error('Error sending funds to address')
         } catch (error) {
-            // Preserve the underlying error message. A generic "Error sending funds
-            // to address" loses information that's essential to diagnose chain-
-            // specific quirks like the one this method's comment describes.
-            throw new Error('sendToAddress failed: ' + (error && error.message ? error.message : String(error)))
+            throw new Error('Error sending funds to address')
         }
     }
     
@@ -505,11 +510,13 @@ class BlockchainConnector {
 
             // invalidateblock returns null on success (no error field = success).
             if (response.data && response.data.error) {
-                throw new Error('invalidateblock RPC error: ' + response.data.error.message)
+                console.error('invalidateblock RPC error: ' + response.data.error.message)
+                throw new Error('Error invalidating block')
             }
             return true
         } catch (error) {
-            throw new Error('invalidateBlock failed: ' + (error && error.message ? error.message : String(error)))
+            // Static message: a transport axios error.message leaks the RPC host:port.
+            throw new Error('Error invalidating block')
         }
     }
 
@@ -534,11 +541,13 @@ class BlockchainConnector {
 
             // reconsiderblock returns null on success (no error field = success).
             if (response.data && response.data.error) {
-                throw new Error('reconsiderblock RPC error: ' + response.data.error.message)
+                console.error('reconsiderblock RPC error: ' + response.data.error.message)
+                throw new Error('Error reconsidering block')
             }
             return true
         } catch (error) {
-            throw new Error('reconsiderBlock failed: ' + (error && error.message ? error.message : String(error)))
+            // Static message: a transport axios error.message leaks the RPC host:port.
+            throw new Error('Error reconsidering block')
         }
     }
 

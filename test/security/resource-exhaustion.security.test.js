@@ -124,17 +124,17 @@ describe('Security: Resource Exhaustion & DoS Prevention', function () {
     // ─── SEC-006: fillMempool mutex ────────────────────────────────────
 
     describe('fillMempool concurrent access protection (SEC-006)', function () {
+        // fillMempool THROWS on rejection (api.js catches and maps to {error}); it does
+        // not return an {error} object. Assert the rejection.
         it('rejects concurrent call when fillMempool is already running', async function () {
             miner.fillMempoolRunning = true
-            const result = await miner.fillMempool(10)
-            assert.ok(result && result.error)
-            assert.match(result.error, /already running/)
+            await assert.rejects(() => miner.fillMempool(10), /already running/)
         })
 
         it('does not modify keepMining when rejected for concurrency', async function () {
             miner.keepMining = true
             miner.fillMempoolRunning = true
-            await miner.fillMempool(10)
+            await assert.rejects(() => miner.fillMempool(10), /already running/)
             assert.strictEqual(miner.keepMining, true)
         })
 
@@ -174,7 +174,7 @@ describe('Security: Resource Exhaustion & DoS Prevention', function () {
         })
 
         it('resets fillMempoolRunning to false after quantity cap rejection', async function () {
-            await miner.fillMempool(50001)
+            await assert.rejects(() => miner.fillMempool(50001), /exceeds maximum/)
             assert.strictEqual(miner.fillMempoolRunning, false)
         })
 
@@ -204,22 +204,21 @@ describe('Security: Resource Exhaustion & DoS Prevention', function () {
     // ─── SEC-002: Memory exhaustion via large txQuantity ───────────────
 
     describe('fillMempool memory exhaustion prevention (SEC-002)', function () {
+        // fillMempool THROWS on an over-cap quantity before allocating anything (api.js
+        // maps the throw to an {error} response). Assert rejection + no work started.
         it('rejects 50001 without allocating addresses', async function () {
-            const result = await miner.fillMempool(50001)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.fillMempool(50001), /exceeds maximum/)
             // sendToAddress should never be called
             assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
         })
 
         it('rejects 1000000 without allocating addresses', async function () {
-            const result = await miner.fillMempool(1000000)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.fillMempool(1000000), /exceeds maximum/)
             assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
         })
 
         it('rejects Number.MAX_SAFE_INTEGER', async function () {
-            const result = await miner.fillMempool(Number.MAX_SAFE_INTEGER)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.fillMempool(Number.MAX_SAFE_INTEGER), /exceeds maximum/)
         })
     })
 })

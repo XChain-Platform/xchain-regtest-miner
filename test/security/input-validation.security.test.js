@@ -275,28 +275,26 @@ describe('Security: Input Validation', function () {
     // ─── fillMempool (SEC-002, quantity cap) ────────────────────────────
 
     describe('fillMempool quantity cap (SEC-002)', function () {
+        // fillMempool THROWS on a rejected quantity (the api.js handler wraps it in
+        // try/catch and converts the throw to a {error} response); it does not return a
+        // {error} object itself. Assert the rejection.
         it('rejects txQuantity exceeding 50000', async function () {
-            const result = await miner.fillMempool(50001)
-            assert.ok(result && result.error)
-            assert.match(result.error, /exceeds maximum/)
+            await assert.rejects(() => miner.fillMempool(50001), /exceeds maximum/)
         })
 
         it('rejects txQuantity of 100000', async function () {
-            const result = await miner.fillMempool(100000)
-            assert.ok(result && result.error)
-            assert.match(result.error, /exceeds maximum/)
+            await assert.rejects(() => miner.fillMempool(100000), /exceeds maximum/)
         })
 
         it('rejects txQuantity of Number.MAX_SAFE_INTEGER', async function () {
-            const result = await miner.fillMempool(Number.MAX_SAFE_INTEGER)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.fillMempool(Number.MAX_SAFE_INTEGER), /exceeds maximum/)
         })
 
         it('still rejects non-positive-integer before cap check', async function () {
-            await miner.fillMempool(0)
-            await miner.fillMempool(-1)
-            await miner.fillMempool(1.5)
-            await miner.fillMempool('abc')
+            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
+            await assert.rejects(() => miner.fillMempool(-1), /positive integer/)
+            await assert.rejects(() => miner.fillMempool(1.5), /positive integer/)
+            await assert.rejects(() => miner.fillMempool('abc'), /positive integer/)
             // None should have started the fill process
             assert.strictEqual(miner.fillMempoolRunning, false)
         })

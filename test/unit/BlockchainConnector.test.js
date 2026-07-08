@@ -403,31 +403,35 @@ describe('BlockchainConnector', function () {
             assert.strictEqual(axios.defaults.timeout, 60000)
         })
 
-        it('throws when result is falsy', async function () {
+        it('throws a static message when result is falsy', async function () {
             axiosPostStub.resolves(rpcNoResult())
-            await assert.rejects(() => connector.generateToAddress(1, 'a'), /generateToAddress failed/)
+            await assert.rejects(() => connector.generateToAddress(1, 'a'), /Error generating to address/)
         })
 
-        it('surfaces the node RPC error message in the thrown error', async function () {
-            // Regression: session 4's LTC stall hid behind the old generic
-            // "Error generating to address" message. The real RPC error
-            // (e.g. "bad-txns-vin-empty") must reach the caller's log.
+        it('logs the node RPC error for diagnosis but throws a static message', async function () {
+            // Debuggability: session 4's LTC stall must be diagnosable, so the real RPC
+            // error (e.g. "bad-txns-vin-empty") is written to the LOG. Sanitization: the
+            // THROWN message stays static (the sanitization security suite forbids leaking
+            // transport details like the RPC host:port into thrown errors).
             axiosPostStub.resolves({
                 data: { result: null, error: { code: -25, message: 'bad-txns-vin-empty, Transaction check failed' }, id: 1 }
             })
             await assert.rejects(
                 () => connector.generateToAddress(1, 'addr'),
-                /bad-txns-vin-empty/
+                /Error generating to address/
             )
+            const logged = console.error.getCalls().map(c => c.args.join(' ')).join('\n')
+            assert.match(logged, /bad-txns-vin-empty/)
         })
 
-        it('surfaces axios/network errors with their underlying message', async function () {
+        it('does not surface a transport error host:port in the thrown message', async function () {
             const netErr = new Error('ECONNREFUSED 127.0.0.1:3220')
             axiosPostStub.rejects(netErr)
-            await assert.rejects(
-                () => connector.generateToAddress(1, 'addr'),
-                /ECONNREFUSED 127\.0\.0\.1:3220/
-            )
+            let threw = null
+            try { await connector.generateToAddress(1, 'addr') } catch (e) { threw = e }
+            assert.ok(threw, 'should throw')
+            assert.strictEqual(threw.message, 'Error generating to address')
+            assert.ok(!threw.message.includes('3220'), 'thrown message must not leak the RPC host:port')
         })
     })
 
@@ -473,14 +477,21 @@ describe('BlockchainConnector', function () {
             assert.strictEqual(result, 'abc123')
         })
 
-        it('surfaces the node RPC error when result is falsy', async function () {
-            axiosPostStub.resolves(rpcNoResult())
-            await assert.rejects(() => connector.sendToAddress('a', 1), /sendToAddress failed.*fail/)
+        it('logs the node RPC error when result is falsy but throws a static message', async function () {
+            axiosPostStub.resolves({
+                data: { result: null, error: { code: -6, message: 'Insufficient funds' }, id: 1 }
+            })
+            await assert.rejects(() => connector.sendToAddress('a', 1), /Error sending funds to address/)
+            const logged = console.error.getCalls().map(c => c.args.join(' ')).join('\n')
+            assert.match(logged, /Insufficient funds/)
         })
 
-        it('surfaces the underlying network error message', async function () {
-            axiosPostStub.rejects(new Error('timeout'))
-            await assert.rejects(() => connector.sendToAddress('a', 1), /sendToAddress failed.*timeout/)
+        it('throws a static message on a transport error (no host:port leak)', async function () {
+            axiosPostStub.rejects(new Error('connect ECONNREFUSED 127.0.0.1:18332'))
+            let threw = null
+            try { await connector.sendToAddress('a', 1) } catch (e) { threw = e }
+            assert.strictEqual(threw && threw.message, 'Error sending funds to address')
+            assert.ok(!threw.message.includes('18332'), 'thrown message must not leak the RPC host:port')
         })
     })
 
@@ -517,14 +528,16 @@ describe('BlockchainConnector', function () {
             assertRpcCall('invalidateblock', ['abc123'])
         })
 
-        it('throws when the node returns an RPC error', async function () {
+        it('logs the node RPC error but throws a static message', async function () {
             axiosPostStub.resolves({ data: { result: null, error: { code: -8, message: 'Block not found' }, id: 1 } })
-            await assert.rejects(() => connector.invalidateBlock('badhash'), /invalidateBlock failed.*Block not found/)
+            await assert.rejects(() => connector.invalidateBlock('badhash'), /Error invalidating block/)
+            const logged = console.error.getCalls().map(c => c.args.join(' ')).join('\n')
+            assert.match(logged, /Block not found/)
         })
 
-        it('throws on network error', async function () {
-            axiosPostStub.rejects(new Error('connection refused'))
-            await assert.rejects(() => connector.invalidateBlock('abc123'), /invalidateBlock failed.*connection refused/)
+        it('throws a static message on network error (no transport detail leak)', async function () {
+            axiosPostStub.rejects(new Error('connect ECONNREFUSED 127.0.0.1:18332'))
+            await assert.rejects(() => connector.invalidateBlock('abc123'), /Error invalidating block/)
         })
     })
 
@@ -538,14 +551,16 @@ describe('BlockchainConnector', function () {
             assertRpcCall('reconsiderblock', ['abc123'])
         })
 
-        it('throws when the node returns an RPC error', async function () {
+        it('logs the node RPC error but throws a static message', async function () {
             axiosPostStub.resolves({ data: { result: null, error: { code: -8, message: 'Block not found' }, id: 1 } })
-            await assert.rejects(() => connector.reconsiderBlock('badhash'), /reconsiderBlock failed.*Block not found/)
+            await assert.rejects(() => connector.reconsiderBlock('badhash'), /Error reconsidering block/)
+            const logged = console.error.getCalls().map(c => c.args.join(' ')).join('\n')
+            assert.match(logged, /Block not found/)
         })
 
-        it('throws on network error', async function () {
-            axiosPostStub.rejects(new Error('timeout'))
-            await assert.rejects(() => connector.reconsiderBlock('abc123'), /reconsiderBlock failed.*timeout/)
+        it('throws a static message on network error (no transport detail leak)', async function () {
+            axiosPostStub.rejects(new Error('connect ECONNREFUSED 127.0.0.1:18332'))
+            await assert.rejects(() => connector.reconsiderBlock('abc123'), /Error reconsidering block/)
         })
     })
 
