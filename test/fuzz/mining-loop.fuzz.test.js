@@ -267,13 +267,18 @@ describe('Fuzz: mining loop state machine', function () {
     // ─── generateBlocks with fuzzed block counts ────────────────────
 
     describe('generateBlocks with fuzzed counts', function () {
-        it('delegates any count to connector', async function () {
+        it('delegates positive counts to connector; throws (uncalled) for non-positive counts', async function () {
             miner.walletAddress = 'bcrt1qtest'
             await fc.assert(
                 fc.asyncProperty(fc.integer({ min: -100, max: 1000 }), async (count) => {
                     connectorStub.generateToAddress.resetHistory()
-                    await miner.generateBlocks(count)
-                    assert.ok(connectorStub.generateToAddress.calledWith(count, 'bcrt1qtest'))
+                    if (count > 0) {
+                        await miner.generateBlocks(count)
+                        assert.ok(connectorStub.generateToAddress.calledWith(count, 'bcrt1qtest'))
+                    } else {
+                        assert.throws(() => miner.generateBlocks(count), /count must be a positive integer/)
+                        assert.ok(connectorStub.generateToAddress.notCalled)
+                    }
                 }),
                 { numRuns: 200 }
             )

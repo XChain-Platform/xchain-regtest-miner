@@ -128,20 +128,20 @@ describe('E2E: Error Resilience', function () {
 
     // ─── E3: set_mining_time with invalid values ────────────────────
 
-    it('E3: set_mining_time rejects non-integer values silently', async function () {
+    it('E3: set_mining_time throws on non-integer values and leaves state unchanged', async function () {
         const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
 
         // Defaults
         assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         assert.strictEqual(miner.addedTimeToMineTxs, 5000)
 
-        // Non-integer: should not change
-        await miner.setMiningTime('fast', 1000)
+        // Non-integer: throws, state unchanged (uuid:24c35056)
+        await assert.rejects(() => miner.setMiningTime('fast', 1000))
         assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         assert.strictEqual(miner.addedTimeToMineTxs, 5000)
 
-        // Float: should not change
-        await miner.setMiningTime(10.5, 2000)
+        // Float: throws, state unchanged
+        await assert.rejects(() => miner.setMiningTime(10.5, 2000))
         assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         assert.strictEqual(miner.addedTimeToMineTxs, 5000)
 

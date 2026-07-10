@@ -105,32 +105,27 @@ describe('T0 Regression: Critical Gate', function () {
         })
 
         it('rejects non-integer maxTime', async function () {
-            const result = await miner.setMiningTime(10.5, 2000)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(10.5, 2000))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
         it('rejects zero values', async function () {
-            const result = await miner.setMiningTime(0, 0)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(0, 0))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
         it('rejects negative values', async function () {
-            const result = await miner.setMiningTime(-1, -1)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(-1, -1))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
         it('rejects values below minimum (1000ms)', async function () {
-            const result = await miner.setMiningTime(999, 999)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(999, 999))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
         it('rejects values above maximum (3600000ms)', async function () {
-            const result = await miner.setMiningTime(3600001, 3600001)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(3600001, 3600001))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 

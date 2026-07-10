@@ -185,43 +185,36 @@ describe('Security: Input Validation', function () {
 
     // ─── setMiningTime (SEC-008, timer bounds) ──────────────────────────
 
+    // setMiningTime now throws (rather than returning a sentinel {error}
+    // object) on invalid input, matching sendFundsToAddress/invalidateBlock
+    // (uuid:24c35056).
     describe('setMiningTime timer bounds (SEC-008)', function () {
         it('rejects maxTime below minimum (SEC-008)', async function () {
-            const result = await miner.setMiningTime(500, 2000)
-            assert.ok(result && result.error)
-            assert.match(result.error, /too small/)
+            await assert.rejects(() => miner.setMiningTime(500, 2000), /too small/)
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
         it('rejects txAddedTime below minimum (SEC-008)', async function () {
-            const result = await miner.setMiningTime(2000, 500)
-            assert.ok(result && result.error)
-            assert.match(result.error, /too small/)
+            await assert.rejects(() => miner.setMiningTime(2000, 500), /too small/)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects maxTime above maximum (SEC-008)', async function () {
-            const result = await miner.setMiningTime(3600001, 2000)
-            assert.ok(result && result.error)
-            assert.match(result.error, /too large/)
+            await assert.rejects(() => miner.setMiningTime(3600001, 2000), /too large/)
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
         it('rejects txAddedTime above maximum (SEC-008)', async function () {
-            const result = await miner.setMiningTime(2000, 3600001)
-            assert.ok(result && result.error)
-            assert.match(result.error, /too large/)
+            await assert.rejects(() => miner.setMiningTime(2000, 3600001), /too large/)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects both values above maximum', async function () {
-            const result = await miner.setMiningTime(9999999, 9999999)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(9999999, 9999999))
         })
 
         it('rejects maxTime of 1ms (near-continuous mining)', async function () {
-            const result = await miner.setMiningTime(1, 1000)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(1, 1000))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
@@ -239,36 +232,28 @@ describe('Security: Input Validation', function () {
             assert.strictEqual(miner.addedTimeToMineTxs, 3600000)
         })
 
-        it('returns error object for non-integer maxTime', async function () {
-            const result = await miner.setMiningTime(10.5, 2000)
-            assert.ok(result && result.error)
-            assert.match(result.error, /positive integers/)
+        it('throws for non-integer maxTime', async function () {
+            await assert.rejects(() => miner.setMiningTime(10.5, 2000), /positive integers/)
         })
 
-        it('returns error object for non-integer txAddedTime', async function () {
-            const result = await miner.setMiningTime(2000, 'abc')
-            assert.ok(result && result.error)
+        it('throws for non-integer txAddedTime', async function () {
+            await assert.rejects(() => miner.setMiningTime(2000, 'abc'))
         })
 
-        it('returns error for zero values', async function () {
-            const result = await miner.setMiningTime(0, 0)
-            assert.ok(result && result.error)
+        it('throws for zero values', async function () {
+            await assert.rejects(() => miner.setMiningTime(0, 0))
         })
 
-        it('returns error for negative values', async function () {
-            const result = await miner.setMiningTime(-1000, -1000)
-            assert.ok(result && result.error)
+        it('throws for negative values', async function () {
+            await assert.rejects(() => miner.setMiningTime(-1000, -1000))
         })
 
-        it('returns error for Number.MAX_SAFE_INTEGER', async function () {
-            const result = await miner.setMiningTime(Number.MAX_SAFE_INTEGER, 5000)
-            assert.ok(result && result.error)
-            assert.match(result.error, /too large/)
+        it('throws for Number.MAX_SAFE_INTEGER', async function () {
+            await assert.rejects(() => miner.setMiningTime(Number.MAX_SAFE_INTEGER, 5000), /too large/)
         })
 
         it('does not crash with non-printable values', async function () {
-            const result = await miner.setMiningTime({toString: 0}, {toString: 0})
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime({toString: 0}, {toString: 0}))
         })
     })
 

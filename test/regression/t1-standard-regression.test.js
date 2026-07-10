@@ -988,32 +988,27 @@ describe('T1 Regression: Security', function () {
         })
 
         it('rejects NaN maxTime', async function () {
-            const result = await miner.setMiningTime(NaN, 5000)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(NaN, 5000))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
         it('rejects Infinity', async function () {
-            const result = await miner.setMiningTime(Infinity, 5000)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(Infinity, 5000))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
         it('rejects string', async function () {
-            const result = await miner.setMiningTime('abc', 5000)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime('abc', 5000))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
         it('rejects null', async function () {
-            const result = await miner.setMiningTime(null, 5000)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(null, 5000))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
         it('rejects undefined', async function () {
-            const result = await miner.setMiningTime(undefined, 5000)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(undefined, 5000))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
     })

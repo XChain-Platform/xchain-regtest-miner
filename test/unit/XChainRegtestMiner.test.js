@@ -81,32 +81,32 @@ describe('XChainRegtestMiner', function () {
         })
 
         it('does not update with non-integer maxTime', async function () {
-            await miner.setMiningTime(10.5, 2000)
+            await assert.rejects(() => miner.setMiningTime(10.5, 2000), /Invalid mining times/)
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('does not update with non-integer txAddedTime', async function () {
-            await miner.setMiningTime(10000, 'abc')
+            await assert.rejects(() => miner.setMiningTime(10000, 'abc'), /Invalid mining times/)
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects zero values', async function () {
-            await miner.setMiningTime(0, 0)
+            await assert.rejects(() => miner.setMiningTime(0, 0), /Invalid mining times/)
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects negative integers', async function () {
-            await miner.setMiningTime(-1, -1)
+            await assert.rejects(() => miner.setMiningTime(-1, -1), /Invalid mining times/)
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('is isolated per instance', async function () {
             const miner2 = new XChainRegtestMiner('regtest', 'localhost', '18332', 'u', 'p')
-            await miner.setMiningTime(1000, 500)
+            await miner.setMiningTime(1000, 1000)
             assert.strictEqual(miner2.maxTimeToMineTxs, 30000)
         })
     })
@@ -185,11 +185,11 @@ describe('XChainRegtestMiner', function () {
             assert(console.log.calledWithMatch(/A new block has been generated/))
         })
 
-        it('does not log for zero blocks', async function () {
+        it('throws for zero blocks and does not log a generation message', async function () {
             miner.walletAddress = 'addr'
             // Reset console.log call tracking
             console.log.resetHistory()
-            await miner.generateBlocks(0)
+            assert.throws(() => miner.generateBlocks(0), /count must be a positive integer/)
             // Only the generic logs from other setup, not block generation messages
             const blockMessages = console.log.args.filter(
                 args => args[0] && typeof args[0] === 'string' && args[0].includes('generated')

@@ -204,9 +204,9 @@ async function startApi(){
             try{
                 await miner.setMiningTime(max_time, tx_added_time)
             } catch (err){
-                return {"error":"There was a problem trying to set a new time to mine blocks"}
+                return {"error": (err && err.message) ? err.message : "There was a problem trying to set a new time to mine blocks"}
             }
-            
+
             // Return ok
             return "ok"
         },

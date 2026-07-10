@@ -55,7 +55,7 @@ describe('Boundary: API Input Validation', function () {
 
     describe('A-01: set_mining_time with both values = 0', function () {
         it('rejects zero for both timers', async function () {
-            await miner.setMiningTime(0, 0)
+            await assert.rejects(() => miner.setMiningTime(0, 0))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
@@ -63,39 +63,39 @@ describe('Boundary: API Input Validation', function () {
 
     describe('A-02: set_mining_time with negative integers', function () {
         it('rejects negative integers', async function () {
-            await miner.setMiningTime(-1, -1)
+            await assert.rejects(() => miner.setMiningTime(-1, -1))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects large negative integers', async function () {
-            await miner.setMiningTime(-999999, -999999)
+            await assert.rejects(() => miner.setMiningTime(-999999, -999999))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
     })
 
     describe('A-03: set_mining_time with floats', function () {
         it('rejects 1.5 and 2.7 (not integers)', async function () {
-            await miner.setMiningTime(1.5, 2.7)
+            await assert.rejects(() => miner.setMiningTime(1.5, 2.7))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects 0.1 (float close to zero)', async function () {
-            await miner.setMiningTime(0.1, 0.1)
+            await assert.rejects(() => miner.setMiningTime(0.1, 0.1))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
     })
 
     describe('A-04: set_mining_time with strings', function () {
         it('rejects string "abc" and "def"', async function () {
-            await miner.setMiningTime('abc', 'def')
+            await assert.rejects(() => miner.setMiningTime('abc', 'def'))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects numeric strings', async function () {
-            await miner.setMiningTime('100', '200')
+            await assert.rejects(() => miner.setMiningTime('100', '200'))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000,
                 'String "100" should be rejected by Number.isInteger')
         })
@@ -103,47 +103,46 @@ describe('Boundary: API Input Validation', function () {
 
     describe('A-05: set_mining_time with null and undefined', function () {
         it('rejects null values', async function () {
-            await miner.setMiningTime(null, null)
+            await assert.rejects(() => miner.setMiningTime(null, null))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
 
         it('rejects undefined values', async function () {
-            await miner.setMiningTime(undefined, undefined)
+            await assert.rejects(() => miner.setMiningTime(undefined, undefined))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
     })
 
     describe('A-06: set_mining_time with Number.MAX_SAFE_INTEGER', function () {
         it('rejects MAX_SAFE_INTEGER (exceeds max timer bound)', async function () {
-            const result = await miner.setMiningTime(Number.MAX_SAFE_INTEGER, 5000)
-            assert.ok(result && result.error)
+            await assert.rejects(() => miner.setMiningTime(Number.MAX_SAFE_INTEGER, 5000))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
     })
 
     describe('A-07: set_mining_time with Infinity', function () {
         it('rejects Infinity (not an integer)', async function () {
-            await miner.setMiningTime(Infinity, Infinity)
+            await assert.rejects(() => miner.setMiningTime(Infinity, Infinity))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects -Infinity', async function () {
-            await miner.setMiningTime(-Infinity, -Infinity)
+            await assert.rejects(() => miner.setMiningTime(-Infinity, -Infinity))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
     })
 
     describe('A-08: set_mining_time with only one value valid', function () {
         it('rejects both when maxTime is valid but txAddedTime is invalid', async function () {
-            await miner.setMiningTime(1000, 'bad')
+            await assert.rejects(() => miner.setMiningTime(1000, 'bad'))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000,
                 'Both must be valid integers; partial update not allowed')
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects both when maxTime is invalid but txAddedTime is valid', async function () {
-            await miner.setMiningTime(null, 1000)
+            await assert.rejects(() => miner.setMiningTime(null, 1000))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
@@ -344,10 +343,12 @@ describe('Boundary: API Input Validation', function () {
             assert(controller._miner.setMiningTime.calledWith(undefined, undefined))
         })
 
-        it('always returns ok (validation happens in setMiningTime)', async function () {
+        it('always returns ok when the miner stub resolves (this test double does not model validation)', async function () {
+            // minerStub.setMiningTime unconditionally resolves; real validation now
+            // throws (uuid:24c35056) and is exercised in the boundary suites above
+            // that call the real XChainRegtestMiner, not this stub mirror.
             const result = await controller.set_mining_time({ max_time: 'bad', tx_added_time: 'bad' })
-            assert.deepStrictEqual(result, { result: 'ok' },
-                'Controller returns ok; setMiningTime silently rejects invalid values')
+            assert.deepStrictEqual(result, { result: 'ok' })
         })
     })
 })

@@ -55,20 +55,15 @@ describe('Boundary: Block Generation', function () {
     // ─── G-01: generateBlocks(0) ───────────────────────────────────────
 
     describe('G-01: generateBlocks(0)', function () {
-        it('is a no-op: does not call generateToAddress (node rejects count 0)', async function () {
-            await miner.generateBlocks(0)
+        it('throws and does not call generateToAddress (node rejects count 0)', async function () {
+            assert.throws(() => miner.generateBlocks(0), /count must be a positive integer/)
             assert(connectorStub.generateToAddress.notCalled,
                 'count 0 must short-circuit before the RPC')
         })
 
-        it('returns an empty array for count 0', async function () {
-            const result = await miner.generateBlocks(0)
-            assert.deepStrictEqual(result, [])
-        })
-
         it('does not log any block generation message', async function () {
             console.log.resetHistory()
-            await miner.generateBlocks(0)
+            assert.throws(() => miner.generateBlocks(0))
             const blockMessages = console.log.args.filter(
                 args => args[0] && typeof args[0] === 'string' && args[0].includes('generated')
             )
@@ -191,20 +186,15 @@ describe('Boundary: Block Generation', function () {
     // ─── Negative block count ──────────────────────────────────────────
 
     describe('Negative block count', function () {
-        it('is a no-op: does not call connector for negative count', async function () {
-            await miner.generateBlocks(-1)
+        it('throws and does not call connector for negative count', async function () {
+            assert.throws(() => miner.generateBlocks(-1), /count must be a positive integer/)
             assert(connectorStub.generateToAddress.notCalled,
                 'negative count must short-circuit before the RPC')
         })
 
-        it('returns an empty array for negative count', async function () {
-            const result = await miner.generateBlocks(-1)
-            assert.deepStrictEqual(result, [])
-        })
-
         it('does not log for negative count', async function () {
             console.log.resetHistory()
-            await miner.generateBlocks(-1)
+            assert.throws(() => miner.generateBlocks(-1))
             const blockMessages = console.log.args.filter(
                 args => args[0] && typeof args[0] === 'string' && args[0].includes('generated')
             )

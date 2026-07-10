@@ -95,8 +95,14 @@ describe('Performance: API Throughput', function () {
                 return { result: 'ok' }
             },
             set_mining_time: async ({ max_time, tx_added_time }) => {
-                const result = await miner.setMiningTime(max_time, tx_added_time)
-                if (result && result.error) return result
+                // setMiningTime throws on invalid input (uuid:24c35056); this
+                // mirror only ever exercises valid values, but catch defensively
+                // to match the real controller's contract.
+                try {
+                    await miner.setMiningTime(max_time, tx_added_time)
+                } catch (err) {
+                    return { error: err.message }
+                }
                 return { result: 'ok' }
             },
             set_default_mining_time: async () => {

@@ -149,7 +149,8 @@ describe('Security: API Hardening', function () {
     describe('set_mining_time handles edge cases', function () {
         it('does not crash with object params', async function () {
             const result = await controller.set_mining_time({ max_time: {}, tx_added_time: {} })
-            // Should return ok (setMiningTime returns error object, but doesn't throw)
+            // setMiningTime throws on invalid input (uuid:24c35056); the local
+            // controller mirror's try/catch converts that into a generic error.
             assert.ok(result)
         })
 

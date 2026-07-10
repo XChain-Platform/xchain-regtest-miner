@@ -51,8 +51,12 @@ describe('Fuzz: mining timer parameters', function () {
 
     // ─── setMiningTime with arbitrary values ────────────────────────
 
+    // setMiningTime throws (rather than silently no-opping) on invalid input
+    // as of uuid:24c35056: a returned {error} sentinel let the api.js controller
+    // report "ok" on rejected input. These property tests assert the new
+    // throw-on-invalid / resolve-on-valid contract.
     describe('setMiningTime with arbitrary values', function () {
-        it('only accepts positive integers within bounds', async function () {
+        it('only accepts positive integers within bounds; rejects (throws) otherwise', async function () {
             const MIN = 1000
             const MAX = 3600000
             await fc.assert(
@@ -60,15 +64,15 @@ describe('Fuzz: mining timer parameters', function () {
                     const origMax = miner.maxTimeToMineTxs
                     const origAdded = miner.addedTimeToMineTxs
 
-                    await miner.setMiningTime(maxTime, txAddedTime)
-
                     const isValid = Number.isInteger(maxTime) && Number.isInteger(txAddedTime) &&
                         maxTime >= MIN && maxTime <= MAX && txAddedTime >= MIN && txAddedTime <= MAX
 
                     if (isValid) {
+                        await miner.setMiningTime(maxTime, txAddedTime)
                         assert.strictEqual(miner.maxTimeToMineTxs, maxTime)
                         assert.strictEqual(miner.addedTimeToMineTxs, txAddedTime)
                     } else {
+                        await assert.rejects(() => miner.setMiningTime(maxTime, txAddedTime))
                         assert.strictEqual(miner.maxTimeToMineTxs, origMax)
                         assert.strictEqual(miner.addedTimeToMineTxs, origAdded)
                     }
@@ -81,11 +85,18 @@ describe('Fuzz: mining timer parameters', function () {
             )
         })
 
-        it('never throws regardless of input types (including non-stringifiable objects)', async function () {
+        it('never crashes the process regardless of input types (including non-stringifiable objects)', async function () {
             await fc.assert(
                 fc.asyncProperty(fc.anything(), fc.anything(), async (maxTime, txAddedTime) => {
-                    // String() wrapping in error log path prevents TypeError
-                    await miner.setMiningTime(maxTime, txAddedTime)
+                    // String() wrapping in the console.log path prevents a TypeError
+                    // from a non-callable toString; the call settles either by
+                    // resolving (valid input) or by throwing our own Error (invalid
+                    // input), never by an unrelated crash.
+                    try {
+                        await miner.setMiningTime(maxTime, txAddedTime)
+                    } catch (err) {
+                        assert.ok(err instanceof Error)
+                    }
                     miner.maxTimeToMineTxs = 30000
                     miner.addedTimeToMineTxs = 5000
                 }),
@@ -93,9 +104,10 @@ describe('Fuzz: mining timer parameters', function () {
             )
         })
 
-        it('handles objects with non-callable toString without throwing', async function () {
-            // Previously this caused TypeError; now fixed with String() wrapping
-            await miner.setMiningTime({ toString: 0 }, {})
+        it('handles objects with non-callable toString by throwing our own Error, not a TypeError', async function () {
+            // Previously this caused an unrelated TypeError; String() wrapping fixed
+            // that, and invalid input now throws our own descriptive Error.
+            await assert.rejects(() => miner.setMiningTime({ toString: 0 }, {}), /Invalid mining times/)
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
@@ -137,7 +149,7 @@ describe('Fuzz: mining timer parameters', function () {
 
         for (const [maxTime, txAddedTime] of rejectedEdgeCases) {
             it(`rejects (${maxTime}, ${txAddedTime}) and preserves defaults`, async function () {
-                await miner.setMiningTime(maxTime, txAddedTime)
+                await assert.rejects(() => miner.setMiningTime(maxTime, txAddedTime))
                 assert.strictEqual(miner.maxTimeToMineTxs, 30000)
                 assert.strictEqual(miner.addedTimeToMineTxs, 5000)
             })
@@ -168,7 +180,7 @@ describe('Fuzz: mining timer parameters', function () {
 
         for (const [maxTime, txAddedTime] of rejectedCases) {
             it(`rejects (${JSON.stringify(maxTime)}, ${JSON.stringify(txAddedTime)}) and preserves defaults`, async function () {
-                await miner.setMiningTime(maxTime, txAddedTime)
+                await assert.rejects(() => miner.setMiningTime(maxTime, txAddedTime))
                 assert.strictEqual(miner.maxTimeToMineTxs, 30000)
                 assert.strictEqual(miner.addedTimeToMineTxs, 5000)
             })
@@ -184,7 +196,14 @@ describe('Fuzz: mining timer parameters', function () {
                     fc.integer({ min: 1 }),
                     fc.integer({ min: 1 }),
                     async (maxTime, txAddedTime) => {
-                        await miner.setMiningTime(maxTime, txAddedTime)
+                        // maxTime/txAddedTime may fall outside [MIN_MINING_TIME,
+                        // MAX_MINING_TIME] and throw; setDefaultMiningTime() must
+                        // still restore defaults either way.
+                        try {
+                            await miner.setMiningTime(maxTime, txAddedTime)
+                        } catch (err) {
+                            assert.ok(err instanceof Error)
+                        }
                         await miner.setDefaultMiningTime()
                         assert.strictEqual(miner.maxTimeToMineTxs, 30000)
                         assert.strictEqual(miner.addedTimeToMineTxs, 5000)
@@ -224,19 +243,19 @@ describe('Fuzz: mining timer parameters', function () {
 
     describe('zero/negative timers are rejected', function () {
         it('setMiningTime(0, 5000) is rejected', async function () {
-            await miner.setMiningTime(0, 5000)
+            await assert.rejects(() => miner.setMiningTime(0, 5000))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('setMiningTime(-1000, -1000) is rejected', async function () {
-            await miner.setMiningTime(-1000, -1000)
+            await assert.rejects(() => miner.setMiningTime(-1000, -1000))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('setMiningTime(1, 0) is rejected (both must be positive)', async function () {
-            await miner.setMiningTime(1, 0)
+            await assert.rejects(() => miner.setMiningTime(1, 0))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })

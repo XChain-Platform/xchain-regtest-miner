@@ -13,8 +13,15 @@
  ********************************************************************/
 
 const axios = require('axios');
+const http = require('http');
+const https = require('https');
 axios.defaults.timeout = parseInt(process.env.NODE_RPC_TIMEOUT ?? '60000', 10)
-axios.defaults.keepAlive = true
+// axios has no top-level `keepAlive` config key; connection reuse must be
+// configured on the underlying http(s) Agent. The miner's auto-mine loop polls
+// the node RPC (getRawMempool) every CHECK_BLOCK_DELAY_MS (100ms), so reusing
+// TCP connections instead of opening a fresh socket per request is a real win.
+axios.defaults.httpAgent = new http.Agent({ keepAlive: true })
+axios.defaults.httpsAgent = new https.Agent({ keepAlive: true })
 
 class BlockchainConnector {
     constructor(url, port, rpcUser, rpcPassword) {

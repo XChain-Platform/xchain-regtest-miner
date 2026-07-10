@@ -186,10 +186,15 @@ describe('Security: Error Sanitization & Information Disclosure', function () {
         })
 
         it('setMiningTime error does not include raw values', async function () {
-            // Non-printable objects should not cause crashes
-            const result = await minerInstance.setMiningTime({toString: 0}, {toString: 0})
-            assert.ok(result && result.error)
-            assert.ok(!result.error.includes('[object'))
+            // Non-printable objects should not cause crashes; setMiningTime now
+            // throws rather than returning a sentinel {error} object (uuid:24c35056)
+            try {
+                await minerInstance.setMiningTime({toString: 0}, {toString: 0})
+                assert.fail('expected setMiningTime to throw')
+            } catch (err) {
+                assert.ok(err && err.message)
+                assert.ok(!err.message.includes('[object'))
+            }
         })
     })
 })

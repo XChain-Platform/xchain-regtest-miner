@@ -331,7 +331,7 @@ describe('Boundary: Adaptive Mining Timer Logic', function () {
 
     describe('T-11: negative timer values via setMiningTime', function () {
         it('rejects negative values', async function () {
-            await miner.setMiningTime(-1, -1)
+            await assert.rejects(() => miner.setMiningTime(-1, -1))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
@@ -343,7 +343,7 @@ describe('Boundary: Adaptive Mining Timer Logic', function () {
         it('rejects float values via Number.isInteger check', async function () {
             const origMax = miner.maxTimeToMineTxs
             const origAdded = miner.addedTimeToMineTxs
-            await miner.setMiningTime(10.5, 5.5)
+            await assert.rejects(() => miner.setMiningTime(10.5, 5.5))
             assert.strictEqual(miner.maxTimeToMineTxs, origMax,
                 'Floats should be rejected by Number.isInteger')
             assert.strictEqual(miner.addedTimeToMineTxs, origAdded)
@@ -354,37 +354,37 @@ describe('Boundary: Adaptive Mining Timer Logic', function () {
 
     describe('T-13: non-numeric timer values', function () {
         it('rejects string values', async function () {
-            await miner.setMiningTime('fast', 'slow')
+            await assert.rejects(() => miner.setMiningTime('fast', 'slow'))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects null values', async function () {
-            await miner.setMiningTime(null, null)
+            await assert.rejects(() => miner.setMiningTime(null, null))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects undefined values', async function () {
-            await miner.setMiningTime(undefined, undefined)
+            await assert.rejects(() => miner.setMiningTime(undefined, undefined))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects NaN', async function () {
-            await miner.setMiningTime(NaN, NaN)
+            await assert.rejects(() => miner.setMiningTime(NaN, NaN))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects Infinity', async function () {
-            await miner.setMiningTime(Infinity, Infinity)
+            await assert.rejects(() => miner.setMiningTime(Infinity, Infinity))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
 
         it('rejects mixed valid/invalid (maxTime valid, txAddedTime invalid)', async function () {
-            await miner.setMiningTime(1000, 'bad')
+            await assert.rejects(() => miner.setMiningTime(1000, 'bad'))
             assert.strictEqual(miner.maxTimeToMineTxs, 30000,
                 'Neither value should update when one is invalid')
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)

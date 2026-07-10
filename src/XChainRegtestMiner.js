@@ -45,7 +45,6 @@ const ecc = require('tiny-secp256k1')
 const bip32 = BIP32Factory(ecc)
 const bip39 = require('bip39')
 const bitcoin = require('bitcoinjs-lib');
-const psbtutils = require('bitcoinjs-lib/src/psbt/psbtutils');
 const {ECPairFactory} = require('ecpair')
 
 class XChainRegtestMiner {
@@ -69,18 +68,23 @@ class XChainRegtestMiner {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
     
+    // Throws (rather than returning a sentinel {error} object) on invalid input,
+    // matching the sibling validators sendFundsToAddress/invalidateBlock/
+    // reconsiderBlock. A returned sentinel here previously let the api.js
+    // controller's try/catch never fire, so the RPC reported "ok" on rejected
+    // input (uuid:24c35056).
     async setMiningTime(maxTime, txAddedTime){
         if (!Number.isInteger(maxTime) || !Number.isInteger(txAddedTime) || maxTime <= 0 || txAddedTime <= 0){
             try { console.log("INVALID mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms") } catch(e) { console.log("INVALID mining times (non-printable values)") }
-            return {error: "Invalid mining times. Both values must be positive integers."}
+            throw new Error("Invalid mining times. Both values must be positive integers.")
         }
         if (maxTime < MIN_MINING_TIME || txAddedTime < MIN_MINING_TIME){
             console.log("Mining times too small: minimum is "+MIN_MINING_TIME+"ms")
-            return {error: "Mining times too small. Minimum is "+MIN_MINING_TIME+"ms."}
+            throw new Error("Mining times too small. Minimum is "+MIN_MINING_TIME+"ms.")
         }
         if (maxTime > MAX_MINING_TIME || txAddedTime > MAX_MINING_TIME){
             console.log("Mining times too large: maximum is "+MAX_MINING_TIME+"ms")
-            return {error: "Mining times too large. Maximum is "+MAX_MINING_TIME+"ms."}
+            throw new Error("Mining times too large. Maximum is "+MAX_MINING_TIME+"ms.")
         }
         this.maxTimeToMineTxs = maxTime
         this.addedTimeToMineTxs = txAddedTime
@@ -309,7 +313,6 @@ class XChainRegtestMiner {
             
                 psbt.finalizeAllInputs()
                 let extractedTransaction = psbt.extractTransaction()
-                let txVirtualSize = extractedTransaction.virtualSize()
                 let txHex = extractedTransaction.toHex()
                 
                 nextUtxo["txHex"] = txHex
@@ -510,8 +513,13 @@ class XChainRegtestMiner {
         this.walletReady = true
     }
 
+    // Throws on invalid count (uuid:24c35056 sibling fix): the previous
+    // sentinel-return `[]` let generate_blocks({count:0|-1|'abc'}) silently
+    // answer {count: 0, hashes: []} through the controller with no error.
     generateBlocks(count) {
-        if (!Number.isInteger(count) || count <= 0) return [];
+        if (!Number.isInteger(count) || count <= 0) {
+            throw new Error("count must be a positive integer")
+        }
         // Cap the per-call block count. generatetoaddress mines synchronously on the
         // node, so an unbounded count (e.g. from the unauthenticated-by-default
         // generate_blocks RPC) blocks the node for minutes-to-forever; and because
