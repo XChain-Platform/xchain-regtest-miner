@@ -196,6 +196,32 @@ describe('XChainRegtestMiner', function () {
             )
             assert.strictEqual(blockMessages.length, 0)
         })
+
+        // Resource-exhaustion cap: an unbounded generate_blocks count would block the
+        // node synchronously and, since every mining caller serializes behind
+        // _generateQueue, wedge the auto-mine loop and every pause/fill barrier behind
+        // it. Mirrors the MAX_FILL_MEMPOOL_QUANTITY guard on fillMempool.
+        it('throws for a count above the maximum instead of driving the node', function () {
+            miner.walletAddress = 'addr'
+            assert.throws(() => miner.generateBlocks(10001), /exceeds maximum/)
+            // The node must never be asked to mine an over-cap count.
+            assert(connectorStub.generateToAddress.notCalled)
+        })
+
+        it('throws for an absurd count (Number.MAX_SAFE_INTEGER)', function () {
+            miner.walletAddress = 'addr'
+            assert.throws(() => miner.generateBlocks(Number.MAX_SAFE_INTEGER), /exceeds maximum/)
+            assert(connectorStub.generateToAddress.notCalled)
+        })
+
+        it('accepts the maximum count and does not poison the queue after an over-cap throw', async function () {
+            miner.walletAddress = 'addr'
+            // An over-cap call throws before touching _generateQueue, so a subsequent
+            // legitimate call must still run.
+            assert.throws(() => miner.generateBlocks(10001), /exceeds maximum/)
+            await miner.generateBlocks(1)
+            assert(connectorStub.generateToAddress.calledWith(1, 'addr'))
+        })
     })
 
     // ─── invalidateBlock / reconsiderBlock ──────────────────────────────
@@ -715,6 +741,23 @@ describe('XChainRegtestMiner', function () {
 
             // keepMining must be untouched and a concurrent run must not be marked
             assert.strictEqual(miner.fillMempoolRunning, false)
+        })
+
+        it('rejects a truly concurrent second call, not just one pre-flagged by the caller', async function () {
+            miner.walletAddress = 'bcrt1qtest'
+            // Launch two calls in the SAME tick without awaiting between them. The
+            // mutex must be claimed synchronously (before the internal _generateQueue
+            // await), or both slip past the guard while parked on that barrier and the
+            // stress body runs twice. The bodies fail on the stubbed (invalid) raw tx;
+            // we only assert the guard, so the exact body outcome doesn't matter.
+            const p1 = miner.fillMempool(10).catch(e => e)
+            const p2 = miner.fillMempool(10).catch(e => e)
+            const results = await Promise.all([p1, p2])
+            const alreadyRunning = results.filter(
+                r => r instanceof Error && /already running/.test(r.message)
+            )
+            assert.strictEqual(alreadyRunning.length, 1,
+                'exactly one of two concurrent fillMempool calls must be rejected as already running')
         })
 
         it('calculates correct number of chunks for quantities within one chunk', function () {

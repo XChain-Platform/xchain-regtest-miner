@@ -36,6 +36,7 @@ const MAX_MINING_TIME = 3600000 //1 hour max for mining timers
 const MIN_MINING_TIME = 1000 //1 second minimum for mining timers
 const MAX_FILL_MEMPOOL_QUANTITY = 50000 //max number of transactions to fill the mempool with
 const MAX_SEND_RETRIES = 50 //max retries for sending funds in fillMempool
+const MAX_GENERATE_BLOCKS = 10000 //max blocks a single generateBlocks call may mine (see cap note below)
 
 
 //This is useful only for filling the mempool
@@ -108,13 +109,19 @@ class XChainRegtestMiner {
                 throw new Error("txQuantity exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY)
             }
 
+            // Claim the mutex synchronously, before the first await below. The
+            // fillMempoolRunning guard at the top of this method and this assignment
+            // must not straddle an await, or the guard is a no-op under real
+            // concurrency: two fill_mempool RPCs arriving in the same tick would both
+            // pass the guard (flag still false) while parked on the _generateQueue
+            // barrier, then both run the stress body at once.
+            this.fillMempoolRunning = true
             this.keepMining = false //Stop the mining so the txs stay in mempool
+            try {
             // Mirror pauseMining's barrier: wait for any in-flight generateBlocks(1)
             // to settle before proceeding, so a mine that started just before the
             // flag flip can't land a new block while fillMempool is running.
             await this._generateQueue
-            this.fillMempoolRunning = true
-            try {
             console.log("Filling mempool with "+txQuantity+" transactions")
             //let AMOUNT_FOR_EACH_ADDRESS = 0.000001
             //let FEE = 0.00001
@@ -505,6 +512,16 @@ class XChainRegtestMiner {
 
     generateBlocks(count) {
         if (!Number.isInteger(count) || count <= 0) return [];
+        // Cap the per-call block count. generatetoaddress mines synchronously on the
+        // node, so an unbounded count (e.g. from the unauthenticated-by-default
+        // generate_blocks RPC) blocks the node for minutes-to-forever; and because
+        // every mining caller serializes behind _generateQueue, that one call also
+        // wedges the auto-mine loop and every pause/fillMempool barrier queued behind
+        // it. fillMempool is already capped the same way (MAX_FILL_MEMPOOL_QUANTITY);
+        // this closes the sibling gap on the block-generation path.
+        if (count > MAX_GENERATE_BLOCKS) {
+            throw new Error("count exceeds maximum of " + MAX_GENERATE_BLOCKS)
+        }
         // Serialize all callers (auto-mine loop + generate_blocks RPC) behind a
         // single promise chain so concurrent calls never issue overlapping
         // generateToAddress requests against the node. The chain itself is kept
