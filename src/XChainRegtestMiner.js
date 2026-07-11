@@ -561,12 +561,25 @@ class XChainRegtestMiner {
         //If there are no new tx in that time, then mine a block
         console.log("Ready. Checking for new txs")
 
-        // Graceful shutdown on SIGTERM: allow current loop iteration to complete
-        this._sigTermHandler = () => {
-            console.log("Received SIGTERM, shutting down gracefully...")
+        // Graceful shutdown on SIGTERM/SIGINT: stop the mining loop, close the API
+        // server, then exit. Merely flipping this._shutdown is not enough: registering
+        // a signal listener suppresses Node's default terminate, and the listening
+        // Express server keeps the event loop alive, so the process would hang until
+        // docker's stop-grace SIGKILL. Close the server (thread in via api.js) and exit.
+        this._sigTermHandler = (signal) => {
+            console.log("Received " + (signal || "SIGTERM") + ", shutting down gracefully...")
             this._shutdown = true
+            const done = () => process.exit(0)
+            if (this.apiServer && typeof this.apiServer.close === "function") {
+                this.apiServer.close(done)
+                // Failsafe: force exit if lingering keep-alive sockets stall close().
+                setTimeout(done, 2000).unref()
+            } else {
+                done()
+            }
         }
-        process.on('SIGTERM', this._sigTermHandler)
+        process.on('SIGTERM', () => this._sigTermHandler('SIGTERM'))
+        process.on('SIGINT',  () => this._sigTermHandler('SIGINT'))
 
         let lastRawMempoolLength = 0
         let initialStartToMine = 0

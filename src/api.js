@@ -269,8 +269,11 @@ async function startApi(){
     app.use(jsonRouter({methods: jsonRpcController}))
 
 
-    // Start the server
-    app.listen(REGTEST_MINER_API_PORT, () => {
+    // Start the server. Hand the listening handle to the miner so its shutdown
+    // handler can close it; without this, a registered SIGTERM listener suppresses
+    // Node's default terminate and the still-listening server keeps the event loop
+    // alive until docker's stop-grace SIGKILL.
+    miner.apiServer = app.listen(REGTEST_MINER_API_PORT, () => {
       console.log('API listening on port '+REGTEST_MINER_API_PORT);
     });
 }
