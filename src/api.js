@@ -22,6 +22,7 @@
 const dotenv = require('dotenv')
 dotenv.config()
 
+const crypto = require('crypto');
 const express = require('express');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
@@ -49,6 +50,17 @@ const REGTEST_MINER_API_PORT = process.env.REGTEST_MINER_API_PORT
 // no auth so existing unauthenticated callers (e2e harness, docker-compose stacks)
 // are unaffected. Mirrors the opt-in pattern used by xchain-encoder and xchain-hub.
 const MINER_API_KEY = process.env.MINER_API_KEY || null
+
+// Constant-time API-key comparison. Plain `!==` on strings short-circuits on the
+// first differing character, leaking the key byte-by-byte via response timing to
+// anyone with network access to the miner port. The length check runs first because
+// crypto.timingSafeEqual throws on unequal-length buffers; a missing header coerces
+// to '' and fails closed (401) rather than throwing.
+function timingSafeStringEqual(a, b) {
+    const bufA = Buffer.from(String(a ?? ''))
+    const bufB = Buffer.from(String(b ?? ''))
+    return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB)
+}
 
 // Read-only health/observability RPC methods that bypass the MINER_API_KEY gate. The
 // bundled Docker HEALTHCHECK POSTs `ping` with no X-API-Key, so gating it would 401 every
@@ -125,7 +137,7 @@ async function startApi(){
                 return next()
             }
             const provided = req.headers['x-api-key']
-            if (provided !== MINER_API_KEY) {
+            if (!timingSafeStringEqual(provided, MINER_API_KEY)) {
                 return res.status(401).json({ error: 'Unauthorized: missing or invalid X-API-Key' })
             }
             next()

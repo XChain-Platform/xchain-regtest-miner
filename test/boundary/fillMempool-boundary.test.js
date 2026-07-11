@@ -89,11 +89,33 @@ describe('Boundary: fillMempool Chunking and Calculations', function () {
 
         it('calculates correct funding amount for 1 address', function () {
             const txRemainder = 1
+            // Bitcoin regtest has no dustThreshold, so the split-tx fee floors at 50.
+            const splitFee = Math.max(50, 50)
             const totalAmount = AMOUNT_FOR_EACH_ADDRESS * txRemainder +
                                 FEE * txRemainder +
-                                50 * txRemainder
+                                splitFee * txRemainder
             assert.strictEqual(totalAmount, 2050)
             assert.strictEqual(totalAmount / SATOSHI_UNIT, 0.0000205)
+        })
+    })
+
+    // ─── F-02b: split-tx fee scales to the coin's dust threshold ───────
+    // Regression guard for the DOGE fill_mempool failure: the split tx's
+    // per-output miner fee is Math.max(50, network.dustThreshold), not a
+    // flat 50, so it clears dogecoin-regtest's relay floor.
+    describe('F-02b: split-tx fee scales to coin dust threshold', function () {
+        const splitFeeFor = (dustThreshold) => Math.max(50, dustThreshold || 50)
+
+        it('floors at 50 sat/output for Bitcoin (no dustThreshold)', function () {
+            assert.strictEqual(splitFeeFor(undefined), 50)
+        })
+
+        it('scales to 100000 koinu/output for dogecoin-regtest', function () {
+            assert.strictEqual(splitFeeFor(100000), 100000)
+        })
+
+        it('scales to 5460 litoshi/output for litecoin-regtest', function () {
+            assert.strictEqual(splitFeeFor(5460), 5460)
         })
     })
 

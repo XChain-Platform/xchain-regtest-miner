@@ -149,6 +149,15 @@ class XChainRegtestMiner {
             const coinDust = (network && network.dustThreshold) ? network.dustThreshold : 1000
             let AMOUNT_FOR_EACH_ADDRESS = Math.max(coinDust, 1000)
             let FEE = Math.max(coinDust, 1000)
+            // Per-output miner fee left on the intermediate 2500-output splitting tx.
+            // Must also scale to the coin: a flat 50 sat/output is ~1.5 sat/byte on a
+            // full split tx, below dogecoin-regtest's ~100 koinu/byte relay floor
+            // (dustThreshold 100000), so the node rejects the split tx with
+            // 'insufficient fee' and fill_mempool never runs on DOGE. Scale from the
+            // coin's real dust threshold when present (floor 50 sat/output for
+            // Bitcoin, which has none), which keeps ample margin on every coin.
+            const rawDust = (network && network.dustThreshold) ? network.dustThreshold : 50
+            let SPLIT_TX_FEE_PER_OUTPUT = Math.max(50, rawDust)
             var mnemonic = bip39.generateMnemonic()
             var seed = bip39.mnemonicToSeedSync(mnemonic)
             var root = bip32.fromSeed(seed, network)
@@ -180,10 +189,10 @@ class XChainRegtestMiner {
                         txRemainder = remainder
                     }
                 }
-                let totalAmount = 
+                let totalAmount =
                     AMOUNT_FOR_EACH_ADDRESS*txRemainder + //Amount for every address
                     FEE*txRemainder + //Fee that every address must pay to send the amount
-                    50*txRemainder
+                    SPLIT_TX_FEE_PER_OUTPUT*txRemainder //Miner fee left on the split tx (coin-scaled)
                 
                 console.log("Sending "+totalAmount/SATOSHI_UNIT+" ("+i+") to "+mainAddress)
                 
@@ -544,6 +553,14 @@ class XChainRegtestMiner {
     async _generateBlocks(numberOfBlocks){
         let hashes = await this.connector.generateToAddress(numberOfBlocks, this.walletAddress)
 
+        // Count every mine that flows through this serialized chokepoint (auto-mine
+        // loop, generate_blocks RPC, fillMempool, prepareWallet warmup). blocks_mined
+        // is a monotonic count of blocks this service generated (mining work
+        // performed), not chain height: it intentionally does NOT decrement after an
+        // invalidate_block rollback.
+        this._blocksMined += numberOfBlocks
+        this._lastMineAt = Date.now()
+
         if (numberOfBlocks > 1){
             console.log(numberOfBlocks+" new blocks have been generated")
         } else if (numberOfBlocks > 0){
@@ -600,8 +617,8 @@ class XChainRegtestMiner {
                             await this.generateBlocks(1)
                             consecutiveErrors = 0
                             this._consecutiveErrors = 0
-                            this._blocksMined++
-                            this._lastMineAt = Date.now()
+                            // blocks_mined / last_mine_at are updated in _generateBlocks
+                            // (the chokepoint all mining paths flow through).
                         } catch (err){
                             consecutiveErrors++
                             this._consecutiveErrors = consecutiveErrors

@@ -483,7 +483,7 @@ class BlockchainConnector {
                 return result.txid
             }
             const nodeErr = response.data && response.data.error
-                ? (nodeErr => nodeErr.message || JSON.stringify(nodeErr))(response.data.error)
+                ? (response.data.error.message || JSON.stringify(response.data.error))
                 : 'no result, no error'
             // Log the node's own (safe) RPC error for diagnosis, but throw a static
             // message: a transport axios error.message leaks the RPC host:port, and the
