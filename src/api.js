@@ -189,7 +189,7 @@ async function startApi(){
         // Stop the auto-mine loop from firing further blocks. Any block already
         // in flight at the moment of the call completes normally. Use
         // continue_mining to resume.
-        async pause_mining({}) {
+        async pause_mining({} = {}) {
             try {
                 await miner.pauseMining()
             } catch(err){
@@ -201,7 +201,7 @@ async function startApi(){
         },
 
         // Function to fill the mempool with a specific number of transactions randomly created
-        async continue_mining({}) {
+        async continue_mining({} = {}) {
             try {
                 await miner.continueMining()
             } catch(err){

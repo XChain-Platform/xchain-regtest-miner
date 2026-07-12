@@ -46,6 +46,7 @@ const bip32 = BIP32Factory(ecc)
 const bip39 = require('bip39')
 const bitcoin = require('bitcoinjs-lib');
 const {ECPairFactory} = require('ecpair')
+const ECPair = ECPairFactory(ecc)
 
 class XChainRegtestMiner {
     constructor(network, nodeUrl, nodePort, nodeUser, nodePassword) {
@@ -313,7 +314,6 @@ class XChainRegtestMiner {
                     })
                 }
             
-                var ECPair = ECPairFactory(ecc)
                 let keyToSign = ECPair.fromPrivateKey(address.privateKey, { network })
 
                 for (let nextInputIndex=0;nextInputIndex < psbt.data.inputs.length;nextInputIndex++){
@@ -500,7 +500,31 @@ class XChainRegtestMiner {
             if (blockchainInfo["blocks"] <= 100){
                 await this.generateBlocks(101)
             } else {
-                await this.generateBlocks(1)
+                // Mine to the same coinbase-maturity depth as the fresh-chain
+                // branch above: a single block here would only be an immature
+                // coinbase (spendable after 100 confirmations), leaving the
+                // balance at 0 while walletReady is about to be set true.
+                await this.generateBlocks(101)
+            }
+
+            // Re-poll the balance in a bounded loop instead of trusting the
+            // mining call: ping/status export walletReady as the readiness
+            // oracle, so it must reflect an observed spendable balance, not
+            // just that a mining RPC was issued.
+            const BALANCE_POLL_MAX_ATTEMPTS = 10
+            const BALANCE_POLL_INTERVAL_MS = 1000
+            for (let attempt = 1; attempt <= BALANCE_POLL_MAX_ATTEMPTS; attempt++) {
+                this.balance = await this.connector.getBalance()
+                if (this.balance > 0){
+                    break
+                }
+                if (attempt < BALANCE_POLL_MAX_ATTEMPTS) {
+                    await this.sleep(BALANCE_POLL_INTERVAL_MS)
+                }
+            }
+
+            if (this.balance <= 0){
+                throw new Error("Wallet balance still 0 after mining to maturity; cannot mark wallet ready")
             }
         }
 

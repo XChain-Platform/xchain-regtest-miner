@@ -114,14 +114,30 @@ describe('Boundary: Wallet Preparation', function () {
     // ─── W-05: Wallet loaded, balance = 0, height = 101 ───────────────
 
     describe('W-05: wallet loaded, balance = 0, height = 101', function () {
-        it('mines 1 block (height > 100 branch)', async function () {
+        it('mines to maturity (101 blocks) and only reports ready once balance is observed positive', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 101 })
+            connectorStub.getBalance.onCall(0).resolves(0)
+            connectorStub.getBalance.onCall(1).resolves(0)
+            connectorStub.getBalance.onCall(2).resolves(25.0)
 
             await miner.prepareWallet()
 
-            assert(connectorStub.generateToAddress.calledWith(1, 'bcrt1qtest'))
+            assert(connectorStub.generateToAddress.calledWith(101, 'bcrt1qtest'),
+                'a >100-block chain must mine to the same maturity depth as the fresh-chain branch')
+            assert.strictEqual(miner.walletReady, true)
+        })
+
+        it('does not mark the wallet ready when balance stays 0 after mining to maturity', async function () {
+            connectorStub.getWalletInfo.resolves({ walletname: 'w' })
+            connectorStub.getBlockchainInfo.resolves({ blocks: 101 })
+            connectorStub.getBalance.resolves(0)
+
+            await assert.rejects(
+                () => miner.prepareWallet(),
+                /balance still 0/
+            )
+            assert.strictEqual(miner.walletReady, false)
         })
     })
 
@@ -201,8 +217,9 @@ describe('Boundary: Wallet Preparation', function () {
 
         it('treats exactly 0 as needing mining', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 200 })
+            connectorStub.getBalance.onCall(0).resolves(0)
+            connectorStub.getBalance.onCall(1).resolves(25.0)
 
             await miner.prepareWallet()
 
@@ -212,8 +229,9 @@ describe('Boundary: Wallet Preparation', function () {
 
         it('treats negative balance (theoretical) as needing mining', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(-0.001) // Shouldn't happen, but boundary
             connectorStub.getBlockchainInfo.resolves({ blocks: 200 })
+            connectorStub.getBalance.onCall(0).resolves(-0.001) // Shouldn't happen, but boundary
+            connectorStub.getBalance.onCall(1).resolves(25.0)
 
             await miner.prepareWallet()
 
@@ -223,8 +241,9 @@ describe('Boundary: Wallet Preparation', function () {
 
         it('handles -0 correctly', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(-0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 200 })
+            connectorStub.getBalance.onCall(0).resolves(-0)
+            connectorStub.getBalance.onCall(1).resolves(25.0)
 
             await miner.prepareWallet()
 
