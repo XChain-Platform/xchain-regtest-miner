@@ -397,7 +397,21 @@ class XChainRegtestMiner {
         if (typeof blockHash !== 'string' || blockHash.length === 0) {
             throw new Error('reconsiderBlock: blockHash must be a non-empty string')
         }
-        return await this.connector.reconsiderBlock(blockHash)
+        // Take the same mine-barrier invalidateBlock takes, so the node never
+        // re-evaluates the chain while a generateToAddress is in flight. Under the
+        // documented invalidate -> mine branch -> reconsider flow mining is already
+        // paused and this is a no-op; it is a standalone reconsider (or one issued
+        // after continue_mining) that could otherwise race a mine into the node's
+        // reorg. Prior auto-mining state is restored afterwards: unlike invalidate,
+        // reconsider is the END of the reorg sequence, so leaving the miner paused
+        // here would silently stall a caller that never calls continueMining().
+        const wasMining = this.keepMining
+        await this.pauseMining()
+        try {
+            return await this.connector.reconsiderBlock(blockHash)
+        } finally {
+            if (wasMining) this.keepMining = true
+        }
     }
 
     async pauseMining(){

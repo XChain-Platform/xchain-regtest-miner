@@ -253,6 +253,39 @@ describe('XChainRegtestMiner', function () {
             connectorStub.reconsiderBlock = sinon.stub().resolves(true)
             await assert.rejects(() => miner.reconsiderBlock(''), /blockHash must be a non-empty string/)
         })
+
+        // The reorg primitives must not overlap an in-flight generateToAddress.
+        // invalidateBlock self-guarded; reconsiderBlock relied on the caller having
+        // invalidated first, so a standalone reconsider (or one after continue_mining)
+        // could race a mine into the node's chain re-evaluation.
+        it('takes the mine-barrier before reaching the node', async function () {
+            connectorStub.reconsiderBlock = sinon.stub().resolves(true)
+            const pauseSpy = sinon.spy(miner, 'pauseMining')
+            await miner.reconsiderBlock('deadbeef')
+            assert(pauseSpy.calledOnce, 'pauseMining should be called before reconsidering')
+            assert(pauseSpy.calledBefore(connectorStub.reconsiderBlock), 'barrier must precede the RPC')
+        })
+
+        it('restores auto-mining when it was running (reorg sequence ends here)', async function () {
+            connectorStub.reconsiderBlock = sinon.stub().resolves(true)
+            miner.keepMining = true
+            await miner.reconsiderBlock('deadbeef')
+            assert.strictEqual(miner.keepMining, true, 'a standalone reconsider must not silently stall the miner')
+        })
+
+        it('leaves mining paused when it was already paused (invalidate → mine → reconsider)', async function () {
+            connectorStub.reconsiderBlock = sinon.stub().resolves(true)
+            miner.keepMining = false
+            await miner.reconsiderBlock('deadbeef')
+            assert.strictEqual(miner.keepMining, false, 'the documented flow resumes via continueMining()')
+        })
+
+        it('restores mining state even when the node RPC throws', async function () {
+            connectorStub.reconsiderBlock = sinon.stub().rejects(new Error('node down'))
+            miner.keepMining = true
+            await assert.rejects(() => miner.reconsiderBlock('deadbeef'), /node down/)
+            assert.strictEqual(miner.keepMining, true)
+        })
     })
 
     // ─── prepareWallet ──────────────────────────────────────────────────
