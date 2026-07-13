@@ -145,8 +145,11 @@ class XChainRegtestMiner {
 
             // Scale amounts to the coin's dust threshold so DOGE/LTC regtest
             // nodes (which have much higher minimum relay fees than Bitcoin)
-            // don't reject the stress txs. Bitcoin regtest has no dustThreshold
-            // field, so we default to 1000 sat (same as before).
+            // don't reject the stress txs. The 1000-sat default applies only on the
+            // FALLBACK path above (a bare NETWORK='regtest', which resolves to the
+            // bitcoinjs-lib built-in and carries no dustThreshold). The resolved coin
+            // form 'bitcoin-regtest' DOES define one (546), so this is 1000 there only
+            // because 546 < 1000.
             const coinDust = (network && network.dustThreshold) ? network.dustThreshold : 1000
             let AMOUNT_FOR_EACH_ADDRESS = Math.max(coinDust, 1000)
             let FEE = Math.max(coinDust, 1000)
@@ -155,8 +158,10 @@ class XChainRegtestMiner {
             // full split tx, below dogecoin-regtest's ~100 koinu/byte relay floor
             // (dustThreshold 100000), so the node rejects the split tx with
             // 'insufficient fee' and fill_mempool never runs on DOGE. Scale from the
-            // coin's real dust threshold when present (floor 50 sat/output for
-            // Bitcoin, which has none), which keeps ample margin on every coin.
+            // coin's real dust threshold when present, which keeps ample margin on every
+            // coin. The 50-sat floor is reached only on the bare-'regtest' FALLBACK path
+            // (no dustThreshold); under the resolved 'bitcoin-regtest' form this is
+            // max(50, 546) = 546, so real Bitcoin runs fund 2546/output, not 2050.
             const rawDust = (network && network.dustThreshold) ? network.dustThreshold : 50
             let SPLIT_TX_FEE_PER_OUTPUT = Math.max(50, rawDust)
             var mnemonic = bip39.generateMnemonic()

@@ -87,15 +87,33 @@ describe('Boundary: fillMempool Chunking and Calculations', function () {
             assert.strictEqual(remainder, 1)
         })
 
-        it('calculates correct funding amount for 1 address', function () {
+        it('calculates correct funding amount for 1 address (bare-"regtest" FALLBACK path)', function () {
             const txRemainder = 1
-            // Bitcoin regtest has no dustThreshold, so the split-tx fee floors at 50.
+            // The miner under test is built with the bare network 'regtest' (see setup),
+            // which does NOT resolve to a coin config, so it falls back to the
+            // bitcoinjs-lib built-in, which carries no dustThreshold: split fee floors at 50.
             const splitFee = Math.max(50, 50)
             const totalAmount = AMOUNT_FOR_EACH_ADDRESS * txRemainder +
                                 FEE * txRemainder +
                                 splitFee * txRemainder
             assert.strictEqual(totalAmount, 2050)
             assert.strictEqual(totalAmount / SATOSHI_UNIT, 0.0000205)
+        })
+
+        it('calculates correct funding amount for 1 address (resolved "bitcoin-regtest" coin config)', function () {
+            // Production passes COIN_NETWORK in the resolved form, where Bitcoin DOES
+            // define dustThreshold 546. This is the path real runs take and it was
+            // previously unasserted, so the suite would have stayed green if the
+            // Bitcoin sizing drifted below dust.
+            const CryptoNetworks = require('../../src/CryptoNetworks')
+            const net = CryptoNetworks.getBitcoinJsNetwork('bitcoin-regtest')
+            assert.strictEqual(net.dustThreshold, 546)
+
+            const coinDust = Math.max(net.dustThreshold, 1000)   // 1000 (546 < 1000)
+            const splitFee = Math.max(50, net.dustThreshold)     // 546, not 50
+            const totalAmount = coinDust + coinDust + splitFee
+            assert.strictEqual(splitFee, 546)
+            assert.strictEqual(totalAmount, 2546)
         })
     })
 
@@ -106,8 +124,12 @@ describe('Boundary: fillMempool Chunking and Calculations', function () {
     describe('F-02b: split-tx fee scales to coin dust threshold', function () {
         const splitFeeFor = (dustThreshold) => Math.max(50, dustThreshold || 50)
 
-        it('floors at 50 sat/output for Bitcoin (no dustThreshold)', function () {
+        it('floors at 50 sat/output only when no dustThreshold resolves (bare-network fallback)', function () {
             assert.strictEqual(splitFeeFor(undefined), 50)
+        })
+
+        it('uses 546 sat/output for the resolved bitcoin-regtest coin config', function () {
+            assert.strictEqual(splitFeeFor(546), 546)
         })
 
         it('scales to 100000 koinu/output for dogecoin-regtest', function () {
