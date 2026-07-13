@@ -310,18 +310,18 @@ describe('XChainRegtestMiner', function () {
 
         it('mines 101 blocks when balance is zero and height <= 100', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 50 })
             await miner.prepareWallet()
             assert(connectorStub.generateToAddress.calledWith(101, 'bcrt1qtest'))
         })
 
-        it('mines 1 block when balance is zero and height > 100', async function () {
+        it('mines 101 blocks when balance is zero and height > 100 (coinbase maturity)', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 200 })
             await miner.prepareWallet()
-            assert(connectorStub.generateToAddress.calledWith(1, 'bcrt1qtest'))
+            assert(connectorStub.generateToAddress.calledWith(101, 'bcrt1qtest'))
         })
 
         it('does not mine when balance is positive', async function () {
@@ -333,18 +333,18 @@ describe('XChainRegtestMiner', function () {
 
         it('mines 101 blocks at exactly height 100', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 100 })
             await miner.prepareWallet()
             assert(connectorStub.generateToAddress.calledWith(101, 'bcrt1qtest'))
         })
 
-        it('mines 1 block at height 101', async function () {
+        it('mines 101 blocks at height 101 (coinbase maturity)', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 101 })
             await miner.prepareWallet()
-            assert(connectorStub.generateToAddress.calledWith(1, 'bcrt1qtest'))
+            assert(connectorStub.generateToAddress.calledWith(101, 'bcrt1qtest'))
         })
 
         it('treats a never-succeeding probe as no wallet loaded (falls through to loadWallet)', async function () {
