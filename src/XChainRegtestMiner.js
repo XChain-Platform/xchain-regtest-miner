@@ -515,16 +515,12 @@ class XChainRegtestMiner {
         
         if (this.balance <= 0){
             console.log("Mining blocks to get balance in the wallet")
-            let blockchainInfo = await this.connector.getBlockchainInfo()
-            if (blockchainInfo["blocks"] <= 100){
-                await this.generateBlocks(101)
-            } else {
-                // Mine to the same coinbase-maturity depth as the fresh-chain
-                // branch above: a single block here would only be an immature
-                // coinbase (spendable after 100 confirmations), leaving the
-                // balance at 0 while walletReady is about to be set true.
-                await this.generateBlocks(101)
-            }
+            // Always mine to coinbase-maturity depth regardless of current chain
+            // height: fewer blocks (e.g. a single one on an aged chain) would only
+            // add an immature coinbase (spendable after 100 confirmations), leaving
+            // the balance at 0 while walletReady is about to be set true. The
+            // bounded balance re-poll below is the real readiness guard.
+            await this.generateBlocks(101)
 
             // Re-poll the balance in a bounded loop instead of trusting the
             // mining call: ping/status export walletReady as the readiness

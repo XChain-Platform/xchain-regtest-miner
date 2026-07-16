@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Surface `mining_paused` in `getStatus()` so an unpaired `fill_mempool`/`invalidate_block` is observable as a deliberate pause rather than reading as a node hang.
 
+## [0.1.20] - 2026-07-16
+
+### Fixed
+- prepareWallet: collapsed the vacuous chain-height if/else (both arms mined 101 blocks) to one unconditional generateBlocks(101) and dropped the unused getBlockchainInfo fetch ().
+
+
 ## [0.1.18] - 2026-06-20
 
 ### Added
