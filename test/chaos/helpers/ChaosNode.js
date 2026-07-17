@@ -39,15 +39,20 @@ class ChaosNode extends LatencyMockNode {
 
     _reinstallChaosHandler() {
         // Remove LatencyMockNode's handler (the last POST / route)
-        const stack = this.app._router.stack
+        // Express 5 renamed app._router to app.router; support both so the
+        // helper works across the 4->5 dependency bump.
+        const stack = (this.app.router || this.app._router).stack
+        // StatefulMockNode registers one layer for ['/', '/wallet/:walletName'],
+        // so route.path can be a string or an array; match both shapes.
+        const handlesRoot = (p) => p === '/' || (Array.isArray(p) && p.includes('/'))
         for (let i = stack.length - 1; i >= 0; i--) {
-            if (stack[i].route && stack[i].route.path === '/') {
+            if (stack[i].route && handlesRoot(stack[i].route.path)) {
                 stack.splice(i, 1)
                 break
             }
         }
 
-        this.app.post('/', async (req, res) => {
+        this.app.post(['/', '/wallet/:walletName'], async (req, res) => {
             // 1. Offline: destroy socket (simulates ECONNRESET)
             if (this._offline) {
                 req.socket.destroy()

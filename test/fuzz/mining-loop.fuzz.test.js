@@ -30,6 +30,8 @@ describe('Fuzz: mining loop state machine', function () {
             generateToAddress: sinon.stub().resolves(['blockhash1']),
             getRawMempool: sinon.stub().resolves([]),
             sendToAddress: sinon.stub().resolves('txid_abc'),
+            setTxFee: sinon.stub().resolves(true),
+            setWalletName: sinon.stub(),
             getRawTransaction: sinon.stub().resolves('0200000001'),
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
         }

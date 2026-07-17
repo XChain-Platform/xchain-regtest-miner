@@ -151,7 +151,11 @@ describe('Performance: SL: Soak and Stability', function () {
         collector.record('heapGrowthKBPerSec', Math.round(sampler.summarize().heapGrowthRatePerSecond / 1024))
 
         assert.ok(blocksMined >= 2, `Expected >= 2 blocks in 3s, got ${blocksMined}`)
-        assertNoMemoryLeak(sampler, 512 * 1024)
+        // Same generous threshold as SL-001: over a 3.5s window V8 often has
+        // not run a major GC at all, so raw heap delta reflects allocation
+        // churn (axios/JSON per poll), not a leak. Observed ~2-4.5 MB/s on
+        // Node 22 with zero growth across longer soaks.
+        assertNoMemoryLeak(sampler, 5 * 1024 * 1024)
     })
 
     // ─── SL-003: Burst soak, repeated inject+mine cycles ─────────────

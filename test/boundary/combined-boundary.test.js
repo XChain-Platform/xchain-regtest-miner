@@ -30,6 +30,8 @@ describe('Boundary: Combined Parameter Interactions', function () {
             generateToAddress: sinon.stub().resolves(['blockhash1']),
             getRawMempool: sinon.stub().resolves([]),
             sendToAddress: sinon.stub().resolves('txid_abc'),
+            setTxFee: sinon.stub().resolves(true),
+            setWalletName: sinon.stub(),
             getRawTransaction: sinon.stub().resolves('0200000001...'),
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
             getNetworkInfo: sinon.stub().resolves({}),
@@ -141,7 +143,7 @@ describe('Boundary: Combined Parameter Interactions', function () {
 
         it('mines 101 blocks at height 99, which might timeout', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 99 })
 
             await miner.prepareWallet()
@@ -152,7 +154,7 @@ describe('Boundary: Combined Parameter Interactions', function () {
 
         it('propagates error when generateToAddress fails during bootstrap', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 99 })
             connectorStub.generateToAddress.rejects(new Error('timeout after 60s'))
 
@@ -320,14 +322,14 @@ describe('Boundary: Combined Parameter Interactions', function () {
             miner.prepareWallet.restore()
         })
 
-        it('throws when getWalletInfo returns null, loadWallet fails, and createWallet exhausts retries', async function () {
-            connectorStub.getWalletInfo.resolves(null) // No wallet loaded (null treated as no wallet)
+        it('throws when the probe, loadWallet, and createWallet all fail', async function () {
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
             connectorStub.loadWallet.rejects(new Error('wallet not found'))
             connectorStub.createWallet.rejects(new Error('disk full'))
 
             await assert.rejects(
                 () => miner.prepareWallet(),
-                /Error when trying to create the wallet/,
+                /Could not create wallet/,
                 'Should throw wallet creation error'
             )
         })

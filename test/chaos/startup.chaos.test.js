@@ -91,12 +91,12 @@ describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
         sinon.stub(miner.connector, 'sleep').resolves()
 
         // prepareWallet will call:
-        //   1. getWalletInfo (50 retries): fails, falls through
+        //   1. getNewAddress probe (bounded retries): fails, falls through
         //   2. loadWallet: fails, falls through
         //   3. createWallet (50 retries): fails, throws
         await assert.rejects(
             () => miner.prepareWallet(),
-            /Error when trying to create the wallet/,
+            /Could not create wallet/,
             'W-2: prepareWallet should throw after exhausting all retry windows'
         )
 

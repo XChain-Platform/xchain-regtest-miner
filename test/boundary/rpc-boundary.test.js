@@ -331,13 +331,12 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
             assert.strictEqual(result, 'abc123')
         })
 
-        it('returns undefined when response has no txid key', async function () {
-            // result["txid"] on object without txid returns undefined
+        it('throws when response has no txid key', async function () {
+            // An object result without a txid string is treated as a failed
+            // send (static error message, no host/port leakage).
             axiosPostStub.resolves(rpcSuccess({ other_field: 'value' }))
-            // result is truthy (it's an object), but result["txid"] is undefined
-            const result = await connector.sendToAddress('addr', 1.0)
-            assert.strictEqual(result, undefined,
-                'Missing txid key returns undefined')
+            await assert.rejects(() => connector.sendToAddress('addr', 1.0),
+                /Error sending funds to address/)
         })
     })
 
@@ -346,13 +345,13 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
     // ═══════════════════════════════════════════════════════════════════
 
     describe('generateToAddress timeout boundary', function () {
-        it('uses explicit 60s timeout (not default)', async function () {
+        it('inherits the connector-wide default timeout (no per-call override)', async function () {
             axiosPostStub.resolves(rpcSuccess(['hash']))
             await connector.generateToAddress(1, 'addr')
 
             const config = axiosPostStub.firstCall.args[2]
-            assert.strictEqual(config.timeout, 60000,
-                'Should use explicit 60s timeout for mining')
+            assert.strictEqual(config.timeout, undefined,
+                'Mining should inherit axios.defaults.timeout (NODE_RPC_TIMEOUT), not hardcode one')
         })
     })
 

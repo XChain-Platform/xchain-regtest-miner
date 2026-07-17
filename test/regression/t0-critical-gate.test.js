@@ -41,6 +41,8 @@ describe('T0 Regression: Critical Gate', function () {
             generateToAddress: sinon.stub().resolves(['blockhash1']),
             getRawMempool: sinon.stub().resolves([]),
             sendToAddress: sinon.stub().resolves('txid_abc'),
+            setTxFee: sinon.stub().resolves(true),
+            setWalletName: sinon.stub(),
             getRawTransaction: sinon.stub().resolves('0200000001...'),
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
         }
@@ -169,16 +171,18 @@ describe('T0 Regression: Critical Gate', function () {
             assert.strictEqual(miner.walletAddress, 'bcrt1qtest')
         })
 
-        it('loads existing wallet when getWalletInfo fails', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+        it('loads existing wallet when the probe fails', async function () {
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
             connectorStub.loadWallet.resolves({ name: 'xchain_regtest_wallet' })
             await miner.prepareWallet()
             assert(connectorStub.loadWallet.calledWith('xchain_regtest_wallet'))
             assert(connectorStub.createWallet.notCalled)
         })
 
-        it('creates wallet when both getWalletInfo and loadWallet fail', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+        it('creates wallet when both the probe and loadWallet fail', async function () {
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
             connectorStub.loadWallet.rejects(new Error('not found'))
             connectorStub.createWallet.resolves({ name: 'xchain_regtest_wallet' })
             await miner.prepareWallet()
@@ -186,26 +190,26 @@ describe('T0 Regression: Critical Gate', function () {
         })
 
         it('throws when all wallet methods fail', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
             connectorStub.loadWallet.rejects(new Error('not found'))
             connectorStub.createWallet.rejects(new Error('disk full'))
-            await assert.rejects(() => miner.prepareWallet(), /Error when trying to create the wallet/)
+            await assert.rejects(() => miner.prepareWallet(), /Could not create wallet/)
         })
 
         it('mines 101 blocks when balance is zero and height <= 100', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 50 })
             await miner.prepareWallet()
             assert(connectorStub.generateToAddress.calledWith(101, 'bcrt1qtest'))
         })
 
-        it('mines 1 block when balance is zero and height > 100', async function () {
+        it('mines 101 blocks when balance is zero and height > 100 (maturity depth is height-independent)', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 200 })
             await miner.prepareWallet()
-            assert(connectorStub.generateToAddress.calledWith(1, 'bcrt1qtest'))
+            assert(connectorStub.generateToAddress.calledWith(101, 'bcrt1qtest'))
         })
 
         it('does not mine when balance is positive', async function () {
@@ -386,15 +390,17 @@ describe('T0 Regression: Critical Gate', function () {
             await assert.rejects(() => miner.fillMempool(10), /already running/)
         })
 
-        it('restores keepMining to true in finally block', async function () {
+        it('leaves mining paused after fillMempool (resume is continue_mining)', async function () {
             miner.keepMining = true
             try {
                 await miner.fillMempool(1)
             } catch (e) {
                 // May fail on crypto ops; that's fine for this test
             }
-            assert.strictEqual(miner.keepMining, true,
-                'keepMining must be restored to true by finally block')
+            assert.strictEqual(miner.keepMining, false,
+                'fillMempool pauses mining so the stress txs stay in the mempool')
+            assert.strictEqual(miner.fillMempoolRunning, false,
+                'the fillMempool mutex must be released by the finally block')
         })
 
         it('rejects invalid txQuantity without changing keepMining', async function () {

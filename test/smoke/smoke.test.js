@@ -50,6 +50,8 @@ describe('Regtest Miner Smoke Tests', function () {
                 generateToAddress: sinon.stub().resolves(['blockhash1']),
                 getRawMempool: sinon.stub().resolves([]),
                 sendToAddress: sinon.stub().resolves('txid_abc'),
+                setTxFee: sinon.stub().resolves(true),
+                setWalletName: sinon.stub(),
             }
 
             sinon.stub(BlockchainConnector.prototype, 'constructor')
@@ -96,22 +98,26 @@ describe('Regtest Miner Smoke Tests', function () {
         })
 
         it('ST-03: prepares wallet on fresh node (create + fund)', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+            // Fresh node: the getNewAddress probe fails until the wallet is
+            // created, then succeeds.
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
             connectorStub.loadWallet.rejects(new Error('not found'))
             connectorStub.createWallet.resolves({ name: 'xchain_regtest_wallet' })
-            connectorStub.getBalance.resolves(0)
+            // Balance is 0 before mining; the post-mining re-poll sees funds.
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 0 })
 
             await miner.prepareWallet()
 
             assert(connectorStub.createWallet.calledWith('xchain_regtest_wallet'))
-            assert(connectorStub.getNewAddress.calledOnce)
             assert(connectorStub.generateToAddress.calledWith(101, 'bcrt1qtest'))
             assert.strictEqual(miner.walletAddress, 'bcrt1qtest')
         })
 
         it('ST-04: prepares wallet with existing wallet (load)', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
             connectorStub.loadWallet.resolves({ name: 'xchain_regtest_wallet' })
 
             await miner.prepareWallet()

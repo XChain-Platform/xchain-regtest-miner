@@ -29,6 +29,8 @@ describe('Fuzz: RPC response handling', function () {
             generateToAddress: sinon.stub().resolves(['blockhash1']),
             getRawMempool: sinon.stub().resolves([]),
             sendToAddress: sinon.stub().resolves('txid_abc'),
+            setTxFee: sinon.stub().resolves(true),
+            setWalletName: sinon.stub(),
             getRawTransaction: sinon.stub().resolves('0200000001'),
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
         }
@@ -342,64 +344,34 @@ describe('Fuzz: RPC response handling', function () {
     // ─── getWalletInfo / wallet setup fuzzing ───────────────────────
 
     describe('wallet setup with fuzzed responses', function () {
-        it('handles getWalletInfo throwing then loadWallet succeeding', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+        it('handles probe failing then loadWallet succeeding', async function () {
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
             connectorStub.loadWallet.resolves({ name: 'test' })
 
-            let loopCount = 0
-            miner.sleep.callsFake(async () => {
-                loopCount++
-                if (loopCount >= 2) {
-                    miner.keepMining = false
-                    throw new Error('__LOOP_BREAK__')
-                }
-            })
-
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await miner.prepareWallet()
 
             assert.ok(connectorStub.loadWallet.calledOnce)
             assert.ok(connectorStub.createWallet.notCalled)
         })
 
-        it('handles getWalletInfo throwing and loadWallet throwing', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+        it('handles probe failing and loadWallet throwing', async function () {
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
             connectorStub.loadWallet.rejects(new Error('no file'))
 
-            let loopCount = 0
-            miner.sleep.callsFake(async () => {
-                loopCount++
-                if (loopCount >= 2) {
-                    miner.keepMining = false
-                    throw new Error('__LOOP_BREAK__')
-                }
-            })
-
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await miner.prepareWallet()
 
             assert.ok(connectorStub.createWallet.calledOnce)
         })
 
-        it('handles getWalletInfo returning null', async function () {
-            connectorStub.getWalletInfo.resolves(null)
+        it('handles probe returning no usable address', async function () {
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
 
-            let loopCount = 0
-            miner.sleep.callsFake(async () => {
-                loopCount++
-                if (loopCount >= 2) {
-                    miner.keepMining = false
-                    throw new Error('__LOOP_BREAK__')
-                }
-            })
+            await miner.prepareWallet()
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-
-            // null walletInfo triggers wallet load/create path
+            // A failed probe triggers the wallet load/create path
             assert.ok(connectorStub.loadWallet.called || connectorStub.createWallet.called)
         })
     })

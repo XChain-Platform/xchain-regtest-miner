@@ -138,11 +138,12 @@ describe('T1 Regression: BlockchainConnector RPC Methods', function () {
             assertRpcCall('generatetoaddress', [2, 'addr1'])
         })
 
-        it('uses 60s timeout', async function () {
+        it('inherits the connector-wide default timeout (no per-call override)', async function () {
             axiosPostStub.resolves(rpcSuccess(['hash']))
             await connector.generateToAddress(1, 'addr')
             const config = axiosPostStub.firstCall.args[2]
-            assert.strictEqual(config.timeout, 60000)
+            assert.strictEqual(config.timeout, undefined,
+                'mining inherits axios.defaults.timeout (NODE_RPC_TIMEOUT)')
         })
 
         it('throws on falsy result', async function () {
@@ -175,12 +176,12 @@ describe('T1 Regression: BlockchainConnector RPC Methods', function () {
     // ─── REG-T1-A06: sendToAddress ─────────────────────────────────
 
     describe('REG-T1-A06: sendToAddress', function () {
-        it('uses named params with verbose flag and returns txid', async function () {
+        it('uses positional params (DOGE v1.14 compatible) and returns txid', async function () {
             axiosPostStub.resolves(rpcSuccess({ txid: 'abc123' }))
             const result = await connector.sendToAddress('addr1', 1.5)
             assert.strictEqual(result, 'abc123')
             const data = axiosPostStub.firstCall.args[1]
-            assert.deepStrictEqual(data.params, { address: 'addr1', amount: 1.5, verbose: true })
+            assert.deepStrictEqual(data.params, ['addr1', 1.5])
         })
 
         it('throws on falsy result', async function () {
@@ -337,13 +338,13 @@ describe('T1 Regression: BlockchainConnector RPC Methods', function () {
         it('getBlock sends hash with hex format by default', async function () {
             axiosPostStub.resolves(rpcSuccess('0100000...'))
             await connector.getBlock('blockhash')
-            assertRpcCall('getblock', ['blockhash', 0])
+            assertRpcCall('getblock', ['blockhash', false])
         })
 
         it('getBlock sends JSON format when hexFormat=false', async function () {
             axiosPostStub.resolves(rpcSuccess({ hash: 'h', height: 1 }))
             await connector.getBlock('blockhash', false)
-            assertRpcCall('getblock', ['blockhash', 1])
+            assertRpcCall('getblock', ['blockhash', true])
         })
 
         it('getMempoolEntry returns entry for txid', async function () {
@@ -397,6 +398,8 @@ describe('T1 Regression: Miner↔Connector Integration Seams', function () {
             }),
             getRawMempool: sinon.stub().resolves([]),
             sendToAddress: sinon.stub().resolves('txid_abc'),
+            setTxFee: sinon.stub().resolves(true),
+            setWalletName: sinon.stub(),
         }
 
         sinon.stub(BlockchainConnector.prototype, 'constructor')
@@ -418,30 +421,40 @@ describe('T1 Regression: Miner↔Connector Integration Seams', function () {
     // ─── REG-T1-B01: Fresh node, full create+mine sequence ──────────
 
     describe('REG-T1-B01: prepareWallet call sequences', function () {
-        it('fresh node: getWalletInfo→loadWallet→createWallet→getNewAddress→getBalance→getBlockchainInfo→generateToAddress(101)', async function () {
-            connector.getBalance.callsFake(async () => {
+        it('fresh node: probe fails→loadWallet→createWallet→getNewAddress→getBalance→generateToAddress(101)→getBalance', async function () {
+            let probeCalls = 0
+            connector.getNewAddress.callsFake(async () => {
+                callLog.push('getNewAddress')
+                probeCalls++
+                if (probeCalls <= 10) throw new Error('No wallet loaded')
+                return 'bcrt1qtest'
+            })
+            connector.getBalance.onFirstCall().callsFake(async () => {
                 callLog.push('getBalance')
                 return 0
-            })
-            connector.getBlockchainInfo.callsFake(async () => {
-                callLog.push('getBlockchainInfo')
-                return { blocks: 0 }
             })
 
             await miner.prepareWallet()
 
             assert.deepStrictEqual(callLog, [
-                'getWalletInfo',
+                ...Array(10).fill('getNewAddress'),   // bounded probe retries
                 'loadWallet(xchain_regtest_wallet)',
                 'createWallet(xchain_regtest_wallet)',
                 'getNewAddress',
                 'getBalance',
-                'getBlockchainInfo',
                 'generateToAddress(101)',
+                'getBalance',                          // post-mining readiness re-poll
             ])
         })
 
-        it('existing wallet: getWalletInfo→loadWallet→getNewAddress→getBalance', async function () {
+        it('existing wallet: probe fails→loadWallet→getNewAddress→getBalance', async function () {
+            let probeCalls = 0
+            connector.getNewAddress.callsFake(async () => {
+                callLog.push('getNewAddress')
+                probeCalls++
+                if (probeCalls <= 10) throw new Error('No wallet loaded')
+                return 'bcrt1qtest'
+            })
             connector.loadWallet.callsFake(async (name) => {
                 callLog.push(`loadWallet(${name})`)
                 return { name }
@@ -450,7 +463,7 @@ describe('T1 Regression: Miner↔Connector Integration Seams', function () {
             await miner.prepareWallet()
 
             assert.deepStrictEqual(callLog, [
-                'getWalletInfo',
+                ...Array(10).fill('getNewAddress'),
                 'loadWallet(xchain_regtest_wallet)',
                 'getNewAddress',
                 'getBalance',
@@ -459,27 +472,17 @@ describe('T1 Regression: Miner↔Connector Integration Seams', function () {
             assert.strictEqual(connector.generateToAddress.callCount, 0)
         })
 
-        it('loaded + funded: getWalletInfo→getNewAddress→getBalance (minimal calls)', async function () {
-            connector.getWalletInfo.callsFake(async () => {
-                callLog.push('getWalletInfo')
-                return { walletname: 'xchain_regtest_wallet', balance: 50.0 }
-            })
-
+        it('loaded + funded: getNewAddress→getBalance (minimal calls)', async function () {
             await miner.prepareWallet()
 
             assert.deepStrictEqual(callLog, [
-                'getWalletInfo',
                 'getNewAddress',
                 'getBalance',
             ])
         })
 
-        it('loaded, empty balance, height > 100 → mines 1 block', async function () {
-            connector.getWalletInfo.callsFake(async () => {
-                callLog.push('getWalletInfo')
-                return { walletname: 'w' }
-            })
-            connector.getBalance.callsFake(async () => {
+        it('loaded, empty balance, aged chain → still mines to maturity depth (101)', async function () {
+            connector.getBalance.onFirstCall().callsFake(async () => {
                 callLog.push('getBalance')
                 return 0
             })
@@ -490,8 +493,7 @@ describe('T1 Regression: Miner↔Connector Integration Seams', function () {
 
             await miner.prepareWallet()
 
-            assert.ok(callLog.includes('generateToAddress(1)'))
-            assert.ok(!callLog.includes('generateToAddress(101)'))
+            assert.ok(callLog.includes('generateToAddress(101)'))
         })
 
         it('stores wallet address and balance', async function () {
@@ -629,6 +631,8 @@ describe('T1 Regression: Boundary Conditions', function () {
             generateToAddress: sinon.stub().resolves(['blockhash1']),
             getRawMempool: sinon.stub().resolves([]),
             sendToAddress: sinon.stub().resolves('txid_abc'),
+            setTxFee: sinon.stub().resolves(true),
+            setWalletName: sinon.stub(),
             getRawTransaction: sinon.stub().resolves('0200000001...'),
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
         }
@@ -772,7 +776,7 @@ describe('T1 Regression: Boundary Conditions', function () {
 
         it('mines 101 blocks at height exactly 100', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 100 })
 
             await miner.prepareWallet()
@@ -780,14 +784,14 @@ describe('T1 Regression: Boundary Conditions', function () {
             assert(connectorStub.generateToAddress.calledWith(101, 'bcrt1qtest'))
         })
 
-        it('mines 1 block at height 101', async function () {
+        it('mines 101 blocks at height 101 (maturity depth is height-independent)', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 101 })
 
             await miner.prepareWallet()
 
-            assert(connectorStub.generateToAddress.calledWith(1, 'bcrt1qtest'))
+            assert(connectorStub.generateToAddress.calledWith(101, 'bcrt1qtest'))
         })
     })
 
@@ -848,6 +852,8 @@ describe('T1 Regression: Security', function () {
                 generateToAddress: sinon.stub().resolves(['blockhash1']),
                 getRawMempool: sinon.stub().resolves([]),
                 sendToAddress: sinon.stub().resolves('txid_abc'),
+                setTxFee: sinon.stub().resolves(true),
+                setWalletName: sinon.stub(),
             }
 
             sinon.stub(BlockchainConnector.prototype, 'constructor')
@@ -916,6 +922,8 @@ describe('T1 Regression: Security', function () {
                 generateToAddress: sinon.stub(),
                 getRawMempool: sinon.stub(),
                 sendToAddress: sinon.stub(),
+                setTxFee: sinon.stub().resolves(true),
+                setWalletName: sinon.stub(),
                 getRawTransaction: sinon.stub(),
                 sendRawTransaction: sinon.stub(),
             }
@@ -1104,6 +1112,8 @@ describe('T1 Regression: Error Recovery & Backoff', function () {
             generateToAddress: sinon.stub().resolves(['blockhash1']),
             getRawMempool: sinon.stub().resolves([]),
             sendToAddress: sinon.stub().resolves('txid_abc'),
+            setTxFee: sinon.stub().resolves(true),
+            setWalletName: sinon.stub(),
         }
 
         sinon.stub(BlockchainConnector.prototype, 'constructor')

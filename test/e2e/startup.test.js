@@ -124,9 +124,9 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
         assert.ok(miner.walletAddress)
     })
 
-    // ─── A4: Empty balance at height > 100: mines 1 block ─────────
+    // ─── A4: Empty balance at height > 100: still mines to maturity ─
 
-    it('A4: mines 1 block when balance is zero and height > 100', async function () {
+    it('A4: mines 101 blocks when balance is zero even at height > 100', async function () {
         // Wallet loaded, chain at height 150, but balance is 0
         node._rpc_createwallet(['xchain_regtest_wallet'])
         // Add blocks without coinbase rewards going to our wallet
@@ -139,9 +139,10 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
         const miner = createMiner()
         await miner.prepareWallet()
 
-        // Should mine exactly 1 block (not 101)
+        // Maturity depth is height-independent: fewer blocks would only add
+        // an immature coinbase and leave the balance at 0.
         assert.strictEqual(node.callsFor('generatetoaddress').length, 1)
-        assert.deepStrictEqual(node.callsFor('generatetoaddress')[0].params[0], 1)
+        assert.deepStrictEqual(node.callsFor('generatetoaddress')[0].params[0], 101)
     })
 
     // ─── A5: All wallet methods fail: throws ───────────────────────
@@ -162,7 +163,7 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
 
         await assert.rejects(
             () => miner.prepareWallet(),
-            /Error when trying to create the wallet/
+            /Could not create wallet/
         )
 
         // Restore

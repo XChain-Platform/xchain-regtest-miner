@@ -106,9 +106,12 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
         // Wait for failure
         await fillPromise
 
-        // W-3 FIXED: the finally block now restores keepMining to true
-        assert.strictEqual(miner.keepMining, true,
-            'W-3 fixed: keepMining should be restored to true by the finally block')
+        // fillMempool leaves mining paused by design (txs stay in the mempool
+        // until continue_mining); the failure path must still release the mutex.
+        assert.strictEqual(miner.keepMining, false,
+            'fillMempool leaves mining paused; continue_mining resumes it')
+        assert.strictEqual(miner.fillMempoolRunning, false,
+            'the fillMempool mutex must be released on failure')
 
         // Clean up
         node.goOnline()
@@ -134,9 +137,13 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
         node.goOffline()
         await fillPromise
 
-        // W-3 fixed: keepMining is restored by the finally block
-        assert.strictEqual(miner.keepMining, true,
-            'keepMining should be restored to true by the finally block')
+        // Mining stays paused after the failed fillMempool; the mutex resets.
+        assert.strictEqual(miner.keepMining, false,
+            'fillMempool leaves mining paused; continue_mining resumes it')
+        assert.strictEqual(miner.fillMempoolRunning, false)
+
+        // Resume mining the way the API does after fill_mempool
+        miner.continueMining()
 
         // Restore node
         node.goOnline()

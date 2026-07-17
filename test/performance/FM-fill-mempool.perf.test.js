@@ -77,7 +77,9 @@ describe('Performance: FM: fillMempool', function () {
 
         // Functional: correct number of stress txs in mempool
         assert.strictEqual(node.mempool.length, 10)
-        assert.strictEqual(miner.keepMining, true)
+        // Mining stays paused after fillMempool (continue_mining resumes it)
+        assert.strictEqual(miner.keepMining, false)
+        assert.strictEqual(miner.fillMempoolRunning, false)
 
         assertMaxUnder(collector, 'fillMempool:10', 15000)
     })
@@ -170,12 +172,18 @@ describe('Performance: FM: fillMempool', function () {
 
         // Immediately attempt second; should be rejected by fillMempoolRunning guard
         const t0 = Date.now()
-        const result2 = await miner.fillMempool(10)
+        let rejection = null
+        try {
+            await miner.fillMempool(10)
+        } catch (err) {
+            rejection = err
+        }
         const rejectionTime = Date.now() - t0
 
         collector.record('mutexRejection', rejectionTime)
 
-        assert.ok(result2 && result2.error, 'Second call should return error object')
+        assert.ok(rejection && /already running/.test(rejection.message),
+            'Second call should throw the mutex rejection error')
         assert.ok(rejectionTime < 50, 'Rejection should be near-instant, got: ' + rejectionTime + 'ms')
 
         // Let first complete

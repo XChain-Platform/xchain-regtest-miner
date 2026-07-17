@@ -97,23 +97,25 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
             assert.deepStrictEqual(call.params, [42])
         })
 
-        it('getBlock: sends blockhash with verbosity 0 (hex format)', async function () {
+        it('getBlock: sends blockhash with verbose=false (hex format)', async function () {
             server.onMethod('getblock').returns('0100000000...')
             const result = await connector.getBlock('hash123', true)
             assert.strictEqual(result, '0100000000...')
 
+            // getblock verbose is sent as a boolean (Dogecoin 1.14 rejects
+            // integer verbosity); hexFormat=true means verbose=false.
             const call = server.callsFor('getblock')[0]
-            assert.deepStrictEqual(call.params, ['hash123', 0])
+            assert.deepStrictEqual(call.params, ['hash123', false])
         })
 
-        it('getBlock: sends blockhash with verbosity 1 (JSON format)', async function () {
+        it('getBlock: sends blockhash with verbose=true (JSON format)', async function () {
             const blockObj = { hash: 'hash123', height: 1, tx: ['tx1'] }
             server.onMethod('getblock').returns(blockObj)
             const result = await connector.getBlock('hash123', false)
             assert.deepStrictEqual(result, blockObj)
 
             const call = server.callsFor('getblock')[0]
-            assert.deepStrictEqual(call.params, ['hash123', 1])
+            assert.deepStrictEqual(call.params, ['hash123', true])
         })
 
         it('getBalance: returns zero correctly (falsy but valid)', async function () {

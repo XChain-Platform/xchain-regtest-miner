@@ -44,7 +44,9 @@ class StatefulMockNode {
         this.addressCounter = 0
 
         // ── RPC dispatch ────────────────────────────────────────────
-        this.app.post('/', (req, res) => {
+        // Registered on both the base URL and the /wallet/<name> URI that the
+        // connector switches to after setWalletName (Bitcoin Core 0.17+ style).
+        this.app.post(['/', '/wallet/:walletName'], (req, res) => {
             const { method, params, id } = req.body
             this.calls.push({ method, params, id })
 
@@ -200,9 +202,22 @@ class StatefulMockNode {
     }
 
     _rpc_getnewaddress() {
+        // Wallet RPCs fail until a wallet is loaded, matching Bitcoin Core
+        // 0.17+; the miner's getNewAddress probe relies on this to detect a
+        // fresh node and fall through to the load/create path.
+        if (!this.wallet.loaded) {
+            const err = new Error('No wallet is loaded')
+            err.rpcCode = -18
+            throw err
+        }
         const addr = this._generateAddress()
         this.addresses.push(addr)
         return addr
+    }
+
+    _rpc_settxfee() {
+        // Fee pinning is best-effort in the miner; honor it like Bitcoin Core.
+        return true
     }
 
     _rpc_getbalance() {

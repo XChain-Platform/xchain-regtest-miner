@@ -151,6 +151,8 @@ describe('Security: Error Sanitization & Information Disclosure', function () {
         beforeEach(function () {
             minerConnectorStub = {
                 sendToAddress: sinon.stub(),
+                setTxFee: sinon.stub().resolves(true),
+                setWalletName: sinon.stub(),
                 getWalletInfo: sinon.stub(),
                 loadWallet: sinon.stub(),
                 createWallet: sinon.stub(),

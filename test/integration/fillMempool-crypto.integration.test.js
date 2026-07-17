@@ -338,6 +338,8 @@ describe('Seam C: fillMempool ↔ bitcoinjs-lib crypto pipeline', function () {
 
             connectorStub = {
                 sendToAddress: sinon.stub().resolves(funding.txid),
+                setTxFee: sinon.stub().resolves(true),
+                setWalletName: sinon.stub(),
                 generateToAddress: sinon.stub().resolves(['blockhash']),
                 getRawTransaction: sinon.stub().callsFake(async (txid) => {
                     if (txid === funding.txid) return funding.hex
@@ -368,10 +370,12 @@ describe('Seam C: fillMempool ↔ bitcoinjs-lib crypto pipeline', function () {
             await miner.fillMempool(1)
         })
 
-        it('fillMempool(1) restores keepMining to true via finally block', async function () {
+        it('fillMempool(1) leaves mining paused so the txs stay in the mempool', async function () {
             miner.keepMining = true
             await miner.fillMempool(1)
-            assert.strictEqual(miner.keepMining, true)
+            // Auto-mining stays paused until continue_mining; only the mutex resets.
+            assert.strictEqual(miner.keepMining, false)
+            assert.strictEqual(miner.fillMempoolRunning, false)
         })
 
         it('fillMempool(1) broadcasts exactly 2 raw transactions', async function () {

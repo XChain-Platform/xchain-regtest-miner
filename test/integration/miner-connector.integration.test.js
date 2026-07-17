@@ -61,6 +61,13 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
             }),
             getRawMempool: sinon.stub().resolves([]),
             sendToAddress: sinon.stub().resolves('txid_abc'),
+            setTxFee: sinon.stub().callsFake(async () => {
+                callLog.push('setTxFee')
+                return true
+            }),
+            setWalletName: sinon.stub().callsFake((name) => {
+                callLog.push(`setWalletName(${name})`)
+            }),
         }
 
         sinon.stub(BlockchainConnector.prototype, 'constructor')
@@ -82,32 +89,42 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
     // ─── prepareWallet Sequences ────────────────────────────────────────
 
     describe('prepareWallet call sequences', function () {
+        // Helper: make the getNewAddress probe fail through all retry
+        // attempts, then succeed once the wallet has been loaded/created.
+        function probeFailsThenSucceeds() {
+            let probeCalls = 0
+            connector.getNewAddress.callsFake(async () => {
+                callLog.push('getNewAddress')
+                probeCalls++
+                if (probeCalls <= 10) throw new Error('No wallet loaded')
+                return 'bcrt1qtest'
+            })
+        }
+
         it('B-1: fresh node, full create+mine sequence', async function () {
-            // getWalletInfo fails, loadWallet fails, createWallet succeeds
-            // balance = 0, height = 0 → mine 101 blocks
-            connector.getBalance.callsFake(async () => {
-                callLog.push('getBalance')
-                return 0
-            })
-            connector.getBlockchainInfo.callsFake(async () => {
-                callLog.push('getBlockchainInfo')
-                return { blocks: 0 }
-            })
+            // Probe fails, loadWallet fails, createWallet succeeds
+            // balance = 0 → mine 101 blocks, then the re-poll sees funds
+            probeFailsThenSucceeds()
+            connector.getBalance
+                .onFirstCall().callsFake(async () => { callLog.push('getBalance'); return 0 })
 
             await miner.prepareWallet()
 
             assert.deepStrictEqual(callLog, [
-                'getWalletInfo',
+                ...Array(10).fill('getNewAddress'),   // bounded probe retries
                 'loadWallet(xchain_regtest_wallet)',
                 'createWallet(xchain_regtest_wallet)',
+                'setWalletName(xchain_regtest_wallet)',
                 'getNewAddress',
                 'getBalance',
-                'getBlockchainInfo',
                 'generateToAddress(101)',
+                'getBalance',                          // post-mining readiness re-poll
+                'setTxFee',
             ])
         })
 
         it('B-2: wallet exists but unloaded, load succeeds, no mining', async function () {
+            probeFailsThenSucceeds()
             connector.loadWallet.callsFake(async (name) => {
                 callLog.push(`loadWallet(${name})`)
                 return { name }
@@ -116,42 +133,33 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
             await miner.prepareWallet()
 
             assert.deepStrictEqual(callLog, [
-                'getWalletInfo',
+                ...Array(10).fill('getNewAddress'),
                 'loadWallet(xchain_regtest_wallet)',
+                'setWalletName(xchain_regtest_wallet)',
                 'getNewAddress',
                 'getBalance',
+                'setTxFee',
             ])
             assert.strictEqual(connector.createWallet.callCount, 0)
             assert.strictEqual(connector.generateToAddress.callCount, 0)
         })
 
         it('B-3: wallet already loaded and funded, minimal calls', async function () {
-            connector.getWalletInfo.callsFake(async () => {
-                callLog.push('getWalletInfo')
-                return RPC_RESPONSES.WALLET_INFO
-            })
-
             await miner.prepareWallet()
 
             assert.deepStrictEqual(callLog, [
-                'getWalletInfo',
                 'getNewAddress',
                 'getBalance',
+                'setTxFee',
             ])
             assert.strictEqual(connector.loadWallet.callCount, 0)
             assert.strictEqual(connector.createWallet.callCount, 0)
             assert.strictEqual(connector.generateToAddress.callCount, 0)
         })
 
-        it('B-4: wallet loaded, empty balance, height > 100, mines 1 block', async function () {
-            connector.getWalletInfo.callsFake(async () => {
-                callLog.push('getWalletInfo')
-                return RPC_RESPONSES.WALLET_INFO
-            })
-            connector.getBalance.callsFake(async () => {
-                callLog.push('getBalance')
-                return 0
-            })
+        it('B-4: wallet loaded, empty balance, aged chain, still mines to maturity depth', async function () {
+            connector.getBalance
+                .onFirstCall().callsFake(async () => { callLog.push('getBalance'); return 0 })
             connector.getBlockchainInfo.callsFake(async () => {
                 callLog.push('getBlockchainInfo')
                 return { blocks: 150 }
@@ -159,21 +167,15 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
 
             await miner.prepareWallet()
 
-            assert.ok(callLog.includes('generateToAddress(1)'),
-                'Should mine exactly 1 block at height > 100')
-            assert.ok(!callLog.includes('generateToAddress(101)'),
-                'Should NOT mine 101 blocks')
+            // Chain height no longer matters: fewer blocks would only add an
+            // immature coinbase, so the miner always mines 101.
+            assert.ok(callLog.includes('generateToAddress(101)'),
+                'Should mine 101 blocks even at height > 100')
         })
 
         it('B-5: empty balance, height exactly 100, mines 101 blocks', async function () {
-            connector.getWalletInfo.callsFake(async () => {
-                callLog.push('getWalletInfo')
-                return RPC_RESPONSES.WALLET_INFO
-            })
-            connector.getBalance.callsFake(async () => {
-                callLog.push('getBalance')
-                return 0
-            })
+            connector.getBalance
+                .onFirstCall().callsFake(async () => { callLog.push('getBalance'); return 0 })
             connector.getBlockchainInfo.callsFake(async () => {
                 callLog.push('getBlockchainInfo')
                 return { blocks: 100 }
@@ -186,6 +188,10 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
         })
 
         it('B-8: all wallet methods fail, throws', async function () {
+            connector.getNewAddress.callsFake(async () => {
+                callLog.push('getNewAddress')
+                throw new Error('No wallet loaded')
+            })
             connector.createWallet.callsFake(async () => {
                 callLog.push('createWallet(xchain_regtest_wallet)')
                 throw new Error('Disk full')
@@ -193,7 +199,7 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
 
             await assert.rejects(
                 () => miner.prepareWallet(),
-                /Error when trying to create the wallet/
+                /Could not create wallet/
             )
         })
 

@@ -29,6 +29,8 @@ describe('Boundary: Wallet Preparation', function () {
             generateToAddress: sinon.stub().resolves(['blockhash1']),
             getRawMempool: sinon.stub().resolves([]),
             sendToAddress: sinon.stub().resolves('txid_abc'),
+            setTxFee: sinon.stub().resolves(true),
+            setWalletName: sinon.stub(),
             getRawTransaction: sinon.stub().resolves('0200000001...'),
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
             getNetworkInfo: sinon.stub().resolves({}),
@@ -71,7 +73,9 @@ describe('Boundary: Wallet Preparation', function () {
     describe('W-02: wallet loaded, balance = 0, height = 0', function () {
         it('mines 101 blocks for coinbase maturity', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            // First check sees 0; the post-mining re-poll must observe a
+            // positive balance or prepareWallet refuses to mark ready.
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 0 })
 
             await miner.prepareWallet()
@@ -85,7 +89,7 @@ describe('Boundary: Wallet Preparation', function () {
     describe('W-03: wallet loaded, balance = 0, height = 99', function () {
         it('mines 101 blocks (height < 100 branch)', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 99 })
 
             await miner.prepareWallet()
@@ -99,7 +103,7 @@ describe('Boundary: Wallet Preparation', function () {
     describe('W-04: wallet loaded, balance = 0, height = 100', function () {
         it('mines 101 blocks (height <= 100, uses <= comparison)', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
-            connectorStub.getBalance.resolves(0)
+            connectorStub.getBalance.onFirstCall().resolves(0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 100 })
 
             await miner.prepareWallet()
@@ -145,7 +149,10 @@ describe('Boundary: Wallet Preparation', function () {
 
     describe('W-06: wallet not loaded, exists on disk', function () {
         it('loads wallet without creating', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+            // No wallet usable yet: the getNewAddress probe fails through all
+            // attempts, then succeeds once loadWallet has run.
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
             connectorStub.loadWallet.resolves({ name: 'xchain_regtest_wallet' })
 
             await miner.prepareWallet()
@@ -159,7 +166,8 @@ describe('Boundary: Wallet Preparation', function () {
 
     describe('W-07: wallet not loaded, does not exist', function () {
         it('creates wallet after load fails', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
             connectorStub.loadWallet.rejects(new Error('not found'))
             connectorStub.createWallet.resolves({ name: 'xchain_regtest_wallet' })
 
@@ -173,25 +181,25 @@ describe('Boundary: Wallet Preparation', function () {
 
     describe('W-08: createWallet fails all retries', function () {
         it('throws wallet creation error', async function () {
-            connectorStub.getWalletInfo.rejects(new Error('no wallet'))
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
             connectorStub.loadWallet.rejects(new Error('not found'))
             connectorStub.createWallet.rejects(new Error('disk full'))
 
             await assert.rejects(
                 () => miner.prepareWallet(),
-                /Error when trying to create the wallet/
+                /Could not create wallet/
             )
         })
     })
 
     // ─── W-09: getWalletInfo permanently fails ─────────────────────────
 
-    describe('W-09: getWalletInfo throws (not infinite loop)', function () {
-        it('catches error and proceeds to load/create flow', async function () {
-            // In prepareWallet, getWalletInfo failure is caught and treated as "no wallet"
-            // This is NOT the infinite retry in getWalletInfo itself;
-            // prepareWallet just does a single try-catch
-            connectorStub.getWalletInfo.rejects(new Error('connection refused'))
+    describe('W-09: getNewAddress probe exhausts retries (not infinite loop)', function () {
+        it('catches probe failure and proceeds to load/create flow', async function () {
+            // The probe retries a bounded number of times, then falls through
+            // to the load/create path instead of looping forever.
+            connectorStub.getNewAddress.rejects(new Error('connection refused'))
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
             connectorStub.loadWallet.resolves({ name: 'w' })
 
             await miner.prepareWallet()
@@ -255,9 +263,10 @@ describe('Boundary: Wallet Preparation', function () {
 
     // ─── W-11: getWalletInfo returns null ──────────────────────────────
 
-    describe('W-11: getWalletInfo returns null', function () {
-        it('treats null walletInfo as no wallet loaded', async function () {
-            connectorStub.getWalletInfo.resolves(null)
+    describe('W-11: probe returns no usable address', function () {
+        it('treats a failed probe as no wallet loaded', async function () {
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
             connectorStub.loadWallet.resolves({ name: 'w' })
 
             await miner.prepareWallet()

@@ -29,6 +29,8 @@ describe('Fuzz: fillMempool input handling', function () {
             generateToAddress: sinon.stub().resolves(['blockhash1']),
             getRawMempool: sinon.stub().resolves([]),
             sendToAddress: sinon.stub().resolves('txid_abc'),
+            setTxFee: sinon.stub().resolves(true),
+            setWalletName: sinon.stub(),
             getRawTransaction: sinon.stub(),
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
         }
@@ -52,8 +54,8 @@ describe('Fuzz: fillMempool input handling', function () {
     // ─── txQuantity = 0 ─────────────────────────────────────────────
 
     describe('fillMempool with txQuantity = 0', function () {
-        it('returns early without crash or transactions', async function () {
-            await miner.fillMempool(0)
+        it('rejects zero without crash or transactions', async function () {
+            await assert.rejects(() => miner.fillMempool(0), /txQuantity must be a positive integer/)
 
             assert.strictEqual(miner.keepMining, false)
             assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
@@ -82,8 +84,8 @@ describe('Fuzz: fillMempool input handling', function () {
         ]
 
         for (const [label, value] of cases) {
-            it(`rejects ${label} and returns early`, async function () {
-                await miner.fillMempool(value)
+            it(`rejects ${label} with a validation error`, async function () {
+                await assert.rejects(() => miner.fillMempool(value), /txQuantity must be a positive integer/)
 
                 assert.strictEqual(miner.keepMining, false)
                 // Should not have attempted any RPC calls beyond logging
@@ -219,7 +221,7 @@ describe('Fuzz: fillMempool input handling', function () {
                     fc.boolean(),
                     async (txQuantity, initialKeepMining) => {
                         miner.keepMining = initialKeepMining
-                        await miner.fillMempool(txQuantity)
+                        await assert.rejects(() => miner.fillMempool(txQuantity), /txQuantity must be a positive integer/)
                         assert.strictEqual(miner.keepMining, initialKeepMining,
                             'keepMining must be unchanged after fillMempool with invalid input')
                     }
