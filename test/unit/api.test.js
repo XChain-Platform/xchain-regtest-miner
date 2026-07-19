@@ -31,6 +31,7 @@ describe('api.js', function () {
                 continueMining: sinon.stub(),
                 setMiningTime: sinon.stub(),
                 setDefaultMiningTime: sinon.stub(),
+                setMockTime: sinon.stub(),
                 start: sinon.stub(),
             }
 
@@ -84,6 +85,14 @@ describe('api.js', function () {
                         return { error: 'There was a problem trying to set a the default time to mine blocks' }
                     }
                     return { result: 'ok' }
+                },
+                async set_mock_time({ timestamp }) {
+                    try {
+                        await miner.setMockTime(timestamp)
+                        return 'ok'
+                    } catch (err) {
+                        return { error: 'There was a problem setting the mock time: ' + (err && err.message ? err.message : err) }
+                    }
                 },
             }
         })
@@ -196,6 +205,24 @@ describe('api.js', function () {
                 miner.setDefaultMiningTime.rejects(new Error('fail'))
                 const result = await controller.set_default_mining_time()
                 assert(result.error.includes('default time'))
+            })
+        })
+
+        // ─── set_mock_time ──────────────────────────────────────────
+
+        describe('set_mock_time', function () {
+            it('delegates the timestamp to miner and returns ok', async function () {
+                miner.setMockTime.resolves(true)
+                const result = await controller.set_mock_time({ timestamp: 1900000000 })
+                assert.strictEqual(result, 'ok')
+                assert(miner.setMockTime.calledWith(1900000000))
+            })
+
+            it('returns an error envelope when the miner refuses (e.g. mainnet)', async function () {
+                miner.setMockTime.rejects(new Error('setMockTime is refused on mainnet'))
+                const result = await controller.set_mock_time({ timestamp: 1900000000 })
+                assert(result.error.includes('setting the mock time'))
+                assert(result.error.includes('refused on mainnet'))
             })
         })
     })

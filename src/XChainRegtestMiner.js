@@ -414,6 +414,23 @@ class XChainRegtestMiner {
         }
     }
 
+    // Pin the node clock to `timestamp` (unix seconds) so the NEXT mined block
+    // carries that block time; pass 0 to release the mock clock. This is a
+    // regtest/testnet-only orchestration aid (setmocktime is meaningless on
+    // mainnet and the parity harness that uses it only ever runs on regtest), so
+    // refuse it on mainnet rather than forward a harmful RPC to a real node.
+    // `this.network` is the coin-network form (e.g. bitcoin-regtest); guard on
+    // its network half so 'bitcoin-mainnet' and a bare 'mainnet' both trip.
+    async setMockTime(timestamp) {
+        if (!Number.isFinite(Number(timestamp)) || Number(timestamp) < 0) {
+            throw new Error('setMockTime: timestamp must be a non-negative unix time (0 releases the mock clock)')
+        }
+        if (String(this.network || '').split('-').pop() === 'mainnet') {
+            throw new Error('setMockTime is refused on mainnet')
+        }
+        return await this.connector.setMockTime(Number(timestamp))
+    }
+
     async pauseMining(){
         this.keepMining = false
         // Barrier: a pause that lands between the loop's keepMining check and its

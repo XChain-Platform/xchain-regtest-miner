@@ -558,6 +558,42 @@ class BlockchainConnector {
         }
     }
 
+    // Freeze the node's clock at `timestamp` (unix seconds) via setmocktime, so
+    // the next generatetoaddress stamps its block at that time (bitcoind sets the
+    // block time to max(median-time-past+1, adjusted-time), and adjusted-time is
+    // the mock clock). timestamp 0 releases the mock clock back to system time.
+    // Callers pass a value strictly above the current tip's median-time-past so
+    // the stamped time equals the requested time exactly. Used by the multi-chain
+    // parity harness to pin block timestamps for deterministic, cross-chain-
+    // identical time-based expiries (ORDER_EXPIRE); never used on mainnet.
+    async setMockTime(timestamp){
+        try {
+            const data = {
+                jsonrpc: '2.0',
+                method: 'setmocktime',
+                params: [Number(timestamp)],
+                id: 1,
+            }
+
+            const response = await axios.post(this.url, data, {
+                auth: {
+                    username: this.rpcUser,
+                    password: this.rpcPassword,
+                }
+            })
+
+            // setmocktime returns null on success (no error field = success).
+            if (response.data && response.data.error) {
+                console.error('setmocktime RPC error: ' + response.data.error.message)
+                throw new Error('Error setting mock time')
+            }
+            return true
+        } catch (error) {
+            // Static message: a transport axios error.message leaks the RPC host:port.
+            throw new Error('Error setting mock time')
+        }
+    }
+
     async sendRawTransaction(txHex){
         try {
             const data = {

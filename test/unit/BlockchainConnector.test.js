@@ -564,6 +564,35 @@ describe('BlockchainConnector', function () {
         })
     })
 
+    // ─── setMockTime ─────────────────────────────────────────────────────
+
+    describe('setMockTime', function () {
+        it('calls setmocktime RPC with the numeric timestamp and returns true', async function () {
+            axiosPostStub.resolves({ data: { result: null, error: null, id: 1 } })
+            const result = await connector.setMockTime(1900000000)
+            assert.strictEqual(result, true)
+            assertRpcCall('setmocktime', [1900000000])
+        })
+
+        it('coerces the timestamp to a Number for the RPC params', async function () {
+            axiosPostStub.resolves({ data: { result: null, error: null, id: 1 } })
+            await connector.setMockTime('1900000000')
+            assertRpcCall('setmocktime', [1900000000])
+        })
+
+        it('logs the node RPC error but throws a static message', async function () {
+            axiosPostStub.resolves({ data: { result: null, error: { code: -8, message: 'Timestamp must be 0 or greater' }, id: 1 } })
+            await assert.rejects(() => connector.setMockTime(-5), /Error setting mock time/)
+            const logged = console.error.getCalls().map(c => c.args.join(' ')).join('\n')
+            assert.match(logged, /Timestamp must be 0 or greater/)
+        })
+
+        it('throws a static message on network error (no transport detail leak)', async function () {
+            axiosPostStub.rejects(new Error('connect ECONNREFUSED 127.0.0.1:18332'))
+            await assert.rejects(() => connector.setMockTime(1900000000), /Error setting mock time/)
+        })
+    })
+
     // ─── sendRawTransaction ─────────────────────────────────────────────
 
     describe('sendRawTransaction', function () {

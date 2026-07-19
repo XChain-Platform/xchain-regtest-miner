@@ -239,6 +239,19 @@ async function startApi(){
             return "ok"
         },
 
+        // Pin the node clock (params: {timestamp} unix seconds; 0 releases it) so
+        // the next generate_blocks stamps its block at that time. Used by the
+        // multi-chain parity harness to make time-based expiries (ORDER_EXPIRE)
+        // fire at a deterministic, cross-chain-identical block. Refused on mainnet.
+        async set_mock_time({timestamp}){
+            try {
+                await miner.setMockTime(timestamp)
+                return "ok"
+            } catch (err){
+                return { "error": "There was a problem setting the mock time: " + (err && err.message ? err.message : err) }
+            }
+        },
+
         // Mine `count` empty blocks. Used by e2e tests to advance block height
         // past indexer time-locked states (e.g. STAKE ACTIVATION_DELAY_BLOCKS).
         async generate_blocks({count}){

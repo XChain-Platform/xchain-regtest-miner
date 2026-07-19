@@ -288,6 +288,37 @@ describe('XChainRegtestMiner', function () {
         })
     })
 
+    // ─── setMockTime ────────────────────────────────────────────────────
+
+    describe('setMockTime', function () {
+        it('delegates a valid timestamp to connector.setMockTime', async function () {
+            connectorStub.setMockTime = sinon.stub().resolves(true)
+            const result = await miner.setMockTime(1900000000)
+            assert.strictEqual(result, true)
+            assert(connectorStub.setMockTime.calledWith(1900000000))
+        })
+
+        it('accepts 0 (release the mock clock)', async function () {
+            connectorStub.setMockTime = sinon.stub().resolves(true)
+            await miner.setMockTime(0)
+            assert(connectorStub.setMockTime.calledWith(0))
+        })
+
+        it('rejects a negative or non-numeric timestamp without calling the node', async function () {
+            connectorStub.setMockTime = sinon.stub().resolves(true)
+            await assert.rejects(() => miner.setMockTime(-1), /non-negative unix time/)
+            await assert.rejects(() => miner.setMockTime('soon'), /non-negative unix time/)
+            assert(connectorStub.setMockTime.notCalled)
+        })
+
+        it('refuses on mainnet without forwarding to the node', async function () {
+            const mainnetMiner = new XChainRegtestMiner('bitcoin-mainnet', 'localhost', '8332', 'user', 'pass')
+            mainnetMiner.connector = { setMockTime: sinon.stub().resolves(true) }
+            await assert.rejects(() => mainnetMiner.setMockTime(1900000000), /refused on mainnet/)
+            assert(mainnetMiner.connector.setMockTime.notCalled)
+        })
+    })
+
     // ─── prepareWallet ──────────────────────────────────────────────────
 
     describe('prepareWallet', function () {
