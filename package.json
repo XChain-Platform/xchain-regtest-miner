@@ -35,6 +35,7 @@
     "ci:security": "mocha --timeout 10000 --exit 'test/security/**/*.security.test.js'",
     "test": "mocha --timeout 0 --recursive test/",
     "coverage": "c8 --reporter=text --reporter=html --include 'src/**/*.js' mocha --timeout 10000 'test/unit/**/*.test.js' --exit",
+    "coverage:check": "c8 --check-coverage --lines 82 --branches 82 --reporter=text --include 'src/**/*.js' mocha --timeout 10000 'test/unit/**/*.test.js' --exit",
     "test:unit": "mocha --timeout 10000 test/unit/**/*.test.js",
     "test:smoke": "mocha --timeout 10000 test/smoke/smoke.test.js",
     "test:e2e": "mocha --timeout 30000 test/e2e/**/*.test.js",
