@@ -581,7 +581,7 @@ class XChainRegtestMiner {
     // Throws on invalid count (uuid:24c35056 sibling fix): the previous
     // sentinel-return `[]` let generate_blocks({count:0|-1|'abc'}) silently
     // answer {count: 0, hashes: []} through the controller with no error.
-    generateBlocks(count) {
+    async generateBlocks(count) {
         if (!Number.isInteger(count) || count <= 0) {
             throw new Error("count must be a positive integer")
         }

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- generateBlocks is async (rejections, not sync throws); CI gains the coin-registry drift-guard job.
 - Exempt the read-only `ping` and `status` methods from the `MINER_API_KEY` gate so the bundled Docker healthcheck (which POSTs `ping` with no `X-API-Key`) no longer 401s into a permanently-unhealthy container when auth is enabled.
 
 ### Added

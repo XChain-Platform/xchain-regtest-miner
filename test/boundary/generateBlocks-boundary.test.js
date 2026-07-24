@@ -58,14 +58,14 @@ describe('Boundary: Block Generation', function () {
 
     describe('G-01: generateBlocks(0)', function () {
         it('throws and does not call generateToAddress (node rejects count 0)', async function () {
-            assert.throws(() => miner.generateBlocks(0), /count must be a positive integer/)
+            await assert.rejects(() => miner.generateBlocks(0), /count must be a positive integer/)
             assert(connectorStub.generateToAddress.notCalled,
                 'count 0 must short-circuit before the RPC')
         })
 
         it('does not log any block generation message', async function () {
             console.log.resetHistory()
-            assert.throws(() => miner.generateBlocks(0))
+            await assert.rejects(() => miner.generateBlocks(0))
             const blockMessages = console.log.args.filter(
                 args => args[0] && typeof args[0] === 'string' && args[0].includes('generated')
             )
@@ -189,14 +189,14 @@ describe('Boundary: Block Generation', function () {
 
     describe('Negative block count', function () {
         it('throws and does not call connector for negative count', async function () {
-            assert.throws(() => miner.generateBlocks(-1), /count must be a positive integer/)
+            await assert.rejects(() => miner.generateBlocks(-1), /count must be a positive integer/)
             assert(connectorStub.generateToAddress.notCalled,
                 'negative count must short-circuit before the RPC')
         })
 
         it('does not log for negative count', async function () {
             console.log.resetHistory()
-            assert.throws(() => miner.generateBlocks(-1))
+            await assert.rejects(() => miner.generateBlocks(-1))
             const blockMessages = console.log.args.filter(
                 args => args[0] && typeof args[0] === 'string' && args[0].includes('generated')
             )

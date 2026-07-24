@@ -189,7 +189,8 @@ describe('XChainRegtestMiner', function () {
             miner.walletAddress = 'addr'
             // Reset console.log call tracking
             console.log.resetHistory()
-            assert.throws(() => miner.generateBlocks(0), /count must be a positive integer/)
+            // generateBlocks is async: an invalid count surfaces as a rejection.
+            await assert.rejects(() => miner.generateBlocks(0), /count must be a positive integer/)
             // Only the generic logs from other setup, not block generation messages
             const blockMessages = console.log.args.filter(
                 args => args[0] && typeof args[0] === 'string' && args[0].includes('generated')
@@ -201,24 +202,24 @@ describe('XChainRegtestMiner', function () {
         // node synchronously and, since every mining caller serializes behind
         // _generateQueue, wedge the auto-mine loop and every pause/fill barrier behind
         // it. Mirrors the MAX_FILL_MEMPOOL_QUANTITY guard on fillMempool.
-        it('throws for a count above the maximum instead of driving the node', function () {
+        it('throws for a count above the maximum instead of driving the node', async function () {
             miner.walletAddress = 'addr'
-            assert.throws(() => miner.generateBlocks(10001), /exceeds maximum/)
+            await assert.rejects(() => miner.generateBlocks(10001), /exceeds maximum/)
             // The node must never be asked to mine an over-cap count.
             assert(connectorStub.generateToAddress.notCalled)
         })
 
-        it('throws for an absurd count (Number.MAX_SAFE_INTEGER)', function () {
+        it('throws for an absurd count (Number.MAX_SAFE_INTEGER)', async function () {
             miner.walletAddress = 'addr'
-            assert.throws(() => miner.generateBlocks(Number.MAX_SAFE_INTEGER), /exceeds maximum/)
+            await assert.rejects(() => miner.generateBlocks(Number.MAX_SAFE_INTEGER), /exceeds maximum/)
             assert(connectorStub.generateToAddress.notCalled)
         })
 
         it('accepts the maximum count and does not poison the queue after an over-cap throw', async function () {
             miner.walletAddress = 'addr'
-            // An over-cap call throws before touching _generateQueue, so a subsequent
+            // An over-cap call rejects before touching _generateQueue, so a subsequent
             // legitimate call must still run.
-            assert.throws(() => miner.generateBlocks(10001), /exceeds maximum/)
+            await assert.rejects(() => miner.generateBlocks(10001), /exceeds maximum/)
             await miner.generateBlocks(1)
             assert(connectorStub.generateToAddress.calledWith(1, 'addr'))
         })

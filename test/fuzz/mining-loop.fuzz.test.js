@@ -278,7 +278,7 @@ describe('Fuzz: mining loop state machine', function () {
                         await miner.generateBlocks(count)
                         assert.ok(connectorStub.generateToAddress.calledWith(count, 'bcrt1qtest'))
                     } else {
-                        assert.throws(() => miner.generateBlocks(count), /count must be a positive integer/)
+                        await assert.rejects(() => miner.generateBlocks(count), /count must be a positive integer/)
                         assert.ok(connectorStub.generateToAddress.notCalled)
                     }
                 }),
