@@ -105,6 +105,19 @@ async function startApi(){
 
     //Start the miner
     const miner = new XChainRegtestMiner(COIN_NETWORK, NODE_URL, NODE_PORT, NODE_USER, NODE_PASSWORD);
+
+    // Optional mine-empty heartbeat. Unset/0 keeps the historical behavior (mine
+    // only when the mempool is non-empty); set it on venues whose drills wait on
+    // BLOCK HEIGHT with no transactions in flight (stake activation delay,
+    // confirmation depth) so the chain advances without raw node RPC .
+    if (process.env.IDLE_MINE_INTERVAL_MS){
+        try { await miner.setIdleMineInterval(parseInt(process.env.IDLE_MINE_INTERVAL_MS, 10)) }
+        catch (err) {
+            console.error('Invalid IDLE_MINE_INTERVAL_MS: ' + (err && err.message ? err.message : err))
+            process.exit(1)
+        }
+    }
+
     miner.start().catch(err => {
         console.error('Miner failed to start: ' + (err && err.message ? err.message : err))
         process.exit(1)
@@ -252,8 +265,24 @@ async function startApi(){
             }
         },
 
+        // Turn the mine-empty heartbeat on/off at runtime (params:
+        // {interval_ms}; 0 disables). The one-shot sibling of generate_blocks:
+        // use this when a drill must WAIT OUT a height-gated window (stake
+        // ACTIVATION_DELAY_BLOCKS, confirmation depth) rather than jump it, and
+        // no transactions are in flight to make the loop mine .
+        async set_idle_mine_interval({interval_ms}){
+            try {
+                await miner.setIdleMineInterval(interval_ms)
+                return "ok"
+            } catch (err){
+                return { "error": "There was a problem setting the idle mine interval: " + (err && err.message ? err.message : err) }
+            }
+        },
+
         // Mine `count` empty blocks. Used by e2e tests to advance block height
         // past indexer time-locked states (e.g. STAKE ACTIVATION_DELAY_BLOCKS).
+        // This mines them NOW; set_idle_mine_interval instead lets an idle chain
+        // advance on its own schedule.
         async generate_blocks({count}){
             try {
                 let hashes = await miner.generateBlocks(count)

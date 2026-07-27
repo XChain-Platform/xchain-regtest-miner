@@ -38,6 +38,18 @@ const MAX_FILL_MEMPOOL_QUANTITY = 50000 //max number of transactions to fill the
 const MAX_SEND_RETRIES = 50 //max retries for sending funds in fillMempool
 const MAX_GENERATE_BLOCKS = 10000 //max blocks a single generateBlocks call may mine (see cap note below)
 
+// Idle mine-empty heartbeat, OFF by default (0). The auto-mine loop only ever
+// mines when the mempool is non-empty, so a quiet chain never advances a block.
+// Anything gated on HEIGHT rather than on transactions therefore stalls forever
+// with nothing in flight to unstick it: capability-stake activation
+// (ACTIVATION_DELAY_BLOCKS), confirmation depth, time-locked expiries. Drills hit
+// this and had to drop to raw node `generatetoaddress` (,  A2 drill).
+// With this set, the loop mines ONE empty block whenever the mempool has been
+// empty for this long, so height advances on its own. Default stays 0 so no
+// existing venue changes behavior: an empty block is still a real block that a
+// reorg/depth test may be counting.
+const DEFAULT_IDLE_MINE_INTERVAL_MS = 0 //0 = disabled; the auto-mine loop stays mempool-driven only
+
 
 //This is useful only for filling the mempool
 const { BIP32Factory } = require('bip32')
@@ -56,6 +68,7 @@ class XChainRegtestMiner {
       this.keepMining = false
       this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
       this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
+      this.idleMineIntervalMs = DEFAULT_IDLE_MINE_INTERVAL_MS
       this.fillMempoolRunning = false
       this._generateQueue = Promise.resolve()
       this.walletReady = false
@@ -90,6 +103,44 @@ class XChainRegtestMiner {
         this.maxTimeToMineTxs = maxTime
         this.addedTimeToMineTxs = txAddedTime
         console.log("New mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
+    }
+
+    // Turn the mine-empty heartbeat on (ms) or off (0). Throws on invalid input,
+    // matching setMiningTime: a returned sentinel would let the api.js controller
+    // report "ok" for a rejected value.
+    //
+    // Deliberately a SEPARATE knob from setMiningTime: those two govern how long
+    // to wait for MORE transactions before mining what is already in the mempool,
+    // and folding an empty-chain heartbeat into them would make every existing
+    // venue start producing empty blocks.
+    async setIdleMineInterval(intervalMs){
+        if (!Number.isInteger(intervalMs) || intervalMs < 0){
+            try { console.log("INVALID idle mine interval: "+intervalMs) } catch(e) { console.log("INVALID idle mine interval (non-printable value)") }
+            throw new Error("Invalid idle mine interval. Must be a non-negative integer (0 disables).")
+        }
+        if (intervalMs !== 0 && intervalMs < MIN_MINING_TIME){
+            throw new Error("Idle mine interval too small. Minimum is "+MIN_MINING_TIME+"ms (0 disables).")
+        }
+        if (intervalMs > MAX_MINING_TIME){
+            throw new Error("Idle mine interval too large. Maximum is "+MAX_MINING_TIME+"ms.")
+        }
+        this.idleMineIntervalMs = intervalMs
+        console.log(intervalMs === 0
+            ? "Idle mine-empty disabled; the loop mines only when the mempool is non-empty"
+            : "Idle mine-empty every "+intervalMs+"ms while the mempool stays empty")
+    }
+
+    // Whether an empty block is due: enabled, mempool empty, and nothing mined
+    // for at least the interval. `now` is injected so the loop and the tests
+    // read the same clock. A miner that has never mined (lastMineAt null) is
+    // measured from `since`, the moment the loop started watching, so enabling
+    // the heartbeat does not fire a block instantly on boot.
+    _idleMineDue(now, since){
+        if (!this.idleMineIntervalMs) return false
+        if (this._mempoolSize > 0) return false
+        let last = this._lastMineAt != null ? this._lastMineAt : since
+        if (last == null) return false
+        return (now - last) >= this.idleMineIntervalMs
     }
 
     async setDefaultMiningTime(){
@@ -659,6 +710,9 @@ class XChainRegtestMiner {
         let extendedStartToMine = 0
         let consecutiveErrors = 0
         const MAX_BACKOFF_MS = 30000
+        // Baseline for the mine-empty heartbeat on a miner that has not mined yet,
+        // so enabling it never fires a block the instant the loop starts.
+        const watchingSince = Date.now()
         this.keepMining = true
 
         while (!this._shutdown){
@@ -721,6 +775,25 @@ class XChainRegtestMiner {
                     extendedStartToMine = 0
                     lastRawMempoolLength = 0
                     this._mempoolSize = 0
+
+                    // Mine-empty heartbeat (off unless IDLE_MINE_INTERVAL_MS /
+                    // set_idle_mine_interval turned it on). Only on the empty-mempool
+                    // branch: a pending transaction has its own timer above, and
+                    // racing it would mine the block early.
+                    if (this._idleMineDue(Date.now(), watchingSince)){
+                        try {
+                            await this.generateBlocks(1)
+                            consecutiveErrors = 0
+                            this._consecutiveErrors = 0
+                        } catch (err){
+                            consecutiveErrors++
+                            this._consecutiveErrors = consecutiveErrors
+                            let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
+                            console.log("There were problems mining an idle block: "+(err && err.message ? err.message : err)+"; retrying in "+backoff+"ms.")
+                            await this.sleep(backoff)
+                            continue
+                        }
+                    }
                 }
             }
             await this.sleep(CHECK_BLOCK_DELAY_MS)
@@ -731,6 +804,11 @@ class XChainRegtestMiner {
         return {
             wallet_ready: this.walletReady,
             mempool_size: this._mempoolSize,
+            // 0 = mempool-driven mining only (the default). Non-zero = the loop
+            // also mines one empty block per interval while the mempool is empty,
+            // so height-gated states (stake activation, confirmation depth) advance
+            // on an idle chain without dropping to raw node RPC.
+            idle_mine_interval_ms: this.idleMineIntervalMs,
             blocks_mined: this._blocksMined,
             last_mine_at: this._lastMineAt,
             consecutive_errors: this._consecutiveErrors,

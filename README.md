@@ -20,7 +20,8 @@ Auto-mining service for XChain Platform regtest environments. Polls the mempool 
 
 - **Adaptive dual-timer mining:** 30-second max timer with 5-second extension on each new transaction, configurable at runtime via JSON-RPC
 - **Automatic wallet management:** creates, loads, and funds a regtest wallet on startup; mines 101 bootstrap blocks on a fresh chain for coinbase maturity
-- **JSON-RPC control API:** 7 endpoints (`ping`, `send_funds`, `generate_blocks`, `fill_mempool`, `continue_mining`, `set_mining_time`, `set_default_mining_time`) for test orchestration
+- **JSON-RPC control API:** 8 endpoints (`ping`, `send_funds`, `generate_blocks`, `fill_mempool`, `continue_mining`, `set_mining_time`, `set_default_mining_time`, `set_idle_mine_interval`) for test orchestration
+- **Optional mine-empty heartbeat:** mining is mempool-driven, so an idle chain never gains height; set `IDLE_MINE_INTERVAL_MS` (or call `set_idle_mine_interval`) to mine one empty block per idle interval and let height-gated states (stake activation, confirmation depth) advance on their own. Off by default.
 - **Mempool stress testing:** `fill_mempool` constructs and broadcasts thousands of raw Bitcoin transactions using BIP32/BIP39 key derivation and PSBT signing
 - **Exponential backoff:** automatic retry with capped exponential backoff (1s to 30s) on RPC connection failures
 - **Graceful shutdown:** SIGTERM handler allows the current mining loop iteration to complete before exiting
