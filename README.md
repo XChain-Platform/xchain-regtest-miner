@@ -4,8 +4,8 @@
 # XChain Platform Regtest Miner
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.18-blue" alt="Version">
-  <img src="https://img.shields.io/badge/tests-901%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/version-0.1.20-blue" alt="Version">
+  <img src="https://img.shields.io/badge/tests-1003%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
@@ -20,16 +20,21 @@ Auto-mining service for XChain Platform regtest environments. Polls the mempool 
 
 - **Adaptive dual-timer mining:** 30-second max timer with 5-second extension on each new transaction, configurable at runtime via JSON-RPC
 - **Automatic wallet management:** creates, loads, and funds a regtest wallet on startup; mines 101 bootstrap blocks on a fresh chain for coinbase maturity
-- **JSON-RPC control API:** 8 endpoints (`ping`, `send_funds`, `generate_blocks`, `fill_mempool`, `continue_mining`, `set_mining_time`, `set_default_mining_time`, `set_idle_mine_interval`) for test orchestration
+- **JSON-RPC control API:** 13 endpoints (`ping`, `status`, `send_funds`, `fill_mempool`, `pause_mining`, `continue_mining`, `set_mining_time`, `set_default_mining_time`, `set_mock_time`, `set_idle_mine_interval`, `generate_blocks`, `invalidate_block`, `reconsider_block`) for test orchestration
 - **Optional mine-empty heartbeat:** mining is mempool-driven, so an idle chain never gains height; set `IDLE_MINE_INTERVAL_MS` (or call `set_idle_mine_interval`) to mine one empty block per idle interval and let height-gated states (stake activation, confirmation depth) advance on their own. Off by default.
+- **Deterministic reorg testing:** `invalidate_block`/`reconsider_block` roll a block back and re-evaluate chain selection without dropping to raw node RPC; auto-mining pauses automatically for the duration
+- **Mock clock control:** `set_mock_time` pins the node clock via `setmocktime` so time-based expiries land on a deterministic block; refused on mainnet
+- **Loop diagnostics:** `status` reports `wallet_ready`, `mempool_size`, `blocks_mined`, `last_mine_at`, `consecutive_errors`, and `mining_paused` for operators and CI
+- **Optional API key auth:** set `MINER_API_KEY` to require a matching `X-API-Key` header on every request (401 otherwise); the read-only `ping`/`status` methods always bypass the gate so Docker healthchecks keep working
 - **Mempool stress testing:** `fill_mempool` constructs and broadcasts thousands of raw Bitcoin transactions using BIP32/BIP39 key derivation and PSBT signing
 - **Exponential backoff:** automatic retry with capped exponential backoff (1s to 30s) on RPC connection failures
+- **Pinned wallet fee rate:** `settxfee` pins a fixed funding fee on startup so an inflated `estimatesmartfee` on a matured regtest chain can't fail `send_funds`/`fill_mempool`; falls back to the fee estimate if the daemon rejects `settxfee`
 - **Graceful shutdown:** SIGTERM handler allows the current mining loop iteration to complete before exiting
 - **Input validation:** rejects invalid addresses, amounts, timer values, and transaction quantities before any RPC call
 - **Error sanitization:** RPC credentials never exposed in error messages or console output
 - **Concurrent call protection:** `fillMempool` mutex prevents overlapping stress test runs with automatic flag restoration
 - **Docker-ready:** Alpine Node 22, non-root user, JSON-RPC healthcheck, Helmet security headers
-- **901 tests:** unit, integration, e2e, smoke, boundary, security, fuzz, chaos, performance, mutation, and regression testing
+- **1003+ tests:** unit, integration, e2e, smoke, boundary, security, fuzz, chaos, performance, mutation, and regression testing
 
 ## Documentation
 
@@ -38,9 +43,9 @@ Full regtest miner documentation is available in the [xchain-documentation](http
 | Document | Description |
 |---|---|
 | [README](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/regtest-miner/README.md) | Overview, features, installation, quick start, scripts, dependencies |
-| [Architecture](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/regtest-miner/ARCHITECTURE.md) | Component diagram, source files, mining loop, wallet lifecycle, fillMempool |
-| [Configuration](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/regtest-miner/CONFIGURATION.md) | Environment variables, internal constants, timer behavior, backoff |
-| [Operations](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/regtest-miner/OPERATIONS.md) | JSON-RPC API endpoints, startup sequence, Docker, troubleshooting |
+| [Architecture](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/regtest-miner/architecture.md) | Component diagram, source files, mining loop, wallet lifecycle, fillMempool |
+| [Configuration](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/regtest-miner/configuration.md) | Environment variables, internal constants, timer behavior, backoff |
+| [Operations](https://github.com/XChain-Platform/xchain-documentation/blob/master/components/regtest-miner/operations.md) | JSON-RPC API endpoints, startup sequence, Docker, troubleshooting |
 
 ## Quick Start
 
@@ -67,12 +72,26 @@ Start the miner:
 npm run api
 ```
 
+## Configuration
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `NETWORK` | Yes | (none) | Must resolve to `regtest` or `testnet` (accepts the platform's `coin-network` form, e.g. `bitcoin-regtest`); `mainnet` is refused at startup |
+| `NODE_URL` | Yes | (none) | Coin node JSON-RPC hostname (non-`localhost`/`127.0.0.1` logs a plaintext-credential warning) |
+| `NODE_PORT` | Yes | (none) | Coin node JSON-RPC port (1-65535) |
+| `NODE_USER` | Yes | (none) | RPC username |
+| `NODE_PASSWORD` | Yes | (none) | RPC password |
+| `REGTEST_MINER_API_PORT` | Yes | (none) | Miner JSON-RPC API listening port (1-65535) |
+| `MINER_API_KEY` | No | Disabled | When set, requires a matching `X-API-Key` header on every request (401 otherwise); `ping`/`status` are always exempt |
+| `NODE_RPC_TIMEOUT` | No | `60000` | HTTP timeout in milliseconds for coin node JSON-RPC calls |
+| `IDLE_MINE_INTERVAL_MS` | No | `0` (off) | Mine one empty block after the mempool has been idle this long, so height-gated states can advance with no transactions in flight; also settable at runtime via `set_idle_mine_interval` |
+
 ## Scripts
 
 | Command | Description |
 |---|---|
 | `npm run api` | Start the miner and JSON-RPC API server |
-| `npm test` | All tests (~901 tests) |
+| `npm test` | All tests (~1003 tests) |
 | `npm run test:smoke` | Smoke tests (12 tests) |
 | `npm run test:e2e` | End-to-end tests |
 | `npm run test:security` | Security tests (input validation, error sanitization, env validation, API hardening) |
@@ -91,18 +110,18 @@ npm run api
 
 | Type | Tests | Description |
 |---|---|---|
-| Unit | ~120 | `XChainRegtestMiner.test.js`, `BlockchainConnector.test.js`, `api.test.js`: constructor, timers, wallet prep, mining loop, fillMempool chunking, RPC formatting, API dispatch |
-| Integration | ~80 | 4 seam files: HTTP/JSON-RPC, Miner/Connector sequences, fillMempool/bitcoinjs-lib crypto, Connector/MockRpcServer |
-| E2E | ~30 | StatefulMockNode: startup lifecycle, mempool detection, block generation, fill-mempool, API, chain state, resilience |
+| Unit | 216 | `XChainRegtestMiner.test.js`, `BlockchainConnector.test.js`, `api.test.js`, and 7 more: constructor, timers, wallet prep, mining loop, fillMempool chunking, RPC formatting, API dispatch |
+| Integration | 80 | 4 seam files: HTTP/JSON-RPC, Miner/Connector sequences, fillMempool/bitcoinjs-lib crypto, Connector/MockRpcServer |
+| E2E | 26 | StatefulMockNode: startup lifecycle, mempool detection, block generation, fill-mempool, API, chain state, resilience |
 | Smoke | 12 | Instantiation, wallet prep paths, mempool detection, timer expiry, pause/resume, API health |
-| Boundary | ~87 | Timer edges, mempool state machine, fillMempool quantities, wallet state transitions, RPC edge cases, combined scenarios |
-| Security | ~159 | Input validation, env validation, connector error sanitization, error disclosure, API hardening, resource exhaustion |
-| Fuzz | ~50 | Property-based via fast-check: RPC parameters, RPC responses, fillMempool stress, mining loop edge cases, timer behavior |
-| Chaos | ~22 | RPC disruption, timeout, flapping, response corruption, auth failures, fillMempool interruption, SIGTERM |
-| Performance | ~28 | Block generation latency, mempool polling, fillMempool scaling, RPC latency, sustained load, API throughput |
+| Boundary | 189 | Timer edges, mempool state machine, fillMempool quantities, wallet state transitions, RPC edge cases, combined scenarios |
+| Security | 159 | Input validation, env validation, connector error sanitization, error disclosure, API hardening, resource exhaustion |
+| Fuzz | 124 | Property-based via fast-check: RPC parameters, RPC responses, fillMempool stress, mining loop edge cases, timer behavior |
+| Chaos | 22 | RPC disruption, timeout, flapping, response corruption, auth failures, fillMempool interruption, SIGTERM |
+| Performance | 28 | Block generation latency, mempool polling, fillMempool scaling, RPC latency, sustained load, API throughput |
 | Mutation | - | Stryker Mutator: full service and unit-only configs, 90% high / 75% low / 60% break thresholds |
 | Regression | 147 | Three-tier suite: T0 critical gate (45), T1 standard (89), T2 full E2E (13) |
-| **Total** | **~901** | |
+| **Total** | **1003** | |
 
 ---
 
