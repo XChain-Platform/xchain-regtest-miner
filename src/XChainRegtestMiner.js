@@ -495,6 +495,37 @@ class XChainRegtestMiner {
         this.keepMining = true
     }
     
+    /**
+     * Loads the named wallet, creating it if the node has never seen it, and
+     * pins the connector to it.
+     *
+     * Split out of the startup path so `sendFundsToAddress` can re-run it. The
+     * daemon that reaches here supports named wallets (Bitcoin Core 0.17+);
+     * pinning via /wallet/<name>/ URI routing keeps subsequent wallet RPCs
+     * (sendtoaddress, getbalance) working even if extra wallets get loaded on
+     * the same node later. Legacy single-wallet chains (Dogecoin v1.14.x) never
+     * take this path - their probe succeeds on the base URL.
+     */
+    async ensureWalletLoaded(){
+        let walletLoaded = false
+        try {
+            await this.connector.loadWallet(this.walletNameParam)
+            walletLoaded = true
+        } catch(err){
+            //The named wallet couldn't be loaded (may not exist, or RPC unsupported)
+        }
+
+        if (!walletLoaded){
+            console.log("Wallet not found. Creating a new wallet")
+            try{
+                await this.createWallet(this.walletNameParam)
+            } catch(err){
+                throw new Error(`Could not create wallet '${this.walletNameParam}' on regtest node (chain may not support createwallet RPC, e.g. Dogecoin v1.14.x): ${err.message}`)
+            }
+        }
+        this.connector.setWalletName(this.walletNameParam)
+    }
+
     async sendFundsToAddress(address, amount){
         if (typeof address !== 'string' || address.length === 0) {
             throw new Error('Invalid address: must be a non-empty string')
@@ -502,7 +533,22 @@ class XChainRegtestMiner {
         if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
             throw new Error('Invalid amount: must be a positive finite number')
         }
-        return await this.connector.sendToAddress(address, amount)
+        try {
+            return await this.connector.sendToAddress(address, amount)
+        } catch (err) {
+            // A node RESTARTED under a long-running miner comes back with no
+            // wallet loaded, and the wallet is bootstrapped exactly once, at
+            // miner startup. Every funding call then fails forever while
+            // mining keeps working, because generatetoaddress reuses the
+            // address cached before the restart - so the venue looks alive and
+            // is unusable. Measured 2026-08-11: BTC regtest sat like this for
+            // 30 hours and read, from the outside, as an unexplained
+            // "Error sending funds to address".
+            if (!err || !err.walletMissing) throw err
+            console.log('Wallet is no longer loaded on the node (restarted?); reloading and retrying once')
+            await this.ensureWalletLoaded()
+            return await this.connector.sendToAddress(address, amount)
+        }
     }
 
     
@@ -546,31 +592,7 @@ class XChainRegtestMiner {
         }
 
         if (probeAddress == null){
-            let walletLoaded = false
-            try {
-                await this.connector.loadWallet(this.walletNameParam)
-                walletLoaded = true
-            } catch(err){
-                //The named wallet couldn't be loaded (may not exist, or RPC unsupported)
-            }
-
-            if (!walletLoaded){
-                console.log("Wallet not found. Creating a new wallet")
-                try{
-                    await this.createWallet(this.walletNameParam)
-                } catch(err){
-                    throw new Error(`Could not create wallet '${this.walletNameParam}' on regtest node (chain may not support createwallet RPC, e.g. Dogecoin v1.14.x): ${err.message}`)
-                }
-            }
-            // We took the load-or-create path, which means the daemon
-            // supports named wallets (Bitcoin Core 0.17+). Pin the
-            // connector to THIS wallet via /wallet/<name>/ URI routing so
-            // subsequent wallet RPCs (sendtoaddress, getbalance, etc.)
-            // continue to work even if extra wallets get loaded on the
-            // same node later. The probe-succeeded path (else branch) is
-            // either legacy (Dogecoin v1.14.x) or single-wallet modern,
-            // both of which work fine on the base URL.
-            this.connector.setWalletName(this.walletNameParam)
+            await this.ensureWalletLoaded()
             console.log("Getting a new address to receive blocks reward")
             this.walletAddress = await this.connector.getNewAddress()
         } else {

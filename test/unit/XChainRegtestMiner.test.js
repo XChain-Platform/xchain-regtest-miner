@@ -147,6 +147,47 @@ describe('XChainRegtestMiner', function () {
             connectorStub.sendToAddress.rejects(new Error('insufficient funds'))
             await assert.rejects(() => miner.sendFundsToAddress('a', 1), /insufficient funds/)
         })
+
+        // A node restarted under a long-running miner comes back with no wallet
+        // loaded, and the wallet is bootstrapped exactly once, at startup. Every
+        // funding call then fails FOREVER while mining keeps working, because
+        // generatetoaddress reuses the address cached before the restart - so
+        // the venue looks alive and is unusable. Measured on BTC regtest
+        // 2026-08-11, 30 hours in that state.
+        it('reloads the wallet and retries once when the node lost it', async function () {
+            const gone = new Error('Error sending funds to address')
+            gone.walletMissing = true
+            connectorStub.sendToAddress.onFirstCall().rejects(gone)
+            connectorStub.sendToAddress.onSecondCall().resolves('txidAfterReload')
+            connectorStub.loadWallet.resolves({ name: 'xchain_regtest_wallet' })
+
+            const result = await miner.sendFundsToAddress('addr', 1.0)
+
+            assert.strictEqual(result, 'txidAfterReload')
+            assert(connectorStub.loadWallet.calledWith('xchain_regtest_wallet'))
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 2)
+        })
+
+        it('does NOT retry a send that failed for any other reason', async function () {
+            // The retry is for one recoverable fault. Insufficient funds, a bad
+            // address or a dead RPC must fail on the first answer, or a broken
+            // venue turns every call into two.
+            connectorStub.sendToAddress.rejects(new Error('Error sending funds to address'))
+            await assert.rejects(() => miner.sendFundsToAddress('a', 1), /Error sending funds/)
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 1)
+            assert(connectorStub.loadWallet.notCalled)
+        })
+
+        it('gives up after ONE reload, rather than looping on a node that stays broken', async function () {
+            const gone = new Error('Error sending funds to address')
+            gone.walletMissing = true
+            connectorStub.sendToAddress.rejects(gone)
+            connectorStub.loadWallet.resolves({ name: 'xchain_regtest_wallet' })
+
+            await assert.rejects(() => miner.sendFundsToAddress('a', 1), /Error sending funds/)
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 2)
+            assert.strictEqual(connectorStub.loadWallet.callCount, 1)
+        })
     })
 
     // ─── createWallet ───────────────────────────────────────────────────

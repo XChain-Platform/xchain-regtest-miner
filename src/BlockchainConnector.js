@@ -489,10 +489,31 @@ class BlockchainConnector {
             // message: a transport axios error.message leaks the RPC host:port, and the
             // sanitization security suite requires a clean static thrown message.
             console.error('sendtoaddress returned no txid: ' + nodeErr)
-            throw new Error('Error sending funds to address')
+            throw this._sendError(nodeErr)
         } catch (error) {
+            if (error && error.walletMissing) throw error
             throw new Error('Error sending funds to address')
         }
+    }
+
+    /**
+     * The static send failure, with ONE machine-readable bit attached.
+     *
+     * The message must stay static and contentless - a transport error leaks
+     * the RPC host:port and the sanitization suite pins that - so the caller
+     * has no way to tell a recoverable fault from a permanent one. It needs
+     * exactly one: a node that has been restarted under a long-running miner
+     * answers every `sendtoaddress` with "Requested wallet does not exist or
+     * is not loaded", forever, because the wallet is bootstrapped once at
+     * startup and nothing reloads it. A boolean discloses nothing and lets
+     * `sendFundsToAddress` re-bootstrap instead of failing for days.
+     */
+    _sendError(nodeErr) {
+        const err = new Error('Error sending funds to address')
+        if (/wallet does not exist or is not loaded/i.test(String(nodeErr))) {
+            err.walletMissing = true
+        }
+        return err
     }
     
     // Marks a block (identified by its hash) as invalid, causing the node to

@@ -486,6 +486,31 @@ describe('BlockchainConnector', function () {
             assert.match(logged, /Insufficient funds/)
         })
 
+        it('flags a lost wallet so the caller can reload it, without saying anything in the message', async function () {
+            // The one recoverable send failure. The message must stay static
+            // (the line below pins why), so the bit travels as a property.
+            axiosPostStub.resolves({
+                data: {
+                    result: null,
+                    error: { code: -18, message: 'Requested wallet does not exist or is not loaded' },
+                    id: 1,
+                }
+            })
+            let threw = null
+            try { await connector.sendToAddress('a', 1) } catch (e) { threw = e }
+            assert.strictEqual(threw && threw.message, 'Error sending funds to address')
+            assert.strictEqual(threw.walletMissing, true)
+        })
+
+        it('does NOT flag an ordinary send failure as a lost wallet', async function () {
+            axiosPostStub.resolves({
+                data: { result: null, error: { code: -6, message: 'Insufficient funds' }, id: 1 }
+            })
+            let threw = null
+            try { await connector.sendToAddress('a', 1) } catch (e) { threw = e }
+            assert.ok(!threw.walletMissing, 'insufficient funds must not trigger a wallet reload')
+        })
+
         it('throws a static message on a transport error (no host:port leak)', async function () {
             axiosPostStub.rejects(new Error('connect ECONNREFUSED 127.0.0.1:18332'))
             let threw = null
