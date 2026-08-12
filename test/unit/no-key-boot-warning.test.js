@@ -15,7 +15,7 @@
 /*********************************************************************
  * test/unit/no-key-boot-warning.test.js
  *
- * : platform-wide no-API-key posture. Keyless is the regtest
+ * Platform-wide no-API-key posture. Keyless is the regtest
  * default (fail-open), but the open state must be announced loudly at
  * boot. The warning lives inside startApi (only meaningful at startup),
  * so this is a source-level drift guard on the keyless branch.
@@ -27,7 +27,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-describe('no-API-key boot warning  @regression', function () {
+describe('no-API-key boot warning @regression', function () {
     const src = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
 
     it('warns at boot when MINER_API_KEY is unset', function () {

@@ -6,7 +6,7 @@
 // This file is part of XChain Platform. Licensed under the GNU Affero
 // General Public License v3.0 or later; see LICENSE.md.
 //
-// : the mining loop is mempool-driven, so an idle chain never gains
+// The mining loop is mempool-driven, so an idle chain never gains
 // height and every height-gated wait (stake ACTIVATION_DELAY_BLOCKS,
 // confirmation depth) stalls with nothing in flight to unstick it. Drills had
 // to drop to raw node `generatetoaddress`. These pin the opt-in mine-empty
@@ -16,7 +16,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 
-describe('XChainRegtestMiner idle mine-empty heartbeat ', function () {
+describe('XChainRegtestMiner idle mine-empty heartbeat', function () {
     let XChainRegtestMiner
     let miner
 

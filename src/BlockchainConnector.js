@@ -645,7 +645,6 @@ class BlockchainConnector {
                 id: 1,
             }
 
-            // Make the request to the node
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
@@ -653,7 +652,6 @@ class BlockchainConnector {
                 }
             })
 
-            // Verify if there is a result and return it
             if (response.data.result){
                 return response.data.result
             } else {

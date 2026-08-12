@@ -1,7 +1,7 @@
 /*********************************************************************
  * test/unit/miner-health-probe.test.js
  *
- * : the Docker HEALTHCHECK POSTed `ping`, whose handler always
+ * The Docker HEALTHCHECK POSTs `ping`, whose handler always
  * returns status:"success" and reports wallet readiness in the body only.
  * Credential drift or an unreachable coin node therefore stalled mining
  * indefinitely while the container stayed Docker-healthy, and any
@@ -27,7 +27,7 @@ const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
 // production never reached.
 const READY = { wallet_ready: true, consecutive_errors: 0, mining_paused: false, mining_started: true };
 
-describe('miner health probe verdict ()', function () {
+describe('miner health probe verdict', function () {
 
     it('is healthy when the wallet is ready and the loop is not failing', function () {
         assert.strictEqual(evaluateMinerHealth({ status: READY, uptimeMs: 10 * 60000 }).healthy, true);

@@ -6,7 +6,7 @@
 // This file is part of XChain Platform. Licensed under the GNU Affero
 // General Public License v3.0 or later; see LICENSE.md.
 //
-// : pauseMining() and fillMempool() advertise a barrier - after they
+// pauseMining() and fillMempool() advertise a barrier - after they
 // resolve, no further block lands until continueMining(). The _generateQueue
 // await they take only drains the mine already in flight; it does not stop the
 // auto-mine loop from starting a NEW one. The loop reads keepMining once at the
@@ -69,7 +69,7 @@ async function minesAfterBarrier(miner, { guarded }) {
     return minesAfter.length
 }
 
-describe('pauseMining barrier vs the auto-mine loop ()', function () {
+describe('pauseMining barrier vs the auto-mine loop', function () {
     let miner
 
     beforeEach(function () {

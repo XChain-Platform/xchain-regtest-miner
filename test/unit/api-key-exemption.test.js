@@ -1,7 +1,7 @@
 /*********************************************************************
  * test/unit/api-key-exemption.test.js
  *
- * #5140: when MINER_API_KEY is set, the read-only health/observability
+ * When MINER_API_KEY is set, the read-only health/observability
  * methods (ping, status) must bypass the key gate. The bundled Docker
  * HEALTHCHECK POSTs `ping` with no X-API-Key, so gating it would 401 every
  * probe and mark the container permanently unhealthy, stalling any
@@ -15,7 +15,7 @@
 const assert = require('assert');
 const { UNAUTHENTICATED_METHODS } = require('../../src/api');
 
-describe('MINER_API_KEY exemption contract (#5140) @regression', function () {
+describe('MINER_API_KEY exemption contract @regression', function () {
     it('exempts the healthcheck `ping` method', function () {
         assert.ok(UNAUTHENTICATED_METHODS.has('ping'),
             'ping must bypass the API-key gate or the Docker healthcheck 401s and the container goes permanently unhealthy');

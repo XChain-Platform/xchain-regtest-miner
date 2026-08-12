@@ -18,7 +18,6 @@
  * 
  ********************************************************************/
 
-// Load required libraries
 const BlockchainConnector = require('./BlockchainConnector.js')
 const CryptoNetworks = require('./CryptoNetworks.js')
 
@@ -26,7 +25,7 @@ const CryptoNetworks = require('./CryptoNetworks.js')
 // check timers. It is intentionally much shorter than MIN_MINING_TIME (1000ms) so
 // that the loop fires close to the timer deadline rather than up to 1× late. A 100ms
 // poll adds only ~100ms worst-case overshoot instead of the previous 1000ms (100%).
-const CHECK_BLOCK_DELAY_MS = 100 //100ms poll interval; decoupled from MIN_MINING_TIME
+const CHECK_BLOCK_DELAY_MS = 100
 const SATOSHI_UNIT = 100000000.0
 
 const DEFAULT_MAX_TIME_TO_MINE_TXS = 30000 //max 30 seconds to mine a block after the first tx is found in the mempool
@@ -43,12 +42,12 @@ const MAX_GENERATE_BLOCKS = 10000 //max blocks a single generateBlocks call may 
 // Anything gated on HEIGHT rather than on transactions therefore stalls forever
 // with nothing in flight to unstick it: capability-stake activation
 // (ACTIVATION_DELAY_BLOCKS), confirmation depth, time-locked expiries. Drills hit
-// this and had to drop to raw node `generatetoaddress` (,  A2 drill).
+// this and had to drop to raw node `generatetoaddress`.
 // With this set, the loop mines ONE empty block whenever the mempool has been
 // empty for this long, so height advances on its own. Default stays 0 so no
 // existing venue changes behavior: an empty block is still a real block that a
 // reorg/depth test may be counting.
-const DEFAULT_IDLE_MINE_INTERVAL_MS = 0 //0 = disabled; the auto-mine loop stays mempool-driven only
+const DEFAULT_IDLE_MINE_INTERVAL_MS = 0
 
 
 //This is useful only for filling the mempool
@@ -69,7 +68,7 @@ class XChainRegtestMiner {
       // Separates "never started" from "operator-paused". keepMining is false in both
       // states, so mining_paused alone cannot tell a wedged prepareWallet apart from a
       // deliberate pause_mining, and a health probe that treats a pause as healthy
-      // then certifies a miner that never mined a block (). start() sets
+      // then certifies a miner that never mined a block. start() sets
       // this true at the same point it sets keepMining, after prepareWallet resolves.
       this.miningStarted = false
       this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
@@ -80,7 +79,7 @@ class XChainRegtestMiner {
       this.walletReady = false
       // Last observed spendable balance, exported by status as wallet_balance.
       // null means "never read, or the last read failed" and is deliberately
-      // distinct from an observed 0, so neither reads as funded ().
+      // distinct from an observed 0, so neither reads as funded.
       this.balance = null
       this._mempoolSize = 0
       this._blocksMined = 0
@@ -189,12 +188,9 @@ class XChainRegtestMiner {
             // flag flip can't land a new block while fillMempool is running.
             await this._generateQueue
             console.log("Filling mempool with "+txQuantity+" transactions")
-            //let AMOUNT_FOR_EACH_ADDRESS = 0.000001
-            //let FEE = 0.00001
-            
+
             let OUTPUTS_QUANTITY_PER_TX = 2500
 
-            //Create a seed
             // Resolve coin-specific bitcoinjs params (P2PKH version byte, WIF,
             // bip32) from the coin-network identifier so DOGE/LTC addresses and
             // PSBTs encode correctly, not just Bitcoin. Falls back to Bitcoin
@@ -235,7 +231,6 @@ class XChainRegtestMiner {
 
             
             console.log("Creating "+txQuantity+" addresses")
-            //Create txQuantity different addresses
             let addresses = []
             for (let i=0;i<txQuantity;i++){
                 let nextAddress = account.derive(i+1).derive(0)
@@ -243,7 +238,6 @@ class XChainRegtestMiner {
             }
 
             console.log("Sending funds to the main address")
-            //Ask for bitcoins
             let txsChunksCount = Math.ceil((txQuantity / OUTPUTS_QUANTITY_PER_TX))
             let chunksTxids = []
             let processedChunkCount = 0
@@ -257,9 +251,9 @@ class XChainRegtestMiner {
                     }
                 }
                 let totalAmount =
-                    AMOUNT_FOR_EACH_ADDRESS*txRemainder + //Amount for every address
-                    FEE*txRemainder + //Fee that every address must pay to send the amount
-                    SPLIT_TX_FEE_PER_OUTPUT*txRemainder //Miner fee left on the split tx (coin-scaled)
+                    AMOUNT_FOR_EACH_ADDRESS*txRemainder +
+                    FEE*txRemainder +
+                    SPLIT_TX_FEE_PER_OUTPUT*txRemainder
                 
                 console.log("Sending "+totalAmount/SATOSHI_UNIT+" ("+i+") to "+mainAddress)
                 
@@ -287,21 +281,9 @@ class XChainRegtestMiner {
                     await this.generateBlocks(1)
                     processedChunkCount = 0
                 }
-                //await this.generateBlocks(1)
-                //let rawTransaction = await this.connector.getRawTransaction(txid)
             }
             await this.generateBlocks(1)
-            
-            /*let totalAmount = 
-                AMOUNT_FOR_EACH_ADDRESS*txQuantity + //Amount for every address
-                FEE*txQuantity + //Fee that every address must pay to send the amount
-                50*txQuantity //Estimated fee to send the first tx with txQuantity outputs
-            let txid = await this.sendFundsToAddress(mainAddress, totalAmount/SATOSHI_UNIT)
-            await this.generateBlocks(1)
-            let rawTransaction = await this.connector.getRawTransaction(txid)*/
-            
-            
-            //Find the utxos
+
             let utxos = []
             for (let nextChunkIndex in chunksTxids){
                 let nextChunkTxid = chunksTxids[nextChunkIndex]
@@ -345,7 +327,6 @@ class XChainRegtestMiner {
                 let rawTransaction = nextUtxo["rawTransaction"]
                 let transaction = bitcoin.Transaction.fromHex(rawTransaction)
                 
-                //Create a single transaction with txQuantity outputs
                 let psbt = new bitcoin.Psbt({ network: network})
             
             
@@ -396,10 +377,8 @@ class XChainRegtestMiner {
             
             
             
-            //Mine a block
             await this.generateBlocks(1)
-            
-            //Create txQuantity transactions to stress the mempool
+
             for (let nextAddressIndex in addresses){
                 let nextAddress = addresses[nextAddressIndex]
                 let psbt = new bitcoin.Psbt({ network: network })
@@ -441,7 +420,7 @@ class XChainRegtestMiner {
 
     // Re-reads the spendable balance so a reorg that disconnected the matured
     // coinbase becomes observable through status instead of silently outliving
-    // the flag set at startup (). Never throws: it runs AFTER the reorg
+    // the flag set at startup. Never throws: it runs AFTER the reorg
     // RPC has already succeeded, so a failed balance read must not turn a
     // completed invalidate/reconsider into a rejected call. Deliberately does NOT
     // touch walletReady, which is a startup-completion flag; see the note where
@@ -686,9 +665,9 @@ class XChainRegtestMiner {
         // Startup-completion only, and never re-evaluated afterwards: a simulated reorg deep
         // enough to disconnect the matured coinbase leaves this true while the wallet can no
         // longer fund a send, so a reorg drill must read wallet_funded / wallet_balance from
-        // status rather than wallet_ready (). Whether this flag should instead become
+        // status rather than wallet_ready. Whether this flag should instead become
         // a live fund-capability oracle is an open call, because the container health probe
-        // reads it as startup-completion () and would report the miner degraded for
+        // reads it as startup-completion and would report the miner degraded for
         // the duration of every deliberate reorg drill. The published contract says
         // startup-completion as well (xchain-documentation, components/regtest-miner/
         // operations.md, the wallet_ready row of the status field table), so redefining this
@@ -744,12 +723,8 @@ class XChainRegtestMiner {
     }
     
     async start(){
-        //Prepare the wallet
         await this.prepareWallet()
 
-        //Loop to check if there are transactions in the mempool, if there are, then
-        //Wait some time for new txs, if there is a new tx in that time, then extended the waiting time again
-        //If there are no new tx in that time, then mine a block
         console.log("Ready. Checking for new txs")
 
         // Graceful shutdown on SIGTERM/SIGINT: stop the mining loop, close the API
@@ -841,7 +816,6 @@ class XChainRegtestMiner {
 
                 if (rawMempool != null && rawMempool.length > 0){
                     if (rawMempool.length > lastRawMempoolLength){
-                        //there are new txs in the mempool
                         if (initialStartToMine == 0){
                             initialStartToMine = Date.now()
                             extendedStartToMine = initialStartToMine
@@ -896,7 +870,7 @@ class XChainRegtestMiner {
             // Live fund-capability, re-read after every reorg RPC. wallet_ready is a
             // startup-completion flag and stays true across a reorg by design, so a drill
             // that needs to know whether the wallet can still fund a send reads these
-            // instead (). wallet_balance is null when the last read failed, which
+            // instead. wallet_balance is null when the last read failed, which
             // is not funded either.
             wallet_balance: this.balance,
             wallet_funded: typeof this.balance === 'number' && this.balance > 0,
@@ -915,7 +889,7 @@ class XChainRegtestMiner {
             mining_paused: !this.keepMining,
             // Distinguishes the identical keepMining=false of a miner still preparing
             // its wallet from that of a paused one, so a probe can call the first a
-            // stall and the second healthy ().
+            // stall and the second healthy.
             mining_started: this.miningStarted
         }
     }

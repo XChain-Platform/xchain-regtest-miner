@@ -6,14 +6,14 @@
 // This file is part of XChain Platform. Licensed under the GNU Affero
 // General Public License v3.0 or later; see LICENSE.md.
 //
-// : walletReady is set once, as prepareWallet's last statement, and no
+// walletReady is set once, as prepareWallet's last statement, and no
 // reorg path ever re-evaluates it. A simulated reorg deep enough to disconnect
 // the matured coinbase therefore left ping/status reporting a fund-capable
 // wallet while send_funds could no longer succeed, with nothing in the exported
 // state contradicting it.
 //
 // The fix does NOT flip walletReady, because the container health probe reads it
-// as startup-completion () and would report the miner degraded for the
+// as startup-completion and would report the miner degraded for the
 // whole of every deliberate drill. It re-reads the balance at both reorg termini
 // and exports wallet_balance / wallet_funded, so the drill has an honest live
 // signal and the stale flag is no longer the only thing on offer.
@@ -27,7 +27,7 @@ const sinon = require('sinon')
 
 const BlockchainConnector = require('../../src/BlockchainConnector')
 
-describe('reorg wallet-funds refresh ()', function () {
+describe('reorg wallet-funds refresh', function () {
     let XChainRegtestMiner
     let miner
     let connectorStub

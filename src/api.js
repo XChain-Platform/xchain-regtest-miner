@@ -18,7 +18,6 @@
  * 
  ********************************************************************/
 
-// Load required libraries
 const dotenv = require('dotenv')
 dotenv.config()
 
@@ -80,7 +79,7 @@ const WALLET_GRACE_MS       = parseInt(process.env.MINER_WALLET_GRACE_MS, 10) ||
 // Decides healthy vs stalled from a getStatus() payload plus process uptime.
 // Pure and exported so the policy is unit-testable without a node or a server.
 // `ping` stays pure liveness (it answers while the wallet is still warming); this
-// is the readiness verdict the container healthcheck reads ().
+// is the readiness verdict the container healthcheck reads.
 //
 // Branch order is load-bearing and was wrong once. A pause-first ordering left the
 // wallet check dead in production: the miner constructs with keepMining=false,
@@ -147,13 +146,12 @@ function validateEnvVars() {
 async function startApi(){
     validateEnvVars()
 
-    //Start the miner
     const miner = new XChainRegtestMiner(COIN_NETWORK, NODE_URL, NODE_PORT, NODE_USER, NODE_PASSWORD);
 
     // Optional mine-empty heartbeat. Unset/0 keeps the historical behavior (mine
     // only when the mempool is non-empty); set it on venues whose drills wait on
     // BLOCK HEIGHT with no transactions in flight (stake activation delay,
-    // confirmation depth) so the chain advances without raw node RPC .
+    // confirmation depth) so the chain advances without raw node RPC.
     if (process.env.IDLE_MINE_INTERVAL_MS){
         try { await miner.setIdleMineInterval(parseInt(process.env.IDLE_MINE_INTERVAL_MS, 10)) }
         catch (err) {
@@ -167,16 +165,10 @@ async function startApi(){
         process.exit(1)
     })
 
-    // Create the app
     const app = express();
 
-    // Use Helmet to increase security
     app.use(helmet());
-
-    // Allow JSON requests
     app.use(bodyParser.json());
-
-    // Allow CORS for development
     app.use(cors());
 
     // When MINER_API_KEY is set, enforce it via X-API-Key header. Requests without
@@ -187,7 +179,7 @@ async function startApi(){
     // The read-only health/observability methods (UNAUTHENTICATED_METHODS: ping, status)
     // are exempt; bodyParser.json() (above) has already populated req.body, so the method
     // is readable here.
-    // Platform-wide no-API-key posture : keyless operation is the regtest
+    // Keyless operation is the regtest
     // default, but the open state is announced loudly at boot rather than implied.
     if (!MINER_API_KEY) {
         console.warn('WARNING: MINER_API_KEY is not set. Miner API authentication is DISABLED (open access). This is expected for local regtest stacks; set MINER_API_KEY on any shared deployment.')
@@ -207,7 +199,6 @@ async function startApi(){
     }
 
     const jsonRpcController = {
-        // Function to check if xchain-regtest-miner is up
         async ping() {
             // ready reflects wallet preparation (mine-readiness), not just that the port is
             // listening: start() runs prepareWallet() detached, so a cold start after a reset
@@ -224,7 +215,7 @@ async function startApi(){
         // Readiness probe: 503 when mining is genuinely stalled. `ping` reports
         // wallet readiness in its body but always answers 200, so credential drift
         // or an unreachable coin node kept the container Docker-healthy while the
-        // loop never advanced height (). The container healthcheck reads
+        // loop never advanced height. The container healthcheck reads
         // this method; `ping` is left alone as liveness for warmup bring-up.
         async health(params, {res}) {
             const status = miner.getStatus()
@@ -240,22 +231,20 @@ async function startApi(){
             }
         },
         
-        // Function to send funds to any address
         async send_funds({address, amount}) {
             let txid = null
-        
+
             try {
                 txid = await miner.sendFundsToAddress(address, amount)
             } catch(err){
                 return {"error":"There was a problem sending funds: " + (err && err.message ? err.message : err)}
             }
 
-            // Return ok
             return txid
         },
-        
-        // Function to fill the mempool with a specific number of transactions randomly created
-        // this will stop the automatic mining for the regtest miner. Use continue_mining to activate it again
+
+        // Fills the mempool with tx_quantity randomly created transactions; this
+        // stops automatic mining until continue_mining is called.
         async fill_mempool({tx_quantity}) {
             try {
                 await miner.fillMempool(tx_quantity)
@@ -263,7 +252,6 @@ async function startApi(){
                 return {"error":"There was a problem trying to fill the mempool: " + (err && err.message ? err.message : err)}
             }
 
-            // Return ok
             return "ok"
         },
 
@@ -277,11 +265,9 @@ async function startApi(){
                 return {"error":"There was a problem trying to pause the mining"}
             }
 
-            // Return ok
             return "ok"
         },
 
-        // Function to fill the mempool with a specific number of transactions randomly created
         async continue_mining({} = {}) {
             try {
                 await miner.continueMining()
@@ -289,10 +275,9 @@ async function startApi(){
                 return {"error":"There was a problem trying to continue the mining"}
             }
 
-            // Return ok
             return "ok"
         },
-        
+
         async set_mining_time({max_time, tx_added_time}){
             try{
                 await miner.setMiningTime(max_time, tx_added_time)
@@ -300,7 +285,6 @@ async function startApi(){
                 return {"error": (err && err.message) ? err.message : "There was a problem trying to set a new time to mine blocks"}
             }
 
-            // Return ok
             return "ok"
         },
 
@@ -311,7 +295,6 @@ async function startApi(){
                 return {"error":"There was a problem trying to set a the default time to mine blocks"}
             }
 
-            // Return ok
             return "ok"
         },
 
@@ -332,7 +315,7 @@ async function startApi(){
         // {interval_ms}; 0 disables). The one-shot sibling of generate_blocks:
         // use this when a drill must WAIT OUT a height-gated window (stake
         // ACTIVATION_DELAY_BLOCKS, confirmation depth) rather than jump it, and
-        // no transactions are in flight to make the loop mine .
+        // no transactions are in flight to make the loop mine.
         async set_idle_mine_interval({interval_ms}){
             try {
                 await miner.setIdleMineInterval(interval_ms)
@@ -403,7 +386,6 @@ async function startApi(){
         next();
     });
 
-    // Allow JSON-RPC requests
     app.use(jsonRouter({methods: jsonRpcController}))
 
 

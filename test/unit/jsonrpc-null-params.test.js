@@ -1,6 +1,6 @@
 'use strict';
 
-// : an explicit `"params": null` bypassed the controller's error envelope.
+// An explicit `"params": null` bypassed the controller's error envelope.
 //
 // express-json-rpc-router destructures the request body as `{ ..., params = {} }`.
 // A default parameter fires only on undefined, so an ABSENT params really does
@@ -68,7 +68,7 @@ async function rpc(app, body) {
     }
 }
 
-describe('JSON-RPC null params normalization ()', function () {
+describe('JSON-RPC null params normalization', function () {
     this.timeout(10000);
 
     it('CONTROL: without the normalizer, params:null escapes to a top-level JSON-RPC error', async () => {
