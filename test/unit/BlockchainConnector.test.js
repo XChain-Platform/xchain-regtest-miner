@@ -564,6 +564,19 @@ describe('BlockchainConnector', function () {
             axiosPostStub.rejects(new Error('connect ECONNREFUSED 127.0.0.1:18332'))
             await assert.rejects(() => connector.invalidateBlock('abc123'), /Error invalidating block/)
         })
+
+        // invalidateblock answers result:null on success, so the absence of an error
+        // member is not itself a success signal: an empty or truncated body used to
+        // certify a chain operation the node never performed.
+        it('rejects an error-less body that carries no result', async function () {
+            axiosPostStub.resolves({ data: {} })
+            await assert.rejects(() => connector.invalidateBlock('abc123'), /Error invalidating block/)
+        })
+
+        it('rejects a 2xx body whose result member is absent', async function () {
+            axiosPostStub.resolves({ data: { id: 1 } })
+            await assert.rejects(() => connector.invalidateBlock('abc123'), /Error invalidating block/)
+        })
     })
 
     // ─── reconsiderBlock ────────────────────────────────────────────────
@@ -585,6 +598,19 @@ describe('BlockchainConnector', function () {
 
         it('throws a static message on network error (no transport detail leak)', async function () {
             axiosPostStub.rejects(new Error('connect ECONNREFUSED 127.0.0.1:18332'))
+            await assert.rejects(() => connector.reconsiderBlock('abc123'), /Error reconsidering block/)
+        })
+
+        // reconsiderblock answers result:null on success, so the absence of an error
+        // member is not itself a success signal: an empty or truncated body used to
+        // certify a chain operation the node never performed.
+        it('rejects an error-less body that carries no result', async function () {
+            axiosPostStub.resolves({ data: {} })
+            await assert.rejects(() => connector.reconsiderBlock('abc123'), /Error reconsidering block/)
+        })
+
+        it('rejects a 2xx body whose result member is absent', async function () {
+            axiosPostStub.resolves({ data: { id: 1 } })
             await assert.rejects(() => connector.reconsiderBlock('abc123'), /Error reconsidering block/)
         })
     })
@@ -614,6 +640,19 @@ describe('BlockchainConnector', function () {
 
         it('throws a static message on network error (no transport detail leak)', async function () {
             axiosPostStub.rejects(new Error('connect ECONNREFUSED 127.0.0.1:18332'))
+            await assert.rejects(() => connector.setMockTime(1900000000), /Error setting mock time/)
+        })
+
+        // setmocktime answers result:null on success, so the absence of an error
+        // member is not itself a success signal: an empty or truncated body used to
+        // certify a chain operation the node never performed.
+        it('rejects an error-less body that carries no result', async function () {
+            axiosPostStub.resolves({ data: {} })
+            await assert.rejects(() => connector.setMockTime(1900000000), /Error setting mock time/)
+        })
+
+        it('rejects a 2xx body whose result member is absent', async function () {
+            axiosPostStub.resolves({ data: { id: 1 } })
             await assert.rejects(() => connector.setMockTime(1900000000), /Error setting mock time/)
         })
     })

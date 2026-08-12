@@ -536,9 +536,16 @@ class BlockchainConnector {
                 }
             })
 
-            // invalidateblock returns null on success (no error field = success).
             if (response.data && response.data.error) {
                 console.error('invalidateblock RPC error: ' + response.data.error.message)
+                throw new Error('Error invalidating block')
+            }
+            // Require the explicit JSON-RPC success result, not merely the absence of
+            // an error member. invalidateblock answers result:null on success, so an empty
+            // body, a {}, or any other error-less 2xx used to certify a reorg the node
+            // never performed: the miner then reported "ok" for a rollback that did
+            // not happen, which is exactly the determinism the harness exists to give.
+            if (!response.data || response.data.result !== null) {
                 throw new Error('Error invalidating block')
             }
             return true
@@ -567,9 +574,16 @@ class BlockchainConnector {
                 }
             })
 
-            // reconsiderblock returns null on success (no error field = success).
             if (response.data && response.data.error) {
                 console.error('reconsiderblock RPC error: ' + response.data.error.message)
+                throw new Error('Error reconsidering block')
+            }
+            // Require the explicit JSON-RPC success result, not merely the absence of
+            // an error member. reconsiderblock answers result:null on success, so an empty
+            // body, a {}, or any other error-less 2xx used to certify a reorg the node
+            // never performed: the miner then reported "ok" for a rollback that did
+            // not happen, which is exactly the determinism the harness exists to give.
+            if (!response.data || response.data.result !== null) {
                 throw new Error('Error reconsidering block')
             }
             return true
@@ -603,9 +617,16 @@ class BlockchainConnector {
                 }
             })
 
-            // setmocktime returns null on success (no error field = success).
             if (response.data && response.data.error) {
                 console.error('setmocktime RPC error: ' + response.data.error.message)
+                throw new Error('Error setting mock time')
+            }
+            // Require the explicit JSON-RPC success result, not merely the absence of
+            // an error member. setmocktime answers result:null on success, so an empty
+            // body, a {}, or any other error-less 2xx used to certify a reorg the node
+            // never performed: the miner then reported "ok" for a rollback that did
+            // not happen, which is exactly the determinism the harness exists to give.
+            if (!response.data || response.data.result !== null) {
                 throw new Error('Error setting mock time')
             }
             return true

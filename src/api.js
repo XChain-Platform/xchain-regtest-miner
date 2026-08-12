@@ -63,11 +63,55 @@ function timingSafeStringEqual(a, b) {
 }
 
 // Read-only health/observability RPC methods that bypass the MINER_API_KEY gate. The
-// bundled Docker HEALTHCHECK POSTs `ping` with no X-API-Key, so gating it would 401 every
-// probe and mark the container permanently unhealthy (stalling any
-// `depends_on: service_healthy` bring-up). Exported so the auth contract is asserted
-// directly rather than via a drift-prone mirror.
-const UNAUTHENTICATED_METHODS = new Set(['ping', 'status'])
+// bundled Docker HEALTHCHECK POSTs its probe method with no X-API-Key, so gating it
+// would 401 every check and mark the container permanently unhealthy. (An earlier
+// version of this comment cited a `depends_on: service_healthy` warmup contract; no
+// compose file in this tree makes the miner a depends_on target, so the claim is
+// dropped rather than restated.) Exported so the auth contract is asserted directly
+// rather than via a drift-prone mirror.
+const UNAUTHENTICATED_METHODS = new Set(['ping', 'status', 'health'])
+
+// Stall thresholds for the `health` probe. A deliberate pause is never a stall,
+// so only these two shapes are: a run of failed mining cycles, and a wallet that
+// never became ready once the cold-start grace has elapsed.
+const STALL_ERROR_THRESHOLD = parseInt(process.env.MINER_STALL_ERROR_THRESHOLD, 10) || 5
+const WALLET_GRACE_MS       = parseInt(process.env.MINER_WALLET_GRACE_MS, 10) || 60000
+
+// Decides healthy vs stalled from a getStatus() payload plus process uptime.
+// Pure and exported so the policy is unit-testable without a node or a server.
+// `ping` stays pure liveness (it answers while the wallet is still warming); this
+// is the readiness verdict the container healthcheck reads ().
+//
+// Branch order is load-bearing and was wrong once. A pause-first ordering left the
+// wallet check dead in production: the miner constructs with keepMining=false,
+// start() awaits prepareWallet() BEFORE setting it true, and walletReady=true is
+// prepareWallet's last statement, so every wallet-not-ready payload the real
+// getStatus() can emit also carries mining_paused=true and answered healthy. A
+// prepareWallet that hangs (wedged coin node, a wallet RPC that never returns) went
+// undetected forever. mining_started is what separates the two states, so the pause
+// shortcut is claimed only once the loop has actually run.
+function evaluateMinerHealth({ status = {}, uptimeMs = 0,
+                               errorThreshold = STALL_ERROR_THRESHOLD,
+                               walletGraceMs = WALLET_GRACE_MS } = {}) {
+    const consecutiveErrors = Number(status.consecutive_errors) || 0
+    // Cold-start grace: nothing is a stall yet. This also swallows an error streak
+    // inside the window, which costs nothing, because Docker's --start-period (kept
+    // at the same 60s in the Dockerfile) already discards failing checks there.
+    if (uptimeMs <= walletGraceMs) return { healthy: true, reason: 'starting' }
+    // Past the grace window, a wallet that never became ready IS the stall this probe
+    // exists for, and it outranks the pause shortcut because an unprepared miner
+    // reports mining_paused=true as well.
+    if (!status.wallet_ready) return { healthy: false, reason: 'wallet_not_ready' }
+    // Wallet ready but the loop never entered (start() rejected between prepareWallet
+    // and the loop): also a stall rather than a pause.
+    if (status.mining_started !== true) return { healthy: false, reason: 'not_started' }
+    // A pause is an operator action (fill_mempool, invalidate_block) that holds
+    // keepMining=false until continue_mining; reporting it unhealthy would flap
+    // every stack that pauses mining as part of a drill.
+    if (status.mining_paused === true) return { healthy: true, reason: 'paused' }
+    if (consecutiveErrors >= errorThreshold) return { healthy: false, reason: 'consecutive_errors' }
+    return { healthy: true, reason: 'ok' }
+}
 
 const REQUIRED_ENV_VARS = ['NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER', 'NODE_PASSWORD', 'REGTEST_MINER_API_PORT']
 
@@ -175,6 +219,25 @@ async function startApi(){
         // idle-healthy from stuck-retrying without watching stdout.
         async status() {
             return miner.getStatus()
+        },
+
+        // Readiness probe: 503 when mining is genuinely stalled. `ping` reports
+        // wallet readiness in its body but always answers 200, so credential drift
+        // or an unreachable coin node kept the container Docker-healthy while the
+        // loop never advanced height (). The container healthcheck reads
+        // this method; `ping` is left alone as liveness for warmup bring-up.
+        async health(params, {res}) {
+            const status = miner.getStatus()
+            const verdict = evaluateMinerHealth({ status, uptimeMs: process.uptime() * 1000 })
+            if (!verdict.healthy) res.status(503)
+            return {
+                status: verdict.healthy ? 'success' : 'degraded',
+                reason: verdict.reason,
+                wallet_ready: !!status.wallet_ready,
+                consecutive_errors: status.consecutive_errors,
+                mining_paused: !!status.mining_paused,
+                mining_started: !!status.mining_started
+            }
         },
         
         // Function to send funds to any address
@@ -324,6 +387,22 @@ async function startApi(){
     // response instead of crashing the request.
     app.use((req, res, next) => { if (req.body === undefined) req.body = {}; next(); });
 
+    // Coalesce an explicit `"params": null` to {} for the same reason, one layer up.
+    // The router defaults only an ABSENT params (`params = {}` destructuring default,
+    // which null does not trigger), so a body that spells params out as null reaches
+    // a parameterized handler like send_funds({address, amount}) and throws during
+    // ARGUMENT BINDING, before the handler's own try/catch exists. Every one of these
+    // handlers reports failure as a truthy `{error: "..."}` result; a binding throw
+    // instead escapes to the router's top-level JSON-RPC error member, so one failure
+    // class answers in two different shapes and leaks a raw JS destructuring message
+    // to the client. Normalizing here covers every handler, including ones added later.
+    app.use((req, res, next) => {
+        const normalize = (rpc) => { if (rpc && typeof rpc === 'object' && rpc.params === null) rpc.params = {} }
+        if (Array.isArray(req.body)) req.body.forEach(normalize)
+        else normalize(req.body)
+        next();
+    });
+
     // Allow JSON-RPC requests
     app.use(jsonRouter({methods: jsonRpcController}))
 
@@ -341,4 +420,4 @@ if (require.main === module) {
     startApi()
 }
 
-module.exports = { startApi, UNAUTHENTICATED_METHODS }
+module.exports = { startApi, UNAUTHENTICATED_METHODS, evaluateMinerHealth, STALL_ERROR_THRESHOLD, WALLET_GRACE_MS }

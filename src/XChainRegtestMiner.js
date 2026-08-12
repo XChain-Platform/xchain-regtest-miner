@@ -66,12 +66,22 @@ class XChainRegtestMiner {
       this.connector = new BlockchainConnector(nodeUrl, nodePort, nodeUser, nodePassword)
       this.walletNameParam = "xchain_regtest_wallet"
       this.keepMining = false
+      // Separates "never started" from "operator-paused". keepMining is false in both
+      // states, so mining_paused alone cannot tell a wedged prepareWallet apart from a
+      // deliberate pause_mining, and a health probe that treats a pause as healthy
+      // then certifies a miner that never mined a block (). start() sets
+      // this true at the same point it sets keepMining, after prepareWallet resolves.
+      this.miningStarted = false
       this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
       this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
       this.idleMineIntervalMs = DEFAULT_IDLE_MINE_INTERVAL_MS
       this.fillMempoolRunning = false
       this._generateQueue = Promise.resolve()
       this.walletReady = false
+      // Last observed spendable balance, exported by status as wallet_balance.
+      // null means "never read, or the last read failed" and is deliberately
+      // distinct from an observed 0, so neither reads as funded ().
+      this.balance = null
       this._mempoolSize = 0
       this._blocksMined = 0
       this._lastMineAt = null
@@ -429,6 +439,24 @@ class XChainRegtestMiner {
             }
     }
 
+    // Re-reads the spendable balance so a reorg that disconnected the matured
+    // coinbase becomes observable through status instead of silently outliving
+    // the flag set at startup (). Never throws: it runs AFTER the reorg
+    // RPC has already succeeded, so a failed balance read must not turn a
+    // completed invalidate/reconsider into a rejected call. Deliberately does NOT
+    // touch walletReady, which is a startup-completion flag; see the note where
+    // prepareWallet sets it.
+    async refreshWalletFunds() {
+        try {
+            const observed = await this.connector.getBalance()
+            this.balance = typeof observed === 'number' ? observed : null
+        } catch (err) {
+            console.log("Could not re-read the wallet balance after a reorg: "+(err && err.message ? err.message : err))
+            this.balance = null
+        }
+        return this.balance
+    }
+
     // Invalidates a block by hash, triggering a node-side rollback to the fork
     // point. Auto-mining is paused beforehand so the miner does not race ahead
     // with new blocks while the reorg is being constructed; callers must call
@@ -438,7 +466,10 @@ class XChainRegtestMiner {
             throw new Error('invalidateBlock: blockHash must be a non-empty string')
         }
         await this.pauseMining()
-        return await this.connector.invalidateBlock(blockHash)
+        const result = await this.connector.invalidateBlock(blockHash)
+        // A deep invalidate is exactly the case that can strand the wallet at 0.
+        await this.refreshWalletFunds()
+        return result
     }
 
     // Re-enables consideration of a previously invalidated block, letting the
@@ -459,7 +490,10 @@ class XChainRegtestMiner {
         const wasMining = this.keepMining
         await this.pauseMining()
         try {
-            return await this.connector.reconsiderBlock(blockHash)
+            const result = await this.connector.reconsiderBlock(blockHash)
+            // The reorg terminus, so this is where a restored balance shows up.
+            await this.refreshWalletFunds()
+            return result
         } finally {
             if (wasMining) this.keepMining = true
         }
@@ -648,6 +682,17 @@ class XChainRegtestMiner {
         // Wallet is fully prepared (address assigned, coinbase matured): wallet-dependent
         // RPCs (generateToAddress) are now safe. Callers gate on this via ping/status,
         // closing the cold-start race where ping returned success before walletAddress was set.
+        //
+        // Startup-completion only, and never re-evaluated afterwards: a simulated reorg deep
+        // enough to disconnect the matured coinbase leaves this true while the wallet can no
+        // longer fund a send, so a reorg drill must read wallet_funded / wallet_balance from
+        // status rather than wallet_ready (). Whether this flag should instead become
+        // a live fund-capability oracle is an open call, because the container health probe
+        // reads it as startup-completion () and would report the miner degraded for
+        // the duration of every deliberate reorg drill. The published contract says
+        // startup-completion as well (xchain-documentation, components/regtest-miner/
+        // operations.md, the wallet_ready row of the status field table), so redefining this
+        // flag is a docs change in a separate repo rather than a local one.
         this.walletReady = true
     }
 
@@ -736,6 +781,10 @@ class XChainRegtestMiner {
         // so enabling it never fires a block the instant the loop starts.
         const watchingSince = Date.now()
         this.keepMining = true
+        // Reached only after prepareWallet() resolved, so from here a keepMining=false
+        // is an operator pause rather than startup. Never reset: pauseMining() only
+        // clears keepMining, and a paused loop has still started.
+        this.miningStarted = true
 
         while (!this._shutdown){
             if (this.keepMining){
@@ -745,6 +794,16 @@ class XChainRegtestMiner {
                     let extendedStartTime = timeNow-extendedStartToMine
 
                     if ((initialTimePassed >= this.maxTimeToMineTxs) || (extendedStartTime >= this.addedTimeToMineTxs)){
+                        // Re-read keepMining immediately before mining, with NO await
+                        // between the check and the call. generateBlocks appends to
+                        // _generateQueue synchronously, so a pause that lands after this
+                        // check is already behind the barrier pauseMining()/fillMempool()
+                        // await, and one that lands before it stops the mine outright.
+                        // Nothing awaits between the loop's own keepMining check above and
+                        // here today, so this guard changes no behavior at this site; it
+                        // pins the invariant so inserting an await above cannot silently
+                        // reopen the window the idle-mine site below actually had.
+                        if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
                         try {
                             await this.generateBlocks(1)
                             consecutiveErrors = 0
@@ -803,6 +862,15 @@ class XChainRegtestMiner {
                     // branch: a pending transaction has its own timer above, and
                     // racing it would mine the block early.
                     if (this._idleMineDue(Date.now(), watchingSince)){
+                        // The real window this guard closes. The loop's keepMining check
+                        // sits above the `await this.connector.getRawMempool()` a few lines
+                        // back, so a pauseMining()/fillMempool() that flipped the flag
+                        // during that RPC had already cleared its _generateQueue barrier
+                        // and returned by the time control reached here: the heartbeat then
+                        // landed a block INSIDE a section the caller had been told was
+                        // serialized, corrupting exactly the height-deterministic reorg and
+                        // mempool drills the barrier exists for.
+                        if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
                         try {
                             await this.generateBlocks(1)
                             consecutiveErrors = 0
@@ -825,6 +893,13 @@ class XChainRegtestMiner {
     getStatus(){
         return {
             wallet_ready: this.walletReady,
+            // Live fund-capability, re-read after every reorg RPC. wallet_ready is a
+            // startup-completion flag and stays true across a reorg by design, so a drill
+            // that needs to know whether the wallet can still fund a send reads these
+            // instead (). wallet_balance is null when the last read failed, which
+            // is not funded either.
+            wallet_balance: this.balance,
+            wallet_funded: typeof this.balance === 'number' && this.balance > 0,
             mempool_size: this._mempoolSize,
             // 0 = mempool-driven mining only (the default). Non-zero = the loop
             // also mines one empty block per interval while the mempool is empty,
@@ -837,7 +912,11 @@ class XChainRegtestMiner {
             // Surface the paused state so a fill_mempool / invalidate_block that was never
             // paired with continue_mining is observable as a deliberate pause rather than
             // reading as a node hang (the loop holds keepMining=false until resumed).
-            mining_paused: !this.keepMining
+            mining_paused: !this.keepMining,
+            // Distinguishes the identical keepMining=false of a miner still preparing
+            // its wallet from that of a paused one, so a probe can call the first a
+            // stall and the second healthy ().
+            mining_started: this.miningStarted
         }
     }
 }

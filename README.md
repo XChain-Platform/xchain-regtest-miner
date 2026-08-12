@@ -20,12 +20,12 @@ Auto-mining service for XChain Platform regtest environments. Polls the mempool 
 
 - **Adaptive dual-timer mining:** 30-second max timer with 5-second extension on each new transaction, configurable at runtime via JSON-RPC
 - **Automatic wallet management:** creates, loads, and funds a regtest wallet on startup; mines 101 bootstrap blocks on a fresh chain for coinbase maturity
-- **JSON-RPC control API:** 13 endpoints (`ping`, `status`, `send_funds`, `fill_mempool`, `pause_mining`, `continue_mining`, `set_mining_time`, `set_default_mining_time`, `set_mock_time`, `set_idle_mine_interval`, `generate_blocks`, `invalidate_block`, `reconsider_block`) for test orchestration
+- **JSON-RPC control API:** 14 endpoints (`ping`, `status`, `health`, `send_funds`, `fill_mempool`, `pause_mining`, `continue_mining`, `set_mining_time`, `set_default_mining_time`, `set_mock_time`, `set_idle_mine_interval`, `generate_blocks`, `invalidate_block`, `reconsider_block`) for test orchestration
 - **Optional mine-empty heartbeat:** mining is mempool-driven, so an idle chain never gains height; set `IDLE_MINE_INTERVAL_MS` (or call `set_idle_mine_interval`) to mine one empty block per idle interval and let height-gated states (stake activation, confirmation depth) advance on their own. Off by default.
-- **Deterministic reorg testing:** `invalidate_block`/`reconsider_block` roll a block back and re-evaluate chain selection without dropping to raw node RPC; auto-mining pauses automatically for the duration
+- **Deterministic reorg testing:** `invalidate_block`/`reconsider_block` roll a block back and re-evaluate chain selection without dropping to raw node RPC; auto-mining pauses automatically for the duration, and each re-reads the wallet balance so a reorg that strands the matured coinbase shows up as `wallet_funded: false`
 - **Mock clock control:** `set_mock_time` pins the node clock via `setmocktime` so time-based expiries land on a deterministic block; refused on mainnet
-- **Loop diagnostics:** `status` reports `wallet_ready`, `mempool_size`, `blocks_mined`, `last_mine_at`, `consecutive_errors`, and `mining_paused` for operators and CI
-- **Optional API key auth:** set `MINER_API_KEY` to require a matching `X-API-Key` header on every request (401 otherwise); the read-only `ping`/`status` methods always bypass the gate so Docker healthchecks keep working
+- **Loop diagnostics:** `status` reports `wallet_ready`, `wallet_balance`, `wallet_funded`, `mempool_size`, `blocks_mined`, `last_mine_at`, `consecutive_errors`, `mining_paused`, and `mining_started` for operators and CI. `wallet_ready` means startup finished and is never re-evaluated; a reorg drill asking whether the wallet can still fund a send reads `wallet_funded` (`wallet_balance` is `null` when the last read failed, which is not funded either)
+- **Optional API key auth:** set `MINER_API_KEY` to require a matching `X-API-Key` header on every request (401 otherwise); the read-only `ping`/`status`/`health` methods always bypass the gate so Docker healthchecks keep working
 - **Mempool stress testing:** `fill_mempool` constructs and broadcasts thousands of raw Bitcoin transactions using BIP32/BIP39 key derivation and PSBT signing
 - **Exponential backoff:** automatic retry with capped exponential backoff (1s to 30s) on RPC connection failures
 - **Pinned wallet fee rate:** `settxfee` pins a fixed funding fee on startup so an inflated `estimatesmartfee` on a matured regtest chain can't fail `send_funds`/`fill_mempool`; falls back to the fee estimate if the daemon rejects `settxfee`
@@ -33,6 +33,7 @@ Auto-mining service for XChain Platform regtest environments. Polls the mempool 
 - **Input validation:** rejects invalid addresses, amounts, timer values, and transaction quantities before any RPC call
 - **Error sanitization:** RPC credentials never exposed in error messages or console output
 - **Concurrent call protection:** `fillMempool` mutex prevents overlapping stress test runs with automatic flag restoration
+- **Stall-aware container health:** the Docker HEALTHCHECK probes `health`, not `ping`. `ping` always answers 200, so a miner wedged on wallet preparation or a run of failed mining cycles read healthy forever; `health` answers 503 once the cold-start grace (`MINER_WALLET_GRACE_MS`, default 60000) has passed with no wallet, or after `MINER_STALL_ERROR_THRESHOLD` (default 5) consecutive failures. A deliberate `pause_mining` stays healthy.
 - **Docker-ready:** Alpine Node 22, non-root user, JSON-RPC healthcheck, Helmet security headers
 - **1003+ tests:** unit, integration, e2e, smoke, boundary, security, fuzz, chaos, performance, mutation, and regression testing
 
@@ -82,8 +83,10 @@ npm run api
 | `NODE_USER` | Yes | (none) | RPC username |
 | `NODE_PASSWORD` | Yes | (none) | RPC password |
 | `REGTEST_MINER_API_PORT` | Yes | (none) | Miner JSON-RPC API listening port (1-65535) |
-| `MINER_API_KEY` | No | Disabled | When set, requires a matching `X-API-Key` header on every request (401 otherwise); `ping`/`status` are always exempt |
+| `MINER_API_KEY` | No | Disabled | When set, requires a matching `X-API-Key` header on every request (401 otherwise); `ping`/`status`/`health` are always exempt |
 | `NODE_RPC_TIMEOUT` | No | `60000` | HTTP timeout in milliseconds for coin node JSON-RPC calls |
+| `MINER_WALLET_GRACE_MS` | No | `60000` | Cold-start grace before `health` calls a not-yet-ready wallet a stall; keep the Docker `--start-period` at least this long |
+| `MINER_STALL_ERROR_THRESHOLD` | No | `5` | Consecutive failed mining cycles before `health` answers 503 |
 | `IDLE_MINE_INTERVAL_MS` | No | `0` (off) | Mine one empty block after the mempool has been idle this long, so height-gated states can advance with no transactions in flight; also settable at runtime via `set_idle_mine_interval` |
 
 ## Scripts
