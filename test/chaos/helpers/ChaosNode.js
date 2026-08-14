@@ -28,8 +28,12 @@ class ChaosNode extends LatencyMockNode {
 
         this._offline = false
         this._failRates = {}        // { methodName: 0.0-1.0 }
-        this._corruptors = {}       // { methodName: (result) => alteredResult }
-        this._interceptors = {}     // { methodName: (params, res, id) => void }
+        // Maps, not plain objects: `method` comes straight off the request body,
+        // and an object lookup would also resolve inherited members (constructor,
+        // toString) and call whatever it found. A Map has no prototype chain to
+        // walk, so an unknown method simply misses.
+        this._corruptors = new Map()       // methodName -> (result) => alteredResult
+        this._interceptors = new Map()     // methodName -> (params, res, id) => void
         this._authOverride = null   // null | { user, pass }
 
         this._reinstallChaosHandler()
@@ -78,8 +82,9 @@ class ChaosNode extends LatencyMockNode {
             const startedAt = Date.now()
 
             // 5. Method interceptor: full override
-            if (this._interceptors[method]) {
-                return this._interceptors[method](params, res, id)
+            const interceptor = this._interceptors.get(method)
+            if (typeof interceptor === 'function') {
+                return interceptor(params, res, id)
             }
 
             // 6. Apply latency (from LatencyMockNode config)
@@ -124,8 +129,9 @@ class ChaosNode extends LatencyMockNode {
             }
 
             // 9. Response corruption
-            if (Object.prototype.hasOwnProperty.call(this._corruptors, method)) {
-                result = this._corruptors[method](result)
+            const corruptor = this._corruptors.get(method)
+            if (typeof corruptor === 'function') {
+                result = corruptor(result)
             }
 
             const completedAt = Date.now()
@@ -170,12 +176,12 @@ class ChaosNode extends LatencyMockNode {
      * @param {function} corruptorFn - (result) => corrupted result
      */
     corruptResponse(method, corruptorFn) {
-        this._corruptors[method] = corruptorFn
+        this._corruptors.set(method, corruptorFn)
         return this
     }
 
     clearCorruptors() {
-        this._corruptors = {}
+        this._corruptors.clear()
     }
 
     // ── Method interception ─────────────────────────────────────────
@@ -186,16 +192,16 @@ class ChaosNode extends LatencyMockNode {
      * @param {function} handlerFn - (params, res, id) => void
      */
     interceptMethod(method, handlerFn) {
-        this._interceptors[method] = handlerFn
+        this._interceptors.set(method, handlerFn)
         return this
     }
 
     clearInterceptor(method) {
-        delete this._interceptors[method]
+        this._interceptors.delete(method)
     }
 
     clearInterceptors() {
-        this._interceptors = {}
+        this._interceptors.clear()
     }
 
     // ── Authentication enforcement ──────────────────────────────────
@@ -219,8 +225,8 @@ class ChaosNode extends LatencyMockNode {
         super.reset()
         this._offline = false
         this._failRates = {}
-        this._corruptors = {}
-        this._interceptors = {}
+        this._corruptors.clear()
+        this._interceptors.clear()
         this._authOverride = null
     }
 }
