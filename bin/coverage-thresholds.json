@@ -1,0 +1,7 @@
+{
+  "comment": "Coverage floors for the CI coverage job (regression floors, ~1-1.5 points below measured, not tier targets; raise as coverage climbs). Mirrored into the coverage:check npm script in package.json and guarded by test/unit/coverage-thresholds-sync.test.js. Measured 2026-08-15 against a full sibling checkout: 84.42 lines/statements, 84.98 branches, 88.05 functions over 259 unit tests. ci.yml already pointed at this file, which did not exist, and the two floors it did enforce sat 2.4 and 3.0 points under measured with statements and functions ungated entirely.",
+  "lines": 83.2,
+  "statements": 83.2,
+  "branches": 83.7,
+  "functions": 86.8
+}
