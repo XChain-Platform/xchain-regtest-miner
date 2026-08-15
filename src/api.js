@@ -334,7 +334,7 @@ async function startApi(){
                 let hashes = await miner.generateBlocks(count)
                 return { "count": hashes.length, "hashes": hashes }
             } catch (err){
-                return { "error": "There was a problem generating blocks: " + (err && err.message) }
+                return { "error": "There was a problem generating blocks: " + (err && err.message ? err.message : err) }
             }
         },
 
