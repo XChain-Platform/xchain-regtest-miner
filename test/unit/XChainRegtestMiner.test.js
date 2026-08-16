@@ -300,12 +300,31 @@ describe('XChainRegtestMiner', function () {
         // invalidateBlock self-guarded; reconsiderBlock relied on the caller having
         // invalidated first, so a standalone reconsider (or one after continue_mining)
         // could race a mine into the node's chain re-evaluation.
+        // Asserted through the barrier's own effects rather than by spying on
+        // pauseMining: reconsiderBlock takes a refcounted reorg pause (so two
+        // concurrent reconsiders cannot stall each other) and a method spy would
+        // only be re-asserting which private helper is in fashion.
         it('takes the mine-barrier before reaching the node', async function () {
-            connectorStub.reconsiderBlock = sinon.stub().resolves(true)
-            const pauseSpy = sinon.spy(miner, 'pauseMining')
-            await miner.reconsiderBlock('deadbeef')
-            assert(pauseSpy.calledOnce, 'pauseMining should be called before reconsidering')
-            assert(pauseSpy.calledBefore(connectorStub.reconsiderBlock), 'barrier must precede the RPC')
+            let releaseInFlightMine
+            miner._generateQueue = new Promise((resolve) => { releaseInFlightMine = resolve })
+            miner.keepMining = true
+
+            let miningWhenRpcRan = null
+            connectorStub.reconsiderBlock = sinon.stub().callsFake(async () => {
+                miningWhenRpcRan = miner.keepMining
+                return true
+            })
+
+            const run = miner.reconsiderBlock('deadbeef')
+            await new Promise((resolve) => setImmediate(resolve))
+            assert(connectorStub.reconsiderBlock.notCalled,
+                'the RPC must wait behind the in-flight mine')
+            assert.strictEqual(miner.keepMining, false, 'the pause is claimed before the barrier')
+
+            releaseInFlightMine()
+            await run
+            assert(connectorStub.reconsiderBlock.calledOnce)
+            assert.strictEqual(miningWhenRpcRan, false, 'auto-mining must be off during the RPC')
         })
 
         it('restores auto-mining when it was running (reorg sequence ends here)', async function () {
