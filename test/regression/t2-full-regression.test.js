@@ -444,7 +444,10 @@ describe('T2 Regression: Full E2E Pipeline', function () {
                 return realHandler()
             }
 
-            await sleep(200)
+            // Wait for the injected errors to actually be delivered. errorCount is
+            // the real post-condition; a fixed settle only assumed the loop had
+            // polled three times by then, which is a bet on venue speed.
+            await waitFor(() => errorCount >= 3, 3000)
 
             // Restore and inject a transaction
             node._rpc_getrawmempool = realHandler

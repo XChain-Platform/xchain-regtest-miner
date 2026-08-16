@@ -21,7 +21,7 @@ const assert = require('assert')
 const sinon = require('sinon')
 const http = require('http')
 const ChaosNode = require('./helpers/ChaosNode')
-const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor, sleep } = require('./helpers/chaosSetup')
+const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor } = require('./helpers/chaosSetup')
 
 describe('Chaos: Stress Testing', function () {
     let node
@@ -205,8 +205,10 @@ describe('Chaos: Stress Testing', function () {
             assert.ok(rejected.length >= 1,
                 'At least 1 call should be rejected by concurrency guard, got ' + rejected.length)
 
-            // Eventually fillMempoolRunning resets
-            await sleep(100)
+            // No wait needed: fillMempool's finally clears fillMempoolRunning
+            // before its promise resolves, and the controller awaits fillMempool
+            // before responding, so the flag is already false once the calls
+            // above have returned. Measured false at this point in 5 of 5 runs.
             assert.strictEqual(miner.fillMempoolRunning, false,
                 'fillMempoolRunning should reset after all calls complete')
 

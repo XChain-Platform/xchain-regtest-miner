@@ -138,7 +138,11 @@ describe('Performance: SL: Soak and Stability', function () {
         await sleep(3000)
         clearInterval(interval)
 
-        // Wait for final block
+        // Soak-window tail, not a settle: this 500ms is what makes the sampled
+        // window the 3.5s the heap threshold below is calibrated against. No
+        // block is outstanding here (a tx is mined ~100ms after injection, so
+        // measured over 8 runs the mempool is empty and height is already final
+        // at clearInterval); do not convert it to a poll on node.height.
         await sleep(500)
         sampler.stop()
 

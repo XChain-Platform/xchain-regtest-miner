@@ -214,9 +214,13 @@ describe('Chaos: RPC Disruption', function () {
             const { startPromise } = startMinerLoop(miner)
             await waitFor(() => miner.keepMining === true)
 
-            // Flapping period
+            // Flapping period: hold the failure rate until the miner has actually
+            // polled THROUGH it. A fixed settle only bought however many polls the
+            // venue happened to schedule, so the flapping the test claims to exercise
+            // varied run to run; the poll count is the real precondition.
+            const pollsBeforeFlapping = node.callsFor('getrawmempool').length
             node.setFailRate('getrawmempool', 0.7)
-            await sleep(200)
+            await waitFor(() => node.callsFor('getrawmempool').length >= pollsBeforeFlapping + 10, 5000)
             node.clearFailRates()
 
             // Normal operation after flapping
