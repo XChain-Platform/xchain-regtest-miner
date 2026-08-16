@@ -75,6 +75,30 @@ class XChainRegtestMiner {
       this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
       this.idleMineIntervalMs = DEFAULT_IDLE_MINE_INTERVAL_MS
       this.fillMempoolRunning = false
+      // Bumped by EVERY keepMining mutation, so a caller that paused can tell its
+      // own pause from a later one. reconsiderBlock restores the prior mining
+      // state in a finally, and without this a pause_mining landing inside its
+      // awaited window was told "ok" and then silently overridden, resuming the
+      // auto-mine loop under an operator who believed the miner was paused. A new
+      // mutation site MUST bump this or it reopens that override.
+      this._miningStateGeneration = 0
+      // Ownership of the reorg pause reconsiderBlock restores from. The guard
+      // above cannot be "any generation change since my snapshot": reconsiderBlock
+      // is itself a keepMining writer and a generation bumper, so a SECOND
+      // reconsider_block (api.js exposes it with no queue) bumps past the first's
+      // snapshot and both then decline to restore, leaving the miner silently
+      // stalled with nobody left to call continueMining().
+      //
+      // So the reorg pause is refcounted and shared instead. Concurrent
+      // reconsiders inherit one record of "was auto-mining live before the reorg
+      // started" plus the generation the LAST reorg pause claimed; only a
+      // generation the reorg pause did not claim (an operator pause_mining /
+      // continue_mining, fillMempool, the loop starting) counts as a foreign
+      // mutation that cancels the restore. The last reconsider out is the one that
+      // restores.
+      this._reorgPauseDepth = 0
+      this._reorgPauseWasMining = false
+      this._reorgPauseGeneration = 0
       this._generateQueue = Promise.resolve()
       this.walletReady = false
       // Last observed spendable balance, exported by status as wallet_balance.
@@ -182,6 +206,7 @@ class XChainRegtestMiner {
             // barrier, then both run the stress body at once.
             this.fillMempoolRunning = true
             this.keepMining = false //Stop the mining so the txs stay in mempool
+            this._miningStateGeneration++
             try {
             // Mirror pauseMining's barrier: wait for any in-flight generateBlocks(1)
             // to settle before proceeding, so a mine that started just before the
@@ -466,16 +491,67 @@ class XChainRegtestMiner {
         // reorg. Prior auto-mining state is restored afterwards: unlike invalidate,
         // reconsider is the END of the reorg sequence, so leaving the miner paused
         // here would silently stall a caller that never calls continueMining().
-        const wasMining = this.keepMining
-        await this.pauseMining()
+        //
+        // The restore is conditional on no OPERATOR pause having landed meanwhile.
+        // A pause_mining RPC landing inside the awaited body below sets the flag
+        // false and answers "ok"; an unconditional restore then flipped it back
+        // and put the auto-mine loop live inside the height-deterministic section
+        // that operator had just been told was serialized. Scoping that condition
+        // to "nothing bumped the generation" instead was worse: a second
+        // reconsider_block bumps it too, and then NEITHER call restored and the
+        // miner stalled for good. _enterReorgPause/_exitReorgPause share one
+        // refcounted pause between concurrent reconsiders so only a foreign
+        // mutation cancels the restore.
+        this._enterReorgPause()
         try {
+            // Same barrier pauseMining takes, drained inside the try so a rejected
+            // in-flight mine still releases the reorg pause.
+            await this._generateQueue
             const result = await this.connector.reconsiderBlock(blockHash)
             // The reorg terminus, so this is where a restored balance shows up.
             await this.refreshWalletFunds()
             return result
         } finally {
-            if (wasMining) this.keepMining = true
+            this._exitReorgPause()
         }
+    }
+
+    // Synchronous half of pauseMining: clear the flag and claim the generation
+    // with no await between them, so no other writer can slot in and be mistaken
+    // for this pause.
+    _claimPause(){
+        this.keepMining = false
+        return ++this._miningStateGeneration
+    }
+
+    // Claim, or join, the shared reorg pause. The first reconsider in flight
+    // records whether auto-mining was live; a concurrent one inherits that record
+    // rather than snapshotting the paused state the first one just installed
+    // (snapshotting it is what stalled the miner). Inheritance is dropped when a
+    // foreign writer moved the generation since the last reorg pause: whatever
+    // the operator did most recently is then the state to honour.
+    _enterReorgPause(){
+        const inherit = this._reorgPauseDepth > 0
+            && this._miningStateGeneration === this._reorgPauseGeneration
+        if (!inherit) this._reorgPauseWasMining = this.keepMining
+        this._reorgPauseDepth++
+        this._reorgPauseGeneration = this._claimPause()
+    }
+
+    // Release one hold on the reorg pause. Only the last one out restores, so a
+    // nested reconsider never hands the chain back to the auto-mine loop while an
+    // outer one is still mid-reorg. Returns whether it restored.
+    _exitReorgPause(){
+        if (this._reorgPauseDepth > 0) this._reorgPauseDepth--
+        if (this._reorgPauseDepth > 0) return false
+        const restore = this._reorgPauseWasMining
+            && this._miningStateGeneration === this._reorgPauseGeneration
+        this._reorgPauseWasMining = false
+        if (restore){
+            this.keepMining = true
+            this._miningStateGeneration++
+        }
+        return restore
     }
 
     // Pin the node clock to `timestamp` (unix seconds) so the NEXT mined block
@@ -495,17 +571,26 @@ class XChainRegtestMiner {
         return await this.connector.setMockTime(Number(timestamp))
     }
 
+    // Returns the mining-state generation this pause claimed, so a caller that
+    // restores the previous state later can check no other pause/continue
+    // intervened. The claim is taken synchronously with the flag write, before the
+    // barrier below, because the barrier is itself an await another RPC can land
+    // inside. Every current caller ignores the value; reconsiderBlock does its own
+    // claim through _enterReorgPause because a plain generation snapshot cannot
+    // tell a second reconsider apart from an operator pause.
     async pauseMining(){
-        this.keepMining = false
+        const generation = this._claimPause()
         // Barrier: a pause that lands between the loop's keepMining check and its
         // generateBlocks(1) would let one more block settle after pause() resolves,
         // breaking a height-deterministic generateBlocks section. Await the in-flight
         // mine so callers get a true barrier.
         await this._generateQueue
+        return generation
     }
 
     async continueMining(){
         this.keepMining = true
+        this._miningStateGeneration++
     }
     
     /**
@@ -756,6 +841,7 @@ class XChainRegtestMiner {
         // so enabling it never fires a block the instant the loop starts.
         const watchingSince = Date.now()
         this.keepMining = true
+        this._miningStateGeneration++
         // Reached only after prepareWallet() resolved, so from here a keepMining=false
         // is an operator pause rather than startup. Never reset: pauseMining() only
         // clears keepMining, and a paused loop has still started.
