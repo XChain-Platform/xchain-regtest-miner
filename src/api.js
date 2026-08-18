@@ -176,9 +176,10 @@ async function startApi(){
     // is absent the middleware is skipped entirely so unauthenticated callers
     // (e2e harness, docker-compose stacks) continue to work with no config change.
     //
-    // The read-only health/observability methods (UNAUTHENTICATED_METHODS: ping, status)
-    // are exempt; bodyParser.json() (above) has already populated req.body, so the method
-    // is readable here.
+    // The read-only health/observability methods (UNAUTHENTICATED_METHODS: ping,
+    // status, health) are exempt; bodyParser.json() (above) has already populated
+    // req.body, so the method is readable here. Read the exempt set at its
+    // definition rather than trusting this list, which drifted once already.
     // Keyless operation is the regtest
     // default, but the open state is announced loudly at boot rather than implied.
     if (!MINER_API_KEY) {
@@ -334,7 +335,7 @@ async function startApi(){
                 let hashes = await miner.generateBlocks(count)
                 return { "count": hashes.length, "hashes": hashes }
             } catch (err){
-                return { "error": "There was a problem generating blocks: " + (err && err.message) }
+                return { "error": "There was a problem generating blocks: " + (err && err.message ? err.message : err) }
             }
         },
 

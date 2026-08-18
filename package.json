@@ -31,12 +31,16 @@
   },
   "scripts": {
     "api": "node ./src/api.js",
-    "ci": "mocha 'test/unit/**/*.test.js' --timeout 10000 --recursive --exit && npm run ci:security",
+    "ci": "mocha 'test/unit/**/*.test.js' --timeout 10000 --recursive --exit && npm run ci:security && npm run ci:boundary && npm run ci:integration",
     "ci:security": "mocha --timeout 10000 --exit 'test/security/**/*.security.test.js'",
+    "ci:boundary": "mocha --timeout 10000 --exit 'test/boundary/**/*.test.js'",
+    "ci:integration": "mocha --timeout 30000 --exit 'test/integration/**/*.integration.test.js'",
     "test": "mocha --timeout 0 --recursive test/",
     "coverage": "c8 --reporter=text --reporter=html --include 'src/**/*.js' mocha --timeout 10000 'test/unit/**/*.test.js' --exit",
     "coverage:check": "c8 --check-coverage --lines 83.2 --statements 83.2 --branches 83.7 --functions 86.8 --reporter=text --include 'src/**/*.js' mocha --timeout 10000 'test/unit/**/*.test.js' --exit",
     "test:unit": "mocha --timeout 10000 test/unit/**/*.test.js",
+    "test:boundary": "mocha --timeout 10000 'test/boundary/**/*.test.js'",
+    "test:integration": "mocha --timeout 30000 'test/integration/**/*.integration.test.js'",
     "test:smoke": "mocha --timeout 10000 test/smoke/smoke.test.js",
     "test:e2e": "mocha --timeout 30000 test/e2e/**/*.test.js",
     "test:fuzz": "mocha --timeout 0 test/fuzz/**/*.fuzz.test.js",
@@ -49,16 +53,17 @@
     "test:regression:t0": "mocha --timeout 15000 test/regression/t0-critical-gate.test.js",
     "test:regression:t1": "mocha --timeout 120000 test/regression/t0-critical-gate.test.js test/regression/t1-standard-regression.test.js",
     "test:regression:t2": "mocha --timeout 0 test/regression/**/*.test.js",
-    "test:regression": "mocha --timeout 120000 test/regression/t0-critical-gate.test.js test/regression/t1-standard-regression.test.js"
+    "test:regression": "mocha --timeout 120000 test/regression/t0-critical-gate.test.js test/regression/t1-standard-regression.test.js",
+    "ci:full": "bash bin/ci-full.sh"
   },
   "overrides": {
     "serialize-javascript": "^7.0.5",
     "diff": "^8.0.3",
     "tmp": "^0.2.7",
     "fast-uri": "^3.1.5",
-    "brace-expansion": "^5.0.8",
+    "brace-expansion": "^5.0.9",
     "minimatch": "^10.2.5",
-    "js-yaml": "^4.3.0",
+    "js-yaml": "^4.3.1",
     "form-data": "^4.0.6"
   },
   "engines": {

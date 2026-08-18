@@ -151,7 +151,15 @@ describe('miner health probe verdict', function () {
             const sigBefore = { SIGTERM: process.listeners('SIGTERM'), SIGINT: process.listeners('SIGINT') };
             const loop = miner.start();
             try {
-                await new Promise(resolve => setTimeout(resolve, 50));
+                // Poll for the state start() is expected to reach rather than
+                // settling for a fixed 50ms: prepareWallet is stubbed but still
+                // async, so the handover is a scheduling fact, not a duration.
+                // start() sets keepMining and miningStarted back to back with no
+                // await between them, so mining_started implies mining_paused.
+                const readyBy = Date.now() + 3000;
+                while (!miner.getStatus().mining_started && Date.now() < readyBy) {
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
 
                 const running = miner.getStatus();
                 assert.strictEqual(running.mining_started, true);

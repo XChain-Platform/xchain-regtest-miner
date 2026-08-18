@@ -160,7 +160,10 @@ describe('Performance: MP: Mempool Polling', function () {
             }
         }, 50)
 
-        await sleep(2000)
+        // Run the flood until the whole planned workload has been delivered (40
+        // ticks x 5 txs). A fixed 2s window injected whatever fraction of it the
+        // venue happened to schedule, so "200 txs" was a hope, not a fact.
+        await waitFor(() => txCount >= 200, 10000)
         clearInterval(interval)
 
         // Wait for at least one block to be mined

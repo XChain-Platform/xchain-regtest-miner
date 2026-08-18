@@ -20,7 +20,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 const ChaosNode = require('./helpers/ChaosNode')
-const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor, sleep } = require('./helpers/chaosSetup')
+const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor } = require('./helpers/chaosSetup')
 
 describe('Chaos: fillMempool Interruption (CE-06)', function () {
     let node
@@ -59,8 +59,11 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
         // Start fillMempool (it will try to send funds, which needs a real wallet interaction)
         const fillPromise = miner.fillMempool(3).catch(e => e)
 
-        // Let it get into the send loop
-        await sleep(50)
+        // Let it get into the send loop. The observable entry point is the first
+        // sendtoaddress reaching the node (sendFundsToAddress is fillMempool's first
+        // RPC), so wait on that rather than on a fixed settle whose adequacy depends
+        // on how busy the venue is.
+        await waitFor(() => node.callsFor('sendtoaddress').length > 0, 3000)
 
         // Kill the node mid-operation
         node.goOffline()
@@ -99,8 +102,8 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
         assert.strictEqual(miner.keepMining, false,
             'fillMempool should set keepMining to false on entry')
 
-        // Let it start, then kill the node
-        await sleep(50)
+        // Let it reach the send loop, then kill the node
+        await waitFor(() => node.callsFor('sendtoaddress').length > 0, 3000)
         node.goOffline()
 
         // Wait for failure
@@ -133,7 +136,7 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
 
         // Trigger fillMempool then kill node
         const fillPromise = miner.fillMempool(3).catch(e => e)
-        await sleep(50)
+        await waitFor(() => node.callsFor('sendtoaddress').length > 0, 3000)
         node.goOffline()
         await fillPromise
 

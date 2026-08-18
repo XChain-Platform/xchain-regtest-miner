@@ -80,8 +80,12 @@ describe('E2E: Error Resilience', function () {
             return realHandler()
         }
 
-        // Wait for errors to be encountered
-        await sleep(200)
+        // Wait for the injected errors to actually be encountered. errorCount is
+        // the real post-condition: a fixed settle only assumed the loop had polled
+        // three times by then, which is a bet on how busy the venue is.
+        const errStart = Date.now()
+        while (errorCount < 3 && Date.now() - errStart < 3000) await sleep(20)
+        assert.strictEqual(errorCount >= 3, true, 'Mining loop never consumed the 3 injected RPC errors')
 
         // Restore normal handler and inject a transaction
         node._rpc_getrawmempool = realHandler
