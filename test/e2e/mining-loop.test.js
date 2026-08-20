@@ -130,11 +130,19 @@ describe('E2E: Mempool Monitoring and Block Generation', function () {
         startMinerLoop()
         await waitFor(() => miner.keepMining === true)
 
-        // Send 3 transactions with gaps shorter than addedTimeToMineTxs
+        // Send 3 transactions with gaps shorter than addedTimeToMineTxs (200ms).
+        // The batching under test only happens if the miner POLLS between the
+        // injections: the extension timer moves on an observed GROWTH in mempool
+        // size, so three txs landing inside one poll interval are a single
+        // growth event and never exercise the extension. Wait for the miner to
+        // have observed each tx (miner._mempoolSize is written on every
+        // successful poll) instead of for 50ms, which on a loaded venue
+        // guarantees neither that a poll happened nor that the gap stayed
+        // under the 200ms threshold.
         node.injectMempoolTx('txid_b2_001')
-        await sleep(50)
+        await waitFor(() => miner._mempoolSize >= 1, 2000)
         node.injectMempoolTx('txid_b2_002')
-        await sleep(50)
+        await waitFor(() => miner._mempoolSize >= 2, 2000)
         node.injectMempoolTx('txid_b2_003')
 
         // Wait for mining

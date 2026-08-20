@@ -234,13 +234,18 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
             miner.addedTimeToMineTxs = 30
         })
 
-        // Helper: run the loop with real Date.now but capped sleep
+        // Helper: run the loop for a bounded workload window, then wait for the
+        // loop to ACTUALLY exit. The timer only requests shutdown; settling is
+        // the start() promise resolving, which is the loop's own statement that
+        // it has left the while. The previous "give it one more cycle" 20ms
+        // could resolve while the loop was still mid-cycle, so callers read a
+        // moving callCount and leaked a live loop into the next test. If the
+        // loop ever fails to exit this now hangs to the mocha timeout, which is
+        // the honest failure.
         function runLoopWithTimeout(miner, timeoutMs) {
             return new Promise(async (resolve) => {
                 const timer = setTimeout(() => {
                     miner._shutdown = true
-                    // Give it one more cycle to exit
-                    setTimeout(resolve, 20)
                 }, timeoutMs)
 
                 // Replace sleep with a short real delay

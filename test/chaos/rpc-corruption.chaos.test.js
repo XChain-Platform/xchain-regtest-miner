@@ -21,7 +21,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 const ChaosNode = require('./helpers/ChaosNode')
-const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor, sleep } = require('./helpers/chaosSetup')
+const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor } = require('./helpers/chaosSetup')
 
 describe('Chaos: RPC Response Corruption & Auth Failure', function () {
     let node
@@ -62,8 +62,11 @@ describe('Chaos: RPC Response Corruption & Auth Failure', function () {
             const { startPromise } = startMinerLoop(miner)
             await waitFor(() => miner.keepMining === true)
 
-            // Wait several poll cycles; no mining should happen
-            await sleep(400)
+            // The negative assertion below needs a window it can defend. Wait for
+            // the corrupted polls to be REJECTED a known number of times (the loop
+            // bumps _consecutiveErrors on every getRawMempool throw) instead of
+            // guessing at a duration that may not have covered a single cycle.
+            await waitFor(() => miner._consecutiveErrors >= 3, 5000)
 
             assert.strictEqual(node.height, heightBefore,
                 'W-1 fixed: String response should not trigger phantom mining')
@@ -86,8 +89,8 @@ describe('Chaos: RPC Response Corruption & Auth Failure', function () {
             const { startPromise } = startMinerLoop(miner)
             await waitFor(() => miner.keepMining === true)
 
-            // Let several poll cycles fail
-            await sleep(200)
+            // Let several poll cycles fail, and wait for the failures themselves.
+            await waitFor(() => miner._consecutiveErrors >= 3, 5000)
 
             // Loop should still be running; errors are caught
             assert.strictEqual(miner.keepMining, true,
@@ -109,7 +112,7 @@ describe('Chaos: RPC Response Corruption & Auth Failure', function () {
             const { startPromise } = startMinerLoop(miner)
             await waitFor(() => miner.keepMining === true)
 
-            await sleep(200)
+            await waitFor(() => miner._consecutiveErrors >= 3, 5000)
 
             assert.strictEqual(miner.keepMining, true,
                 'Mining loop should survive undefined mempool responses')
@@ -131,7 +134,7 @@ describe('Chaos: RPC Response Corruption & Auth Failure', function () {
             const { startPromise } = startMinerLoop(miner)
             await waitFor(() => miner.keepMining === true)
 
-            await sleep(200)
+            await waitFor(() => miner._consecutiveErrors >= 3, 5000)
 
             // Loop survives the parse error / non-JSON response
             assert.strictEqual(miner.keepMining, true,
@@ -163,8 +166,10 @@ describe('Chaos: RPC Response Corruption & Auth Failure', function () {
             // Change credentials: miner uses 'user'/'pass', node now requires 'admin'/'secret'
             node.setAuthRequired('admin', 'secret')
 
-            // Let auth failures accumulate
-            await sleep(200)
+            // Let auth failures accumulate, and wait until they actually have:
+            // the 401 makes getRawMempool throw, so the loop's error counter is
+            // the proof that the credential change was observed by the miner.
+            await waitFor(() => miner._consecutiveErrors >= 3, 5000)
 
             // Loop still running but no blocks mined
             assert.strictEqual(miner.keepMining, true, 'Loop should survive auth failures')

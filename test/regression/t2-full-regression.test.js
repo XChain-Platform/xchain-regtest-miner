@@ -208,7 +208,16 @@ describe('T2 Regression: Full E2E Pipeline', function () {
             await waitFor(() => miner.keepMining, 3000)
 
             const heightBefore = node.height
-            await sleep(300)
+
+            // Give the negative assertion a window it can defend: 20 observed
+            // mempool polls, each of which saw an empty mempool and declined to
+            // mine. A fixed 300ms settle proved only that 300ms passed, and on a
+            // loaded venue could cover fewer cycles than the mining timers
+            // (100ms / 50ms) need in order to be capable of firing at all.
+            const pollsBefore = node.callsFor('getrawmempool').length
+            const settled = await waitFor(
+                () => node.callsFor('getrawmempool').length >= pollsBefore + 20, 5000)
+            assert.ok(settled, 'Mining loop did not poll the mempool 20 times')
 
             assert.strictEqual(node.height, heightBefore,
                 'Should not mine with empty mempool')
