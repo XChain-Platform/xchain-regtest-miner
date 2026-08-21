@@ -100,6 +100,12 @@ describe('Performance: SL: Soak and Stability', function () {
         await waitFor(() => miner.keepMining === true)
 
         sampler.start()
+        // The soak window IS the workload, not a wait for something to happen:
+        // the heap-growth-per-second threshold below is calibrated against a
+        // 3s sample and the sampler ticks every 100ms, so shortening this or
+        // converting it to a poll would measure a different experiment. The
+        // condition the test does need (that the loop really ran) is asserted
+        // directly on pollCount below rather than assumed from the duration.
         await sleep(3000)
         sampler.stop()
 

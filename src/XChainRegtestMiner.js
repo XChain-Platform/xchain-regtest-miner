@@ -100,6 +100,23 @@ class XChainRegtestMiner {
       this._reorgPauseWasMining = false
       this._reorgPauseGeneration = 0
       this._generateQueue = Promise.resolve()
+      // Mine-vs-reorg exclusion. _generateQueue serializes MINES against each
+      // other, and pauseMining()/the bare "await this._generateQueue" only DRAIN
+      // it: the queue is settled the instant that await resolves, so a
+      // generate_blocks RPC (api.js exposes it with no keepMining gate) arriving
+      // while invalidateBlock/reconsiderBlock was parked on its node call ran a
+      // generatetoaddress straight into the node's chain re-evaluation. Each reorg
+      // primitive now raises a hold here instead, keyed by id because api.js
+      // exposes both reorg verbs unqueued so several can be in flight at once.
+      //
+      // The ordering rule, which is what keeps this from deadlocking: a reorg
+      // captures the mine queue tail AFTER raising its hold, so it waits only for
+      // mines appended BEFORE it, and generateBlocks snapshots the holds active at
+      // APPEND time, so a mine waits only for reorgs raised before it. Every
+      // mine/reorg pair therefore has exactly one waiter. Gating a mine on a reorg
+      // that is itself draining that same mine is the deadlock this avoids.
+      this._reorgMineHoldSeq = 0
+      this._reorgMineHolds = new Map()
       this.walletReady = false
       // Last observed spendable balance, exported by status as wallet_balance.
       // null means "never read, or the last read failed" and is deliberately
@@ -469,8 +486,17 @@ class XChainRegtestMiner {
         if (typeof blockHash !== 'string' || blockHash.length === 0) {
             throw new Error('invalidateBlock: blockHash must be a non-empty string')
         }
-        await this.pauseMining()
-        const result = await this.connector.invalidateBlock(blockHash)
+        // Raised before the pause barrier, not after it: a mine appended while
+        // pauseMining() is draining would otherwise run the instant the drain
+        // resolves, overlapping the invalidate below.
+        const mineHold = this._enterReorgMineHold()
+        let result
+        try {
+            await this.pauseMining()
+            result = await this.connector.invalidateBlock(blockHash)
+        } finally {
+            this._exitReorgMineHold(mineHold)
+        }
         // A deep invalidate is exactly the case that can strand the wallet at 0.
         await this.refreshWalletFunds()
         return result
@@ -503,17 +529,57 @@ class XChainRegtestMiner {
         // refcounted pause between concurrent reconsiders so only a foreign
         // mutation cancels the restore.
         this._enterReorgPause()
+        // Raised synchronously alongside the pause, so a mine appended while the
+        // barrier below drains cannot run against the node's re-evaluation.
+        const mineHold = this._enterReorgMineHold()
+        // Dropped as soon as the node call returns rather than in the finally, so
+        // the balance re-read below does not keep mines waiting; the finally still
+        // covers every early exit. _exitReorgMineHold is a no-op on a second call.
+        const dropMineHold = () => this._exitReorgMineHold(mineHold)
         try {
             // Same barrier pauseMining takes, drained inside the try so a rejected
             // in-flight mine still releases the reorg pause.
             await this._generateQueue
             const result = await this.connector.reconsiderBlock(blockHash)
+            dropMineHold()
             // The reorg terminus, so this is where a restored balance shows up.
             await this.refreshWalletFunds()
             return result
         } finally {
+            dropMineHold()
             this._exitReorgPause()
         }
+    }
+
+    // Raise a mine-vs-reorg hold and return its id. Called SYNCHRONOUSLY at the top
+    // of a reorg primitive, before its first await, so no mine can be appended
+    // between the decision to reorg and the hold becoming visible.
+    _enterReorgMineHold(){
+        const id = ++this._reorgMineHoldSeq
+        let release
+        const held = new Promise((resolve) => { release = resolve })
+        this._reorgMineHolds.set(id, { held, release })
+        return id
+    }
+
+    // Drop one hold, releasing the mines that snapshotted it. Always called from a
+    // finally, so a rejected reorg RPC never leaves the miner unable to mine.
+    _exitReorgMineHold(id){
+        const hold = this._reorgMineHolds.get(id)
+        if (!hold) return
+        this._reorgMineHolds.delete(id)
+        hold.release()
+    }
+
+    // Wait out the reorgs that were already in flight when this mine was queued,
+    // then mine. `heldBy` is the append-time snapshot, never a live read: a reorg
+    // raised after the append is itself waiting on this mine, so waiting on it back
+    // would deadlock. After the last await there is no yield before _generateBlocks,
+    // whose first statement dispatches generatetoaddress synchronously, so a reorg
+    // raised meanwhile cannot slip its own RPC in ahead of this one.
+    async _mineWhenReorgIdle(count, heldBy){
+        for (const held of heldBy) await held
+        return this._generateBlocks(count)
     }
 
     // Synchronous half of pauseMining: clear the flag and claim the generation
@@ -783,7 +849,11 @@ class XChainRegtestMiner {
         // on a rejection-swallowing tail (`.catch`) so that one failed mining
         // attempt does not poison the queue: the next caller still runs, while
         // this caller still receives its own success/failure via `run`.
-        const run = this._generateQueue.then(() => this._generateBlocks(count))
+        // Snapshot the reorgs in flight at APPEND time. A reorg raised later
+        // captured the queue tail this append is joining, so it already waits for
+        // this mine; making this mine wait for it too is the deadlock.
+        const heldBy = [...this._reorgMineHolds.values()].map((hold) => hold.held)
+        const run = this._generateQueue.then(() => this._mineWhenReorgIdle(count, heldBy))
         this._generateQueue = run.catch(() => {})
         return run
     }

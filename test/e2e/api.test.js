@@ -168,6 +168,15 @@ describe('E2E: JSON-RPC API Against Live Miner', function () {
         return new Promise(resolve => setTimeout(resolve, ms))
     }
 
+    async function waitFor(conditionFn, timeoutMs = 5000) {
+        const start = Date.now()
+        while (Date.now() - start < timeoutMs) {
+            if (conditionFn()) return true
+            await sleep(20)
+        }
+        throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
+    }
+
     // ─── C1: Ping health check ──────────────────────────────────────
 
     it('C1: ping returns success while mining loop is running', async function () {
@@ -220,8 +229,23 @@ describe('E2E: JSON-RPC API Against Live Miner', function () {
         // Inject a transaction
         node.injectMempoolTx('txid_c4_001')
 
-        // Wait; no mining should happen
-        await sleep(200)
+        // No mining should happen. A paused loop issues no RPC at all, so the
+        // node records nothing and there is no external event to wait on; its
+        // own sleep is the one tick per cycle. Count cycles so the "nothing
+        // happened" window is a known number of loop iterations that ran with
+        // mining off, instead of a wall-clock guess that may not have covered
+        // even one.
+        let pausedCycles = 0
+        const loopSleep = miner.sleep
+        miner.sleep = async (ms) => {
+            pausedCycles++
+            return loopSleep(ms)
+        }
+        try {
+            await waitFor(() => pausedCycles >= 10, 3000)
+        } finally {
+            miner.sleep = loopSleep
+        }
         assert.strictEqual(node.height, heightBefore)
 
         // Resume via API

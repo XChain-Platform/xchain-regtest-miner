@@ -21,7 +21,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 const ChaosNode = require('./helpers/ChaosNode')
-const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor, sleep } = require('./helpers/chaosSetup')
+const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor } = require('./helpers/chaosSetup')
 
 describe('Chaos: RPC Disruption', function () {
     let node
@@ -64,8 +64,11 @@ describe('Chaos: RPC Disruption', function () {
             // Take node offline
             node.goOffline()
 
-            // Let several poll cycles fail
-            await sleep(200)
+            // Wait for the failures themselves, not for a wall-clock guess. An
+            // offline node records no calls (the socket is destroyed), so the
+            // loop's own consecutive-error counter is the one observable that
+            // proves poll cycles ran AND failed; a fixed settle proved neither.
+            await waitFor(() => miner._consecutiveErrors >= 3, 5000)
 
             // Loop should still be running despite errors
             assert.strictEqual(miner.keepMining, true, 'Mining loop should still be active during outage')
@@ -98,9 +101,11 @@ describe('Chaos: RPC Disruption', function () {
             const { startPromise } = startMinerLoop(miner)
             await waitFor(() => miner.keepMining === true)
 
-            // Extended offline period
+            // Extended offline period: measured in failed poll cycles survived,
+            // which is what "extended" means here, rather than in elapsed time
+            // (a slow venue could burn 500ms on two cycles and still pass).
             node.goOffline()
-            await sleep(500)
+            await waitFor(() => miner._consecutiveErrors >= 25, 8000)
 
             // Process still alive
             assert.strictEqual(miner.keepMining, true)

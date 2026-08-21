@@ -518,11 +518,16 @@ describe('T1 Regression: Miner↔Connector Integration Seams', function () {
             miner.addedTimeToMineTxs = 30
         })
 
+        // The timer only requests shutdown; settling is the start() promise
+        // resolving, which is the loop stating it has left the while. The
+        // previous "give it one more cycle" 20ms could resolve mid-cycle,
+        // letting the assertions read a still-moving callCount and leaking a
+        // live loop into the next test. (Same helper, same fix, as
+        // test/integration/miner-connector.integration.test.js.)
         function runLoopWithTimeout(timeoutMs) {
             return new Promise(async (resolve) => {
                 const timer = setTimeout(() => {
                     miner._shutdown = true
-                    setTimeout(resolve, 20)
                 }, timeoutMs)
 
                 miner.sleep.callsFake(async () => {

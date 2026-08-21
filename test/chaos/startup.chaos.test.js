@@ -21,7 +21,7 @@ const assert = require('assert')
 const sinon = require('sinon')
 const ChaosNode = require('./helpers/ChaosNode')
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-const { sleep } = require('./helpers/chaosSetup')
+const { sleep, waitFor } = require('./helpers/chaosSetup')
 
 describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
     let node
@@ -50,16 +50,23 @@ describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
 
         const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
 
-        // Use a small real delay (5ms) so retries don't exhaust instantly.
-        // getWalletInfo has 50 retries × 5ms = 250ms window.
-        // We bring the node online at ~50ms, so around retry 10 it should succeed.
+        // Use a small real delay (5ms) so the connector's own load/create
+        // retries don't exhaust instantly on the fallback path.
         sinon.stub(miner.connector, 'sleep').callsFake(async () => sleep(5))
+
+        // The retry window that actually decides this test is prepareWallet's
+        // getNewAddress probe: 10 attempts, 1s apart, driven by miner.sleep
+        // (NOT the connector.sleep stub above). Count the failed probes so
+        // recovery is tied to the miner having genuinely observed the outage.
+        const probe = sinon.spy(miner.connector, 'getNewAddress')
 
         // Start prepareWallet in background
         const preparePromise = miner.prepareWallet().catch(e => e)
 
-        // Bring node online within the retry window
-        await sleep(50)
+        // Bring the node online after real failed probes, with 8 of the 10
+        // attempts still in hand. A fixed 50ms asserted nothing about whether
+        // a probe had even been attempted yet.
+        await waitFor(() => probe.callCount >= 2, 8000)
         node.goOnline()
 
         const result = await preparePromise
@@ -126,10 +133,15 @@ describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
         // Small real delay so retries don't exhaust before goOnline
         sinon.stub(miner.connector, 'sleep').callsFake(async () => sleep(5))
 
+        // Same probe counter as CE-05a: this is what makes the outage one the
+        // miner demonstrably rode out, rather than a gap it may never have
+        // reached before the node came back.
+        const probe = sinon.spy(miner.connector, 'getNewAddress')
+
         const preparePromise = miner.prepareWallet().catch(e => e)
 
-        // Brief outage, then restore
-        await sleep(30)
+        // Brief outage, then restore.
+        await waitFor(() => probe.callCount >= 2, 8000)
         node.goOnline()
 
         const result = await preparePromise
