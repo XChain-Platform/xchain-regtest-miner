@@ -26,6 +26,10 @@ const CryptoNetworks = require('./CryptoNetworks.js')
 // that the loop fires close to the timer deadline rather than up to 1× late. A 100ms
 // poll adds only ~100ms worst-case overshoot instead of the previous 1000ms (100%).
 const CHECK_BLOCK_DELAY_MS = 100
+// Upper bound on how stale status.wallet_balance may be. The auto-mine loop wakes
+// every CHECK_BLOCK_DELAY_MS, so this interval guard is load-bearing: without it
+// the refresh would issue 10 getbalance RPCs a second per miner.
+const WALLET_BALANCE_REFRESH_MS = 5000
 const SATOSHI_UNIT = 100000000.0
 
 const DEFAULT_MAX_TIME_TO_MINE_TXS = 30000 //max 30 seconds to mine a block after the first tx is found in the mempool
@@ -122,6 +126,10 @@ class XChainRegtestMiner {
       // null means "never read, or the last read failed" and is deliberately
       // distinct from an observed 0, so neither reads as funded.
       this.balance = null
+      // Epoch ms of the last balance READ ATTEMPT (not the last successful one),
+      // exported as wallet_balance_at so a drill can tell a fresh reading from a
+      // never-refreshed one. null until prepareWallet has read a balance.
+      this._balanceReadAt = null
       this._mempoolSize = 0
       this._blocksMined = 0
       this._lastMineAt = null
@@ -461,21 +469,38 @@ class XChainRegtestMiner {
     }
 
     // Re-reads the spendable balance so a reorg that disconnected the matured
-    // coinbase becomes observable through status instead of silently outliving
-    // the flag set at startup. Never throws: it runs AFTER the reorg
+    // coinbase, or a fill_mempool / send_funds run that drained the wallet,
+    // becomes observable through status instead of silently outliving the flag
+    // set at startup. Never throws: at the reorg termini it runs AFTER the reorg
     // RPC has already succeeded, so a failed balance read must not turn a
-    // completed invalidate/reconsider into a rejected call. Deliberately does NOT
+    // completed invalidate/reconsider into a rejected call, and in the auto-mine
+    // loop a throw would kill mining outright. Deliberately does NOT
     // touch walletReady, which is a startup-completion flag; see the note where
     // prepareWallet sets it.
+    //
+    // Stamps _balanceReadAt on BOTH paths: it records the last read ATTEMPT, which
+    // is what bounds staleness and what paces the loop's cadence guard. Stamping
+    // only on success would let a node that keeps failing getbalance re-issue the
+    // RPC on every 100ms loop tick.
     async refreshWalletFunds() {
         try {
             const observed = await this.connector.getBalance()
             this.balance = typeof observed === 'number' ? observed : null
         } catch (err) {
-            console.log("Could not re-read the wallet balance after a reorg: "+(err && err.message ? err.message : err))
+            console.log("Could not re-read the wallet balance: "+(err && err.message ? err.message : err))
             this.balance = null
         }
+        this._balanceReadAt = Date.now()
         return this.balance
+    }
+
+    // True when the auto-mine loop owes a balance refresh. Split out as a
+    // predicate (same shape as _idleMineDue) because the interval guard is the
+    // load-bearing part: the loop wakes every CHECK_BLOCK_DELAY_MS, so a guard
+    // that mis-answers turns one RPC per 5s into ten per second.
+    _walletRefreshDue(now) {
+        if (this._balanceReadAt == null) return true
+        return (now - this._balanceReadAt) >= WALLET_BALANCE_REFRESH_MS
     }
 
     // Invalidates a block by hash, triggering a node-side rollback to the fork
@@ -797,6 +822,12 @@ class XChainRegtestMiner {
             }
         }
 
+        // Stamp the startup read so the auto-mine loop's cadence starts one full
+        // interval from here rather than firing a redundant getbalance on its very
+        // first tick, which would also null the balance just measured on any venue
+        // whose connector answers that call less reliably than this one just did.
+        this._balanceReadAt = Date.now()
+
         // Pin a fixed, low wallet fee rate so funding sends (sendtoaddress) never
         // consult estimatesmartfee, which inflates on a matured regtest chain and
         // trips the daemon's -maxtxfee ceiling (RPC error -6), silently breaking
@@ -918,6 +949,18 @@ class XChainRegtestMiner {
         this.miningStarted = true
 
         while (!this._shutdown){
+            // Bound wallet_balance staleness at WALLET_BALANCE_REFRESH_MS whatever
+            // moved the wallet: send_funds, fill_mempool, coinbase maturity, a
+            // node-side change. Deliberately ABOVE the keepMining gate, because
+            // fill_mempool and pause_mining hold that flag false for exactly the
+            // windows in which the wallet drains, and a refresh that only ran while
+            // mining would go quiet at the moment it is needed. refreshWalletFunds()
+            // never throws, so this cannot break the loop; and both mine sites below
+            // re-read keepMining immediately before generateBlocks, so this await
+            // cannot reopen the pause barrier window those guards close.
+            if (this._walletRefreshDue(Date.now())) {
+                await this.refreshWalletFunds()
+            }
             if (this.keepMining){
                 if ((initialStartToMine > 0) && (extendedStartToMine > 0)){
                     let timeNow = Date.now()
@@ -1023,13 +1066,21 @@ class XChainRegtestMiner {
     getStatus(){
         return {
             wallet_ready: this.walletReady,
-            // Live fund-capability, re-read after every reorg RPC. wallet_ready is a
-            // startup-completion flag and stays true across a reorg by design, so a drill
-            // that needs to know whether the wallet can still fund a send reads these
-            // instead. wallet_balance is null when the last read failed, which
-            // is not funded either.
+            // Fund-capability, read at startup, at both reorg termini, and by the
+            // auto-mine loop at most WALLET_BALANCE_REFRESH_MS apart, so the value is
+            // never staler than that interval whatever drained the wallet.
+            // wallet_ready is a startup-completion flag and stays true across a reorg
+            // by design, so a drill that needs to know whether the wallet can still
+            // fund a send reads these instead. wallet_balance is null when the last
+            // read failed or none has happened, which is not funded either: a transient
+            // getbalance failure therefore flips wallet_funded false for one interval,
+            // and that direction is deliberate, because a false unfunded is safe where
+            // a false funded is not. wallet_balance_at is the epoch-ms timestamp of the
+            // last read ATTEMPT (null if none), so a drill can tell a fresh reading
+            // from a wedged one rather than inferring liveness from the number alone.
             wallet_balance: this.balance,
             wallet_funded: typeof this.balance === 'number' && this.balance > 0,
+            wallet_balance_at: this._balanceReadAt,
             mempool_size: this._mempoolSize,
             // 0 = mempool-driven mining only (the default). Non-zero = the loop
             // also mines one empty block per interval while the mempool is empty,
