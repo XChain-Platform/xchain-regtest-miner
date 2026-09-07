@@ -26,6 +26,7 @@ const assert = require('assert')
 const sinon = require('sinon')
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
 const StatefulMockNode = require('../e2e/helpers/StatefulMockNode')
+const waitUntil = require('../helpers/waitUntil')
 
 describe('T2 Regression: Full E2E Pipeline', function () {
     let node
@@ -46,17 +47,11 @@ describe('T2 Regression: Full E2E Pipeline', function () {
         return new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
     }
 
+    // Deliberate delay only. Every wait-for-a-condition in this file goes through
+    // waitUntil, which rejects on timeout; this timer is reserved for the sites
+    // where the elapsed wall time IS the thing under test.
     async function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms))
-    }
-
-    async function waitFor(conditionFn, timeoutMs = 5000) {
-        const start = Date.now()
-        while (Date.now() - start < timeoutMs) {
-            if (conditionFn()) return true
-            await sleep(20)
-        }
-        return false
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -183,14 +178,16 @@ describe('T2 Regression: Full E2E Pipeline', function () {
             })
 
             // Wait for mining loop to start
-            const started = await waitFor(() => miner.keepMining, 3000)
+            const started = await waitUntil(
+                () => miner.keepMining, 3000, 'the mining loop to start')
             assert.ok(started, 'Mining loop did not start')
 
             const heightBefore = node.height
             node.injectMempoolTx('txid_reg_001')
 
             // Wait for the miner to mine a block
-            const mined = await waitFor(() => node.height > heightBefore, 3000)
+            const mined = await waitUntil(
+                () => node.height > heightBefore, 3000, 'the chain height to advance')
             assert.ok(mined, 'Miner did not mine the transaction')
 
             // Transaction should be cleared from mempool
@@ -205,7 +202,7 @@ describe('T2 Regression: Full E2E Pipeline', function () {
                 if (e.message !== '__E2E_SHUTDOWN__') throw e
             })
 
-            await waitFor(() => miner.keepMining, 3000)
+            await waitUntil(() => miner.keepMining, 3000, 'the mining loop to start')
 
             const heightBefore = node.height
 
@@ -215,8 +212,9 @@ describe('T2 Regression: Full E2E Pipeline', function () {
             // loaded venue could cover fewer cycles than the mining timers
             // (100ms / 50ms) need in order to be capable of firing at all.
             const pollsBefore = node.callsFor('getrawmempool').length
-            const settled = await waitFor(
-                () => node.callsFor('getrawmempool').length >= pollsBefore + 20, 5000)
+            const settled = await waitUntil(
+                () => node.callsFor('getrawmempool').length >= pollsBefore + 20, 5000,
+                '20 further mempool polls')
             assert.ok(settled, 'Mining loop did not poll the mempool 20 times')
 
             assert.strictEqual(node.height, heightBefore,
@@ -231,18 +229,21 @@ describe('T2 Regression: Full E2E Pipeline', function () {
                 if (e.message !== '__E2E_SHUTDOWN__') throw e
             })
 
-            await waitFor(() => miner.keepMining, 3000)
+            await waitUntil(() => miner.keepMining, 3000, 'the mining loop to start')
 
             const heightBefore = node.height
 
             // Inject tx, wait for it to be mined, then inject another
             node.injectMempoolTx('txid_multi_001')
-            const firstMined = await waitFor(() => node.height > heightBefore, 3000)
+            const firstMined = await waitUntil(
+                () => node.height > heightBefore, 3000, 'the first transaction to be mined')
             assert.ok(firstMined, 'First transaction not mined')
 
             const heightAfterFirst = node.height
             node.injectMempoolTx('txid_multi_002')
-            const secondMined = await waitFor(() => node.height > heightAfterFirst, 3000)
+            const secondMined = await waitUntil(
+                () => node.height > heightAfterFirst, 3000,
+                'the second transaction to be mined')
             assert.ok(secondMined, 'Second transaction not mined')
         })
     })
@@ -287,19 +288,25 @@ describe('T2 Regression: Full E2E Pipeline', function () {
             startPromise = miner.start().catch(e => {
                 if (e.message !== '__E2E_SHUTDOWN__') throw e
             })
-            await waitFor(() => miner.keepMining, 3000)
+            await waitUntil(() => miner.keepMining, 3000, 'the mining loop to start')
 
             // Pause mining
             miner.keepMining = false
             const heightBefore = node.height
             node.injectMempoolTx('txid_pause_001')
+            // Deliberate delay, NOT a synchronization wait: kept as a timer on purpose.
+            // A paused loop skips the whole polling block (XChainRegtestMiner.start,
+            // the `if (this.keepMining)` gate), so the node observes no RPC at all while
+            // keepMining is false and there is no post-condition to poll for. The quiet
+            // window itself is the claim, so the only honest witness is elapsed time.
             await sleep(300)
             assert.strictEqual(node.height, heightBefore,
                 'Should not mine while paused')
 
             // Resume mining
             await miner.continueMining()
-            const mined = await waitFor(() => node.height > heightBefore, 3000)
+            const mined = await waitUntil(
+                () => node.height > heightBefore, 3000, 'the chain height to advance')
             assert.ok(mined, 'Should mine after resuming')
         })
     })
@@ -346,10 +353,15 @@ describe('T2 Regression: Full E2E Pipeline', function () {
             startPromise = miner.start().catch(e => {
                 if (e.message !== '__E2E_SHUTDOWN__') throw e
             })
-            await waitFor(() => miner.keepMining, 3000)
+            await waitUntil(() => miner.keepMining, 3000, 'the mining loop to start')
 
             const heightBefore = node.height
             node.injectMempoolTx('txid_timer_001')
+            // Deliberate delay, NOT a synchronization wait: the elapsed 200ms contrasted
+            // against the 60s timers above IS the assertion below, which names the window
+            // in its own message. Polling for "not mined" has no condition that becomes
+            // true, and swapping the window for a poll count would leave that message
+            // describing a bound the test no longer takes.
             await sleep(200)
             // Long timers: should not have mined yet
             assert.strictEqual(node.height, heightBefore,
@@ -359,7 +371,8 @@ describe('T2 Regression: Full E2E Pipeline', function () {
             await miner.setMiningTime(1000, 1000)
 
             // Now it should mine within ~1s
-            const mined = await waitFor(() => node.height > heightBefore, 3000)
+            const mined = await waitUntil(
+                () => node.height > heightBefore, 3000, 'the chain height to advance')
             assert.ok(mined, 'Should mine after timer override')
         })
 
@@ -438,7 +451,7 @@ describe('T2 Regression: Full E2E Pipeline', function () {
             startPromise = miner.start().catch(e => {
                 if (e.message !== '__E2E_SHUTDOWN__') throw e
             })
-            await waitFor(() => miner.keepMining, 3000)
+            await waitUntil(() => miner.keepMining, 3000, 'the mining loop to start')
 
             // Inject RPC errors
             const realHandler = node._rpc_getrawmempool.bind(node)
@@ -456,7 +469,8 @@ describe('T2 Regression: Full E2E Pipeline', function () {
             // Wait for the injected errors to actually be delivered. errorCount is
             // the real post-condition; a fixed settle only assumed the loop had
             // polled three times by then, which is a bet on venue speed.
-            await waitFor(() => errorCount >= 3, 3000)
+            await waitUntil(
+                () => errorCount >= 3, 3000, 'all three injected RPC errors to be delivered')
 
             // Restore and inject a transaction
             node._rpc_getrawmempool = realHandler
@@ -465,7 +479,8 @@ describe('T2 Regression: Full E2E Pipeline', function () {
             const heightBefore = node.height
             node.injectMempoolTx('txid_resilience_001')
 
-            const mined = await waitFor(() => node.height > heightBefore, 3000)
+            const mined = await waitUntil(
+                () => node.height > heightBefore, 3000, 'the chain height to advance')
             assert.ok(mined, 'Miner should recover from RPC errors and mine')
         })
     })
@@ -520,11 +535,15 @@ describe('T2 Regression: Full E2E Pipeline', function () {
             const startPromise = miner.start().catch(e => {
                 if (e.message !== '__E2E_SHUTDOWN__') throw e
             })
-            await waitFor(() => miner.keepMining, 3000)
+            await waitUntil(() => miner.keepMining, 3000, 'the mining loop to start')
 
             miner._shutdown = true
 
-            // Should exit within a short time
+            // Should exit within a short time.
+            // The timer is the losing arm of a race, not a synchronization wait: it is
+            // already a reachable deadline that throws a named error, which is exactly
+            // what waitUntil would supply. Routing it through the helper would rebuild
+            // the same mechanism around a flag set by startPromise, so it stays.
             await Promise.race([
                 startPromise,
                 sleep(2000).then(() => { throw new Error('Loop did not exit in time') }),

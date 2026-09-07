@@ -328,11 +328,14 @@ class XChainRegtestMiner {
                 processedChunkCount++
                 
                 if (processedChunkCount>=20){
-                    await this.generateBlocks(1)
+                    // Fill's OWN funding mine: takes the private lane, because the
+                    // public entry point is refusing mines for the duration of this
+                    // fill and would otherwise reject the fill's own work.
+                    await this._generateBlocksQueued(1)
                     processedChunkCount = 0
                 }
             }
-            await this.generateBlocks(1)
+            await this._generateBlocksQueued(1)
 
             let utxos = []
             for (let nextChunkIndex in chunksTxids){
@@ -427,7 +430,7 @@ class XChainRegtestMiner {
             
             
             
-            await this.generateBlocks(1)
+            await this._generateBlocksQueued(1)
 
             for (let nextAddressIndex in addresses){
                 let nextAddress = addresses[nextAddressIndex]
@@ -799,7 +802,10 @@ class XChainRegtestMiner {
             // add an immature coinbase (spendable after 100 confirmations), leaving
             // the balance at 0 while walletReady is about to be set true. The
             // bounded balance re-poll below is the real readiness guard.
-            await this.generateBlocks(101)
+            // Private lane: start() runs this warmup without awaiting while the API
+            // is already listening, so a fill_mempool arriving during it must not
+            // turn wallet preparation into a boot failure.
+            await this._generateBlocksQueued(101)
 
             // Re-poll the balance in a bounded loop instead of trusting the
             // mining call: ping/status export walletReady as the readiness
@@ -861,6 +867,33 @@ class XChainRegtestMiner {
     // sentinel-return `[]` let generate_blocks({count:0|-1|'abc'}) silently
     // answer {count: 0, hashes: []} through the controller with no error.
     async generateBlocks(count) {
+        // Refuse an EXTERNAL mine while a fill is building the mempool. fillMempool
+        // flips keepMining false and drains _generateQueue once (the bare
+        // "await this._generateQueue" at the top of its body), which stops the
+        // auto-mine loop and any mine already queued, and stops nothing after that:
+        // api.js exposes generate_blocks with no mining gate, so a mine arriving
+        // during the several-minute broadcast loop mined the stress transactions
+        // straight back out and fill_mempool still answered "ok". Checked
+        // SYNCHRONOUSLY, before any await and before the queue append, for the same
+        // reason fillMempool claims its own mutex before its first await: a guard
+        // that straddles an await is not a guard. fillMempool's own funding mines
+        // and prepareWallet's warmup take _generateBlocksQueued below and are
+        // unaffected. This cannot fire from the auto-mine loop: both of its mine
+        // sites re-read keepMining with no await before the call, and fillMempool
+        // sets fillMempoolRunning and clears keepMining in one synchronous block,
+        // so a loop that got past its guard is already ahead of this one.
+        if (this.fillMempoolRunning) {
+            throw new Error("mining is disabled while fill_mempool is running")
+        }
+        return this._generateBlocksQueued(count)
+    }
+
+    // The mine itself, reachable while a fill holds the public entry point shut.
+    // fillMempool's funding mines and prepareWallet's warmup are the only callers
+    // that may bypass that guard: they are the fill's own work, not a competing
+    // block, and routing them through the public method would make fillMempool
+    // throw on itself.
+    async _generateBlocksQueued(count) {
         if (!Number.isInteger(count) || count <= 0) {
             throw new Error("count must be a positive integer")
         }
