@@ -430,11 +430,16 @@ class BlockchainConnector {
     // and the wallet then computes a fee that exceeds the default -maxtxfee
     // ceiling and rejects funding sends with RPC error -6 ("Fee exceeds
     // maximum configured by user"). That silently broke every funded-address
-    // test in the back half of a long e2e run. settxfee is an ancient RPC
-    // present on all supported daemons (BTC v28, LTC v0.21, DOGE v1.14), and a
-    // fixed low rate is correct on regtest where coins are valueless. Returns
-    // true on success; a daemon that rejects settxfee is tolerated (caller
-    // logs and proceeds on the estimate path).
+    // test in the back half of a long e2e run. A fixed low rate is correct on
+    // regtest where coins are valueless. Returns true on success.
+    //
+    // settxfee is a WALLET-WIDE pin and it is gone: Bitcoin Core 31 removed the
+    // RPC outright, so on BTC this now answers false forever and the caller
+    // would silently drop back to the estimate path, losing the ceiling that is
+    // the whole point of the pin. LTC v0.21 and DOGE v1.14 still honour it, so
+    // this path stays for them; BTC uses the per-call fee_rate argument instead
+    // (see setFundingFeeRate below). A daemon that rejects settxfee is tolerated
+    // so callers can fall back rather than fail wallet preparation.
     async setTxFee(feePerKb){
         try {
             const data = { jsonrpc: '2.0', method: 'settxfee', params: [feePerKb], id: 1 }
@@ -447,7 +452,19 @@ class BlockchainConnector {
         }
     }
 
-    async sendToAddress(address, amount){
+    /**
+     * @param {string} address destination
+     * @param {number} amount  in coins
+     * @param {number|null} [feeRateSatPerVb] per-call fee ceiling in sat/vB. This
+     *   is the replacement for the wallet-wide settxfee pin on daemons that
+     *   dropped that RPC (Bitcoin Core 31 deleted it). fee_rate was added to
+     *   sendtoaddress in Core 0.21, so every supported BTC daemon takes it, and
+     *   unlike settxfee it cannot be silently ignored: a daemon that does not
+     *   know the argument fails the send loudly rather than quietly reverting to
+     *   estimatesmartfee. Omit it (LTC/DOGE, which pin wallet-wide instead) for
+     *   the bare positional call legacy daemons require.
+     */
+    async sendToAddress(address, amount, feeRateSatPerVb = null){
         try {
             // Use POSITIONAL params for sendtoaddress, not named. Named-parameter
             // JSON-RPC is a Bitcoin Core 0.18+ feature. Dogecoin v1.14.x is
@@ -460,10 +477,24 @@ class BlockchainConnector {
             // the response shape from "<txid string>" to {"txid":"<...>","fee":...}.
             // Keeping the bare-string response form makes the code work on all
             // supported daemons.
+            //
+            // The fee_rate exception: when the caller passes a fee rate (BTC,
+            // where settxfee no longer exists) the call goes out with NAMED
+            // params instead. fee_rate is positional argument 10 of sendtoaddress,
+            // so reaching it positionally would mean padding seven arguments whose
+            // meaning differs between daemon versions; named params are safe here
+            // precisely because this path is only taken on a daemon modern enough
+            // to have fee_rate at all, which is far newer than the 0.18 named-param
+            // floor. Legacy daemons are never given a rate and keep the positional form.
+            const feeRate = (typeof feeRateSatPerVb === 'number' && isFinite(feeRateSatPerVb) && feeRateSatPerVb > 0)
+                ? feeRateSatPerVb
+                : null
             const data = {
                 jsonrpc: '2.0',
                 method: 'sendtoaddress',
-                params: [address, amount],
+                params: feeRate
+                    ? { address, amount, fee_rate: feeRate }
+                    : [address, amount],
                 id: 1,
             }
 

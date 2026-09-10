@@ -518,6 +518,46 @@ describe('BlockchainConnector', function () {
             assert.strictEqual(threw && threw.message, 'Error sending funds to address')
             assert.ok(!threw.message.includes('18332'), 'thrown message must not leak the RPC host:port')
         })
+
+        // The per-call fee ceiling. Bitcoin Core 31 deleted settxfee,
+        // so the ONLY way left to cap a funding send on BTC is fee_rate on the
+        // call itself. What matters is that the rate actually reaches the wire.
+        it('carries a supplied fee rate to the daemon as the fee_rate argument', async function () {
+            axiosPostStub.resolves(rpcSuccess('abc123'))
+            const result = await connector.sendToAddress('addr1', 1.5, 100)
+            assert.strictEqual(result, 'abc123')
+            const data = axiosPostStub.firstCall.args[1]
+            assert.deepStrictEqual(data.params, { address: 'addr1', amount: 1.5, fee_rate: 100 })
+        })
+
+        it('keeps the legacy positional form when no fee rate is supplied', async function () {
+            // DOGE v1.14 rejects named params outright, so a coin that pins
+            // wallet-wide must not be pushed onto the fee_rate call shape.
+            axiosPostStub.resolves(rpcSuccess('abc123'))
+            for (const rate of [null, undefined, 0, NaN, -5, 'fast']) {
+                axiosPostStub.resetHistory()
+                await connector.sendToAddress('addr1', 1.5, rate)
+                assert.deepStrictEqual(
+                    axiosPostStub.firstCall.args[1].params,
+                    ['addr1', 1.5],
+                    'fee rate ' + String(rate) + ' must not produce a named-param send'
+                )
+            }
+        })
+
+        it('still surfaces a lost wallet on the fee_rate path', async function () {
+            // The reload-and-retry recovery must not be lost to the new call shape.
+            axiosPostStub.resolves({
+                data: {
+                    result: null,
+                    error: { code: -18, message: 'Requested wallet does not exist or is not loaded' },
+                    id: 1,
+                }
+            })
+            let threw = null
+            try { await connector.sendToAddress('a', 1, 100) } catch (e) { threw = e }
+            assert.strictEqual(threw && threw.walletMissing, true)
+        })
     })
 
     // ─── setTxFee ───────────────────────────────────────────────────────

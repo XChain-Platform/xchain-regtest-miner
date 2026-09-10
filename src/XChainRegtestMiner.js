@@ -41,6 +41,19 @@ const MAX_FILL_MEMPOOL_QUANTITY = 50000 //max number of transactions to fill the
 const MAX_SEND_RETRIES = 50 //max retries for sending funds in fillMempool
 const MAX_GENERATE_BLOCKS = 10000 //max blocks a single generateBlocks call may mine (see cap note below)
 
+// The funding-send fee ceiling, expressed once per fee mechanism. The two
+// numbers are the SAME rate: 0.001 coins/kB is 100000 sat per 1000 vB, i.e.
+// 100 sat/vB. Well above every supported chain's relayfee floor (BTC/LTC
+// 0.00001/kB, DOGE 0.001/kB) so funding txs still relay, and valueless on
+// regtest. See _pinFundingFeeRate for why there are two mechanisms.
+const FUNDING_FEE_RATE_COINS_PER_KB = 0.001
+const FUNDING_FEE_RATE_SAT_PER_VB = 100
+
+// Coins whose daemons still implement the wallet-wide settxfee RPC. Bitcoin is
+// deliberately absent: Core 31 deleted settxfee, so BTC takes the per-call
+// fee_rate path instead.
+const SETTXFEE_COINS = ['litecoin', 'dogecoin']
+
 // Idle mine-empty heartbeat, OFF by default (0). The auto-mine loop only ever
 // mines when the mempool is non-empty, so a quiet chain never advances a block.
 // Anything gated on HEIGHT rather than on transactions therefore stalls forever
@@ -68,6 +81,10 @@ class XChainRegtestMiner {
       this.network = network
       this.connector = new BlockchainConnector(nodeUrl, nodePort, nodeUser, nodePassword)
       this.walletNameParam = "xchain_regtest_wallet"
+      // Per-call funding fee ceiling in sat/vB, chosen by _pinFundingFeeRate at
+      // wallet preparation. Null means the ceiling is wallet-wide (settxfee) or
+      // absent, and funding sends go out positionally as they always have.
+      this.fundingFeeRateSatPerVb = null
       this.keepMining = false
       // Separates "never started" from "operator-paused". keepMining is false in both
       // states, so mining_paused alone cannot tell a wedged prepareWallet apart from a
@@ -726,7 +743,7 @@ class XChainRegtestMiner {
             throw new Error('Invalid amount: must be a positive finite number')
         }
         try {
-            return await this.connector.sendToAddress(address, amount)
+            return await this.connector.sendToAddress(address, amount, this.fundingFeeRateSatPerVb)
         } catch (err) {
             // A node RESTARTED under a long-running miner comes back with no
             // wallet loaded, and the wallet is bootstrapped exactly once, at
@@ -739,7 +756,7 @@ class XChainRegtestMiner {
             if (!err || !err.walletMissing) throw err
             console.log('Wallet is no longer loaded on the node (restarted?); reloading and retrying once')
             await this.ensureWalletLoaded()
-            return await this.connector.sendToAddress(address, amount)
+            return await this.connector.sendToAddress(address, amount, this.fundingFeeRateSatPerVb)
         }
     }
 
@@ -753,6 +770,67 @@ class XChainRegtestMiner {
         }
     }
     
+    /**
+     * Give funding sends (sendtoaddress) a fixed fee ceiling, by whichever
+     * mechanism this coin's daemon actually implements.
+     *
+     * Why a ceiling at all: on a matured regtest chain estimatesmartfee inflates
+     * to absurd values (observed 0.49 LTC/kB after ~1200 blocks of fee history).
+     * The wallet then computes a fee above the daemon's -maxtxfee ceiling and
+     * rejects the send with RPC error -6, which reads from the outside as
+     * funded-address tests failing for no reason late in a long run.
+     *
+     * Why two mechanisms: settxfee (wallet-wide, set once) was the ceiling, and
+     * Bitcoin Core 31 DELETED the RPC. On BTC that call now just answers false,
+     * and "best effort, fall back to the estimate" silently gives the ceiling up
+     * on exactly the chain that needs it. Core 0.21 added a per-call fee_rate
+     * argument to sendtoaddress as the replacement, so BTC pins per call instead.
+     * LTC v0.21 and DOGE v1.14 have no fee_rate and keep settxfee.
+     *
+     * The unknown-coin case is neither: NETWORK may be a bare 'regtest' with no
+     * coin half. Those try settxfee first (harmless and correct on the legacy
+     * daemons that cannot take fee_rate) and fall back to the per-call rate when
+     * the daemon answers no, so a Core 31 node reached through a bare NETWORK
+     * keeps a ceiling rather than reverting to the estimate.
+     *
+     * @returns {Promise<'fee_rate'|'settxfee'|'none'>} the mechanism in force
+     */
+    async _pinFundingFeeRate(){
+        const coin = String(this.network || '').split('-')[0].toLowerCase()
+
+        const useFeeRate = () => {
+            this.fundingFeeRateSatPerVb = FUNDING_FEE_RATE_SAT_PER_VB
+            console.log('Funding sends pinned to ' + FUNDING_FEE_RATE_SAT_PER_VB +
+                ' sat/vB via the per-call fee_rate argument (settxfee is gone as of Bitcoin Core 31)')
+            return 'fee_rate'
+        }
+
+        if (coin === 'bitcoin') {
+            return useFeeRate()
+        }
+
+        const pinned = await this.connector.setTxFee(FUNDING_FEE_RATE_COINS_PER_KB)
+        if (pinned) {
+            // Leave the per-call rate null: these daemons have no fee_rate
+            // argument and a named-param send would fail outright.
+            this.fundingFeeRateSatPerVb = null
+            console.log('Pinned wallet fee rate to ' + FUNDING_FEE_RATE_COINS_PER_KB +
+                '/kB via settxfee (regtest estimatesmartfee bypass)')
+            return 'settxfee'
+        }
+
+        if (SETTXFEE_COINS.includes(coin)) {
+            // A coin known NOT to have fee_rate: there is no second mechanism to
+            // try, so say so instead of claiming a ceiling that is not there.
+            this.fundingFeeRateSatPerVb = null
+            console.log('settxfee not honored by this daemon and ' + coin +
+                ' has no fee_rate argument; funding sends use the fee estimate')
+            return 'none'
+        }
+
+        return useFeeRate()
+    }
+
     async prepareWallet(){
         console.log("Checking wallet availability")
 
@@ -834,17 +912,7 @@ class XChainRegtestMiner {
         // whose connector answers that call less reliably than this one just did.
         this._balanceReadAt = Date.now()
 
-        // Pin a fixed, low wallet fee rate so funding sends (sendtoaddress) never
-        // consult estimatesmartfee, which inflates on a matured regtest chain and
-        // trips the daemon's -maxtxfee ceiling (RPC error -6), silently breaking
-        // funded-address tests late in a long e2e run. 0.001 coins/kB is well above
-        // every supported chain's relayfee floor (BTC/LTC 0.00001, DOGE 0.001) so
-        // txs still relay, and valueless on regtest. Best-effort: a daemon that
-        // rejects settxfee just falls back to the estimate path.
-        const feePinned = await this.connector.setTxFee(0.001)
-        console.log(feePinned
-            ? 'Pinned wallet fee rate to 0.001/kB (regtest estimatesmartfee bypass)'
-            : 'settxfee not honored by this daemon; funding sends use the fee estimate')
+        await this._pinFundingFeeRate()
 
         // Wallet is fully prepared (address assigned, coinbase matured): wallet-dependent
         // RPCs (generateToAddress) are now safe. Callers gate on this via ping/status,

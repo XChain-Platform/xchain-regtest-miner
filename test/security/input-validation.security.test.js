@@ -160,7 +160,7 @@ describe('Security: Input Validation', function () {
         it('accepts valid string address and positive number amount', async function () {
             await miner.sendFundsToAddress('bcrt1qtest', 1.0)
             assert.strictEqual(connectorStub.sendToAddress.callCount, 1)
-            assert.deepStrictEqual(connectorStub.sendToAddress.firstCall.args, ['bcrt1qtest', 1.0])
+            assert.deepStrictEqual(connectorStub.sendToAddress.firstCall.args, ['bcrt1qtest', 1.0, null])
         })
 
         it('accepts very small positive amount', async function () {
