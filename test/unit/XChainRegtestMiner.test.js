@@ -190,6 +190,88 @@ describe('XChainRegtestMiner', function () {
         })
     })
 
+    // ─── funding fee ceiling ──────────────────────────────────
+
+    // Bitcoin Core 31 deleted settxfee. The wallet-wide pin therefore answers
+    // "no" forever on BTC, and the old code read that as "fall back to the fee
+    // estimate" - which is precisely the state the pin exists to prevent:
+    // estimatesmartfee inflates on a matured regtest chain, the wallet exceeds
+    // -maxtxfee, and every funding send dies with RPC -6 late in a long run.
+    // These assert the CEILING reaches the send, whichever mechanism carries it.
+    describe('funding fee ceiling', function () {
+        function minerFor(network) {
+            const m = new XChainRegtestMiner(network, 'localhost', '18332', 'user', 'pass')
+            m.connector = connectorStub
+            return m
+        }
+
+        it('pins BTC per call, because settxfee no longer exists there', async function () {
+            const m = minerFor('bitcoin-regtest')
+            const mode = await m._pinFundingFeeRate()
+
+            assert.strictEqual(mode, 'fee_rate')
+            assert.ok(connectorStub.setTxFee.notCalled, 'BTC must not call a deleted RPC')
+
+            await m.sendFundsToAddress('addr', 1.0)
+            const rate = connectorStub.sendToAddress.firstCall.args[2]
+            assert.ok(rate > 0, 'the funding send must carry a fee ceiling, got ' + rate)
+        })
+
+        it('keeps the wallet-wide settxfee pin for LTC and DOGE', async function () {
+            for (const coin of ['litecoin', 'dogecoin']) {
+                connectorStub.setTxFee.resetHistory()
+                connectorStub.sendToAddress.resetHistory()
+
+                const m = minerFor(coin + '-regtest')
+                const mode = await m._pinFundingFeeRate()
+
+                assert.strictEqual(mode, 'settxfee', coin + ' must pin wallet-wide')
+                assert.ok(connectorStub.setTxFee.calledOnce, coin + ' must call settxfee')
+                assert.ok(connectorStub.setTxFee.firstCall.args[0] > 0)
+
+                await m.sendFundsToAddress('addr', 1.0)
+                // These daemons have no fee_rate argument; a named-param send
+                // would be rejected outright (DOGE v1.14 predates named params).
+                assert.ok(
+                    !connectorStub.sendToAddress.firstCall.args[2],
+                    coin + ' sends must stay on the positional form'
+                )
+            }
+        })
+
+        it('does not invent a fee_rate for a coin that has no such argument', async function () {
+            connectorStub.setTxFee.resolves(false)
+            const m = minerFor('dogecoin-regtest')
+
+            assert.strictEqual(await m._pinFundingFeeRate(), 'none')
+
+            await m.sendFundsToAddress('addr', 1.0)
+            assert.ok(!connectorStub.sendToAddress.firstCall.args[2])
+        })
+
+        // The regression itself: a Core 31 node reached through a bare NETWORK
+        // (no coin half) answers settxfee with "no". Falling back to the
+        // estimate there is the silent ceiling loss; fall back to fee_rate.
+        it('falls back to the per-call rate when a daemon has dropped settxfee', async function () {
+            connectorStub.setTxFee.resolves(false)
+            const m = minerFor('regtest')
+
+            assert.strictEqual(await m._pinFundingFeeRate(), 'fee_rate')
+
+            await m.sendFundsToAddress('addr', 1.0)
+            const rate = connectorStub.sendToAddress.firstCall.args[2]
+            assert.ok(rate > 0, 'a dropped settxfee must not leave the send uncapped, got ' + rate)
+        })
+
+        it('leaves a working settxfee daemon on the wallet-wide pin', async function () {
+            const m = minerFor('regtest')
+            assert.strictEqual(await m._pinFundingFeeRate(), 'settxfee')
+
+            await m.sendFundsToAddress('addr', 1.0)
+            assert.ok(!connectorStub.sendToAddress.firstCall.args[2])
+        })
+    })
+
     // ─── createWallet ───────────────────────────────────────────────────
 
     describe('createWallet', function () {
