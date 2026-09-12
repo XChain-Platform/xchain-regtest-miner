@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-09-11
+
+### Changed
+- The vendored BTC registry and the consensus pin comments are refreshed from canonical; comment text only, no behavioural change.
+
 ## [0.17.0] - 2026-09-10
 
 ### Fixed
