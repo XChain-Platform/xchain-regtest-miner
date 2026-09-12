@@ -1,7 +1,7 @@
 {
   "name": "xchain-regtest-miner",
   "description": "xchain-regtest-miner handles processing transactions and mining blocks on regtest networks.",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
