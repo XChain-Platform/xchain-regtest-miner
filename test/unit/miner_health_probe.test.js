@@ -20,9 +20,6 @@ const path   = require('path');
 const { evaluateMinerHealth, UNAUTHENTICATED_METHODS,
         STALL_ERROR_THRESHOLD, WALLET_GRACE_MS } = require('../../src/api');
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
-const express = require('express');
-const bodyParser = require('body-parser');
-const jsonRouter = require('express-json-rpc-router');
 
 // Every field the real getStatus() emits for a running, healthy miner. mining_started
 // belongs here: a payload that omits it is one the real miner cannot produce, and
@@ -270,6 +267,9 @@ describe('miner health probe verdict', function () {
     // result in a JSON-RPC envelope. Asserted over a real socket rather than trusted:
     // a router that always answered 200 would make the verdict decorative.
     it('lets a handler 503 reach the wire through express-json-rpc-router', async function () {
+        const express    = require('express');
+        const bodyParser = require('body-parser');
+        const jsonRouter = require('express-json-rpc-router');
 
         const app = express();
         app.use(bodyParser.json());

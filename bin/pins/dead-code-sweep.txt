@@ -45,3 +45,6 @@ confirming neither is dead before its rename:
   repo's src/networks/crypto_networks.js by a COMPUTED path -- the move map
   for that rename must carry this referrer; plus 3 platform-docs hits (a bare
   count, archived reports mentioning the old path in prose)
+
+Conclusion: no deletion here. The sweep is committed to make the empty
+result auditable rather than assumed.

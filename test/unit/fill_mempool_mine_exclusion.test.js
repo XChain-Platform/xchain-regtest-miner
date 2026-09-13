@@ -20,7 +20,6 @@
 
 const assert = require('assert')
 const sinon = require('sinon')
-const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
 
 const tick = () => new Promise((resolve) => setImmediate(resolve))
 
@@ -79,6 +78,7 @@ describe('fill_mempool vs a concurrent generate_blocks', function () {
     let miner
 
     beforeEach(function () {
+        const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
         miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
         sinon.stub(console, 'log')
     })

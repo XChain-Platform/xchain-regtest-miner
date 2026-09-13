@@ -13,7 +13,6 @@
 const assert = require('assert');
 const fs     = require('fs');
 const path   = require('path');
-const axios = require('axios');
 
 // Guards remediated dependency advisories so a lockfile refresh cannot
 // silently resolve back into a known-vulnerable range. npm only re-resolves
@@ -195,6 +194,7 @@ describe('Security: remediated dependency advisories @regression @tier4', functi
     // the module actually on disk what it is as well: a node_modules left stale
     // by a partial install satisfies every lockfile assertion above.
     it('ADV-5: the installed axios reports a patched runtime version', function () {
+        const axios = require('axios');
         if (!lockEntries('axios').length) return this.skip();
 
         assert.ok(axios.VERSION, 'axios did not expose a VERSION');
