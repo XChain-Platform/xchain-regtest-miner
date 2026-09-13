@@ -189,7 +189,7 @@ async function startApi(){
     // status, health) are exempt; bodyParser.json() (above) has already populated
     // req.body, so the method is readable here. Read the exempt set at its
     // definition rather than trusting this list, which drifted once already.
-    // Keyless operation is the regtest
+    // Platform-wide no-API-key posture: keyless operation is the regtest
     // default, but the open state is announced loudly at boot rather than implied.
     if (!MINER_API_KEY) {
         console.warn('WARNING: MINER_API_KEY is not set. Miner API authentication is DISABLED (open access). This is expected for local regtest stacks; set MINER_API_KEY on any shared deployment.')

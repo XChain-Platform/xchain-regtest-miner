@@ -10,6 +10,12 @@
  * license (without AGPL source-disclosure terms) is available -
  * contact legal@dankest.llc.
  *
+ **********************************************************************
+ *
+ * XChain Regtest Miner - Blockchain Connector Class
+ *
+ * This file handles pulling blockchain data from a coin daemon.
+ *
  ********************************************************************/
 
 const axios = require('axios');
@@ -173,6 +179,7 @@ class BlockchainConnector {
                 }
             })
 
+            // Verify the result is an array (empty mempool returns [])
             if (Array.isArray(response.data.result)) {
                 return response.data.result;
             } else {
@@ -507,7 +514,9 @@ class BlockchainConnector {
             })
 
             const result = response.data && response.data.result
-            // Tolerate the verbose-object form {txid:...} in case a future daemon returns it.
+            // sendtoaddress returns a bare txid string under positional params.
+            // Still tolerate the verbose-object form {txid:...} in case a future
+            // daemon returns it (e.g. if Bitcoin Core ever flips its default).
             if (typeof result === 'string' && result.length > 0) {
                 return result
             }
