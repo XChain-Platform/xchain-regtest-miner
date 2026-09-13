@@ -113,7 +113,7 @@ npm run api
 
 | Type | Tests | Description |
 |---|---|---|
-| Unit | 216 | `XChainRegtestMiner.test.js`, `BlockchainConnector.test.js`, `api.test.js`, and 7 more: constructor, timers, wallet prep, mining loop, fillMempool chunking, RPC formatting, API dispatch |
+| Unit | 216 | `xchain_regtest_miner.test.js`, `blockchain_connector.test.js`, `api.test.js`, and 7 more: constructor, timers, wallet prep, mining loop, fillMempool chunking, RPC formatting, API dispatch |
 | Integration | 80 | 4 seam files: HTTP/JSON-RPC, Miner/Connector sequences, fillMempool/bitcoinjs-lib crypto, Connector/MockRpcServer |
 | E2E | 26 | StatefulMockNode: startup lifecycle, mempool detection, block generation, fill-mempool, API, chain state, resilience |
 | Smoke | 12 | Instantiation, wallet prep paths, mempool detection, timer expiry, pause/resume, API health |

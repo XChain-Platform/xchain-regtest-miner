@@ -1,5 +1,5 @@
 /*********************************************************************
- * test/unit/api-key-exemption.test.js
+ * test/unit/api_key_exemption.test.js
  *
  * When MINER_API_KEY is set, the read-only health/observability
  * methods (ping, status, health) must bypass the key gate. The bundled Docker

@@ -1,5 +1,5 @@
 /*********************************************************************
- * test/unit/miner-health-probe.test.js
+ * test/unit/miner_health_probe.test.js
  *
  * The Docker HEALTHCHECK POSTs `ping`, whose handler always
  * returns status:"success" and reports wallet readiness in the body only.

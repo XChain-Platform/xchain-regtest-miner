@@ -22,6 +22,8 @@ const axios = require('axios');
 const http = require('http');
 const https = require('https');
 const config = require('../config');
+const { getLogger } = require('../observability/logger');
+const logger = getLogger();
 axios.defaults.timeout = config.NODE_RPC_TIMEOUT_MS
 // axios has no top-level `keepAlive` config key; connection reuse must be
 // configured on the underlying http(s) Agent. The miner's auto-mine loop polls
@@ -399,7 +401,7 @@ class BlockchainConnector {
             const nodeErr = response.data && response.data.error
                 ? (response.data.error.message || JSON.stringify(response.data.error))
                 : 'no result, no error'
-            console.error('generatetoaddress returned no result: ' + nodeErr)
+            logger.error('generatetoaddress returned no result: ' + nodeErr)
             throw new Error('Error generating to address')
         } catch (error) {
             throw new Error('Error generating to address')
@@ -529,7 +531,7 @@ class BlockchainConnector {
             // Log the node's own (safe) RPC error for diagnosis, but throw a static
             // message: a transport axios error.message leaks the RPC host:port, and the
             // sanitization security suite requires a clean static thrown message.
-            console.error('sendtoaddress returned no txid: ' + nodeErr)
+            logger.error('sendtoaddress returned no txid: ' + nodeErr)
             throw this.sendError(nodeErr)
         } catch (error) {
             if (error && error.walletMissing) throw error
@@ -578,7 +580,7 @@ class BlockchainConnector {
             })
 
             if (response.data && response.data.error) {
-                console.error('invalidateblock RPC error: ' + response.data.error.message)
+                logger.error('invalidateblock RPC error: ' + response.data.error.message)
                 throw new Error('Error invalidating block')
             }
             // Require the explicit JSON-RPC success result, not merely the absence of
@@ -616,7 +618,7 @@ class BlockchainConnector {
             })
 
             if (response.data && response.data.error) {
-                console.error('reconsiderblock RPC error: ' + response.data.error.message)
+                logger.error('reconsiderblock RPC error: ' + response.data.error.message)
                 throw new Error('Error reconsidering block')
             }
             // Require the explicit JSON-RPC success result, not merely the absence of
@@ -659,7 +661,7 @@ class BlockchainConnector {
             })
 
             if (response.data && response.data.error) {
-                console.error('setmocktime RPC error: ' + response.data.error.message)
+                logger.error('setmocktime RPC error: ' + response.data.error.message)
                 throw new Error('Error setting mock time')
             }
             // Require the explicit JSON-RPC success result, not merely the absence of

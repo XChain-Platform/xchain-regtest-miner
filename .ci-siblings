@@ -1,7 +1,7 @@
 # Repos the regtest-miner suite needs checked out BESIDE it on the CI venue.
 #
 # Declaring a sibling here is what makes its cross-repo guards actually run. An
-# UNdeclared sibling is not a neutral omission: test/unit/coins-conformance.test.js
+# UNdeclared sibling is not a neutral omission: test/unit/coins_conformance.test.js
 # skips its byte-identity half via existsSync when ../xchain-hub is absent
 # rather than failing, so a gate that let this sibling go missing would still
 # print PASS having exercised none of that guard. The GitHub drift-guards job

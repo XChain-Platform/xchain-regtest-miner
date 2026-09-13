@@ -13,7 +13,7 @@
  *********************************************************************/
 
 /*********************************************************************
- * test/unit/no-key-boot-warning.test.js
+ * test/unit/no_key_boot_warning.test.js
  *
  * Platform-wide no-API-key posture. Keyless is the regtest
  * default (fail-open), but the open state must be announced loudly at

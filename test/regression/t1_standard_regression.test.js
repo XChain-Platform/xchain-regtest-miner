@@ -523,7 +523,7 @@ describe('T1 Regression: Miner↔Connector Integration Seams', function () {
         // previous "give it one more cycle" 20ms could resolve mid-cycle,
         // letting the assertions read a still-moving callCount and leaking a
         // live loop into the next test. (Same helper, same fix, as
-        // test/integration/miner-connector.integration.test.js.)
+        // test/integration/miner_connector.test.js.)
         function runLoopWithTimeout(timeoutMs) {
             return new Promise(async (resolve) => {
                 const timer = setTimeout(() => {

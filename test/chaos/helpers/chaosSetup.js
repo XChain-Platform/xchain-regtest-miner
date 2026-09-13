@@ -14,7 +14,7 @@
  * Shared utilities for chaos engineering tests.
  *
  * Provides factory functions and helpers that mirror the patterns
- * established in test/e2e/mining-loop.test.js.
+ * established in test/e2e/mining_loop.test.js.
  */
 
 const XChainRegtestMiner = require('../../../src/XChainRegtestMiner')

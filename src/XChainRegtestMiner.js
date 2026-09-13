@@ -74,6 +74,8 @@ const bip32 = BIP32Factory(ecc)
 const bip39 = require('bip39')
 const bitcoin = require('bitcoinjs-lib');
 const {ECPairFactory} = require('ecpair')
+const { getLogger } = require('./observability/logger');
+const logger = getLogger();
 const ECPair = ECPairFactory(ecc)
 
 class XChainRegtestMiner {
@@ -172,20 +174,20 @@ class XChainRegtestMiner {
     // input (uuid:24c35056).
     async setMiningTime(maxTime, txAddedTime){
         if (!Number.isInteger(maxTime) || !Number.isInteger(txAddedTime) || maxTime <= 0 || txAddedTime <= 0){
-            try { console.log("INVALID mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms") } catch(e) { console.log("INVALID mining times (non-printable values)") }
+            try { logger.info("INVALID mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms") } catch(e) { logger.info("INVALID mining times (non-printable values)") }
             throw new Error("Invalid mining times. Both values must be positive integers.")
         }
         if (maxTime < MIN_MINING_TIME || txAddedTime < MIN_MINING_TIME){
-            console.log("Mining times too small: minimum is "+MIN_MINING_TIME+"ms")
+            logger.info("Mining times too small: minimum is "+MIN_MINING_TIME+"ms")
             throw new Error("Mining times too small. Minimum is "+MIN_MINING_TIME+"ms.")
         }
         if (maxTime > MAX_MINING_TIME || txAddedTime > MAX_MINING_TIME){
-            console.log("Mining times too large: maximum is "+MAX_MINING_TIME+"ms")
+            logger.info("Mining times too large: maximum is "+MAX_MINING_TIME+"ms")
             throw new Error("Mining times too large. Maximum is "+MAX_MINING_TIME+"ms.")
         }
         this.maxTimeToMineTxs = maxTime
         this.addedTimeToMineTxs = txAddedTime
-        console.log("New mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
+        logger.info("New mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
     }
 
     // Turn the mine-empty heartbeat on (ms) or off (0). Throws on invalid input,
@@ -198,7 +200,7 @@ class XChainRegtestMiner {
     // venue start producing empty blocks.
     async setIdleMineInterval(intervalMs){
         if (!Number.isInteger(intervalMs) || intervalMs < 0){
-            try { console.log("INVALID idle mine interval: "+intervalMs) } catch(e) { console.log("INVALID idle mine interval (non-printable value)") }
+            try { logger.info("INVALID idle mine interval: "+intervalMs) } catch(e) { logger.info("INVALID idle mine interval (non-printable value)") }
             throw new Error("Invalid idle mine interval. Must be a non-negative integer (0 disables).")
         }
         if (intervalMs !== 0 && intervalMs < MIN_MINING_TIME){
@@ -208,7 +210,7 @@ class XChainRegtestMiner {
             throw new Error("Idle mine interval too large. Maximum is "+MAX_MINING_TIME+"ms.")
         }
         this.idleMineIntervalMs = intervalMs
-        console.log(intervalMs === 0
+        logger.info(intervalMs === 0
             ? "Idle mine-empty disabled; the loop mines only when the mempool is non-empty"
             : "Idle mine-empty every "+intervalMs+"ms while the mempool stays empty")
     }
@@ -229,22 +231,22 @@ class XChainRegtestMiner {
     async setDefaultMiningTime(){
         this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
         this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
-        console.log("The mining times were set to the default: (Max Time)=>"+this.maxTimeToMineTxs+"ms (Tx Added Time)=>"+this.addedTimeToMineTxs+"ms")
+        logger.info("The mining times were set to the default: (Max Time)=>"+this.maxTimeToMineTxs+"ms (Tx Added Time)=>"+this.addedTimeToMineTxs+"ms")
     }
     
     async fillMempool(txQuantity){
             if (this.fillMempoolRunning) {
-                console.log("fillMempool is already running, rejecting concurrent call")
+                logger.info("fillMempool is already running, rejecting concurrent call")
                 throw new Error("fillMempool is already running")
             }
 
             if (!Number.isInteger(txQuantity) || txQuantity < 1) {
-                try { console.log("INVALID txQuantity: "+txQuantity+". Must be a positive integer.") } catch(e) { console.log("INVALID txQuantity (non-printable value). Must be a positive integer.") }
+                try { logger.info("INVALID txQuantity: "+txQuantity+". Must be a positive integer.") } catch(e) { logger.info("INVALID txQuantity (non-printable value). Must be a positive integer.") }
                 throw new Error("txQuantity must be a positive integer")
             }
 
             if (txQuantity > MAX_FILL_MEMPOOL_QUANTITY) {
-                console.log("txQuantity "+txQuantity+" exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY)
+                logger.info("txQuantity "+txQuantity+" exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY)
                 throw new Error("txQuantity exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY)
             }
 
@@ -262,7 +264,7 @@ class XChainRegtestMiner {
             // to settle before proceeding, so a mine that started just before the
             // flag flip can't land a new block while fillMempool is running.
             await this._generateQueue
-            console.log("Filling mempool with "+txQuantity+" transactions")
+            logger.info("Filling mempool with "+txQuantity+" transactions")
             //let AMOUNT_FOR_EACH_ADDRESS = 0.000001
             //let FEE = 0.00001
             
@@ -275,7 +277,7 @@ class XChainRegtestMiner {
             // regtest when only a bare network ("regtest") was supplied.
             var network = CryptoNetworks.getBitcoinJsNetwork(this.network) || bitcoin.networks.regtest
             if (!CryptoNetworks.getBitcoinJsNetwork(this.network)) {
-                console.log("WARNING: NETWORK='"+this.network+"' did not resolve to a coin-specific network; falling back to bitcoin.networks.regtest for fillMempool. Set NETWORK to a coin-network form (e.g. dogecoin-regtest) for correct coin params.")
+                logger.info("WARNING: NETWORK='"+this.network+"' did not resolve to a coin-specific network; falling back to bitcoin.networks.regtest for fillMempool. Set NETWORK to a coin-network form (e.g. dogecoin-regtest) for correct coin params.")
             }
 
             // Scale amounts to the coin's dust threshold so DOGE/LTC regtest
@@ -305,10 +307,10 @@ class XChainRegtestMiner {
             var account = root.derivePath("m/44'/0'/0'/0")
             var address = account.derive(0).derive(0)
             var mainAddress = bitcoin.payments.p2pkh({ pubkey: address.publicKey, network }).address
-            console.log("Main address to fill the mempool: "+mainAddress)
+            logger.info("Main address to fill the mempool: "+mainAddress)
 
             
-            console.log("Creating "+txQuantity+" addresses")
+            logger.info("Creating "+txQuantity+" addresses")
             //Create txQuantity different addresses
             let addresses = []
             for (let i=0;i<txQuantity;i++){
@@ -316,7 +318,7 @@ class XChainRegtestMiner {
                 addresses.push(nextAddress)
             }
 
-            console.log("Sending funds to the main address")
+            logger.info("Sending funds to the main address")
             //Ask for bitcoins
             let txsChunksCount = Math.ceil((txQuantity / OUTPUTS_QUANTITY_PER_TX))
             let chunksTxids = []
@@ -335,7 +337,7 @@ class XChainRegtestMiner {
                     FEE*txRemainder + //Fee that every address must pay to send the amount
                     SPLIT_TX_FEE_PER_OUTPUT*txRemainder //Miner fee left on the split tx (coin-scaled)
                 
-                console.log("Sending "+totalAmount/SATOSHI_UNIT+" ("+i+") to "+mainAddress)
+                logger.info("Sending "+totalAmount/SATOSHI_UNIT+" ("+i+") to "+mainAddress)
                 
                 let sent = false
                 let txid = null
@@ -350,7 +352,7 @@ class XChainRegtestMiner {
                         if (sendRetries >= MAX_SEND_RETRIES) {
                             throw new Error('Failed to send funds after ' + MAX_SEND_RETRIES + ' retries: ' + detail)
                         }
-                        console.log("Error sending funds: "+detail+"; retrying (attempt "+sendRetries+"/"+MAX_SEND_RETRIES+")")
+                        logger.info("Error sending funds: "+detail+"; retrying (attempt "+sendRetries+"/"+MAX_SEND_RETRIES+")")
                         await this.sleep(1000)
                     }
                 }
@@ -401,7 +403,7 @@ class XChainRegtestMiner {
                 
             }
             
-            console.log("Creating the transactions to send funds to those addresses")
+            logger.info("Creating the transactions to send funds to those addresses")
             
             for (let nextUtxoIndex in utxos){
                 let nextUtxo = utxos[nextUtxoIndex]
@@ -487,7 +489,7 @@ class XChainRegtestMiner {
                     value: paymentAmount
                 })
                 
-                console.log("Stressing the mempool with the transaction number "+nextAddressIndex)
+                logger.info("Stressing the mempool with the transaction number "+nextAddressIndex)
                 
                 let keyToSign = ECPair.fromPrivateKey(nextAddress.privateKey, { network })
                 psbt.signInput(0, keyToSign)
@@ -522,7 +524,7 @@ class XChainRegtestMiner {
             const observed = await this.connector.getBalance()
             this.balance = typeof observed === 'number' ? observed : null
         } catch (err) {
-            console.log("Could not re-read the wallet balance: "+(err && err.message ? err.message : err))
+            logger.info("Could not re-read the wallet balance: "+(err && err.message ? err.message : err))
             this.balance = null
         }
         this._balanceReadAt = Date.now()
@@ -740,7 +742,7 @@ class XChainRegtestMiner {
         }
 
         if (!walletLoaded){
-            console.log("Wallet not found. Creating a new wallet")
+            logger.info("Wallet not found. Creating a new wallet")
             try{
                 await this.createWallet(this.walletNameParam)
             } catch(err){
@@ -769,7 +771,7 @@ class XChainRegtestMiner {
             // 30 hours and read, from the outside, as an unexplained
             // "Error sending funds to address".
             if (!err || !err.walletMissing) throw err
-            console.log('Wallet is no longer loaded on the node (restarted?); reloading and retrying once')
+            logger.info('Wallet is no longer loaded on the node (restarted?); reloading and retrying once')
             await this.ensureWalletLoaded()
             return await this.connector.sendToAddress(address, amount, this.fundingFeeRateSatPerVb)
         }
@@ -815,7 +817,7 @@ class XChainRegtestMiner {
 
         const useFeeRate = () => {
             this.fundingFeeRateSatPerVb = FUNDING_FEE_RATE_SAT_PER_VB
-            console.log('Funding sends pinned to ' + FUNDING_FEE_RATE_SAT_PER_VB +
+            logger.info('Funding sends pinned to ' + FUNDING_FEE_RATE_SAT_PER_VB +
                 ' sat/vB via the per-call fee_rate argument (settxfee is gone as of Bitcoin Core 31)')
             return 'fee_rate'
         }
@@ -829,7 +831,7 @@ class XChainRegtestMiner {
             // Leave the per-call rate null: these daemons have no fee_rate
             // argument and a named-param send would fail outright.
             this.fundingFeeRateSatPerVb = null
-            console.log('Pinned wallet fee rate to ' + FUNDING_FEE_RATE_COINS_PER_KB +
+            logger.info('Pinned wallet fee rate to ' + FUNDING_FEE_RATE_COINS_PER_KB +
                 '/kB via settxfee (regtest estimatesmartfee bypass)')
             return 'settxfee'
         }
@@ -838,7 +840,7 @@ class XChainRegtestMiner {
             // A coin known NOT to have fee_rate: there is no second mechanism to
             // try, so say so instead of claiming a ceiling that is not there.
             this.fundingFeeRateSatPerVb = null
-            console.log('settxfee not honored by this daemon and ' + coin +
+            logger.info('settxfee not honored by this daemon and ' + coin +
                 ' has no fee_rate argument; funding sends use the fee estimate')
             return 'none'
         }
@@ -847,7 +849,7 @@ class XChainRegtestMiner {
     }
 
     async prepareWallet(){
-        console.log("Checking wallet availability")
+        logger.info("Checking wallet availability")
 
         // Probe with getNewAddress: succeeds whenever ANY wallet is usable,
         // including modern Bitcoin Core 0.17+ with an already-loaded named
@@ -878,18 +880,18 @@ class XChainRegtestMiner {
 
         if (probeAddress == null){
             await this.ensureWalletLoaded()
-            console.log("Getting a new address to receive blocks reward")
+            logger.info("Getting a new address to receive blocks reward")
             this.walletAddress = await this.connector.getNewAddress()
         } else {
             // Probe succeeded; wallet is already usable, use that address
             this.walletAddress = probeAddress
         }
         
-        console.log("Checking wallet balance")
+        logger.info("Checking wallet balance")
         this.balance = await this.connector.getBalance()
         
         if (this.balance <= 0){
-            console.log("Mining blocks to get balance in the wallet")
+            logger.info("Mining blocks to get balance in the wallet")
             // Always mine to coinbase-maturity depth regardless of current chain
             // height: fewer blocks (e.g. a single one on an aged chain) would only
             // add an immature coinbase (spendable after 100 confirmations), leaving
@@ -1017,9 +1019,9 @@ class XChainRegtestMiner {
         this._lastMineAt = Date.now()
 
         if (numberOfBlocks > 1){
-            console.log(numberOfBlocks+" new blocks have been generated")
+            logger.info(numberOfBlocks+" new blocks have been generated")
         } else if (numberOfBlocks > 0){
-            console.log("A new block has been generated")
+            logger.info("A new block has been generated")
         }
         return hashes
     }
@@ -1031,7 +1033,7 @@ class XChainRegtestMiner {
         //Loop to check if there are transactions in the mempool, if there are, then
         //Wait some time for new txs, if there is a new tx in that time, then extended the waiting time again
         //If there are no new tx in that time, then mine a block
-        console.log("Ready. Checking for new txs")
+        logger.info("Ready. Checking for new txs")
 
         // Graceful shutdown on SIGTERM/SIGINT: stop the mining loop, close the API
         // server, then exit. Merely flipping this._shutdown is not enough: registering
@@ -1039,7 +1041,7 @@ class XChainRegtestMiner {
         // Express server keeps the event loop alive, so the process would hang until
         // docker's stop-grace SIGKILL. Close the server (thread in via api.js) and exit.
         this._sigTermHandler = (signal) => {
-            console.log("Received " + (signal || "SIGTERM") + ", shutting down gracefully...")
+            logger.info("Received " + (signal || "SIGTERM") + ", shutting down gracefully...")
             this._shutdown = true
             const done = () => process.exit(0)
             if (this.apiServer && typeof this.apiServer.close === "function") {
@@ -1110,7 +1112,7 @@ class XChainRegtestMiner {
                             this._consecutiveErrors = consecutiveErrors
                             this._mineFailures++
                             let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
-                            console.log("There were problems generating a new block: "+(err && err.message ? err.message : err)+"; retrying in "+backoff+"ms.")
+                            logger.info("There were problems generating a new block: "+(err && err.message ? err.message : err)+"; retrying in "+backoff+"ms.")
                             await this.sleep(backoff)
                             continue
                         }
@@ -1130,7 +1132,7 @@ class XChainRegtestMiner {
                     consecutiveErrors++
                     this._consecutiveErrors = consecutiveErrors
                     let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
-                    console.log("There were problems getting the mempool: "+(error && error.message ? error.message : error)+"; retrying in "+backoff+"ms.")
+                    logger.info("There were problems getting the mempool: "+(error && error.message ? error.message : error)+"; retrying in "+backoff+"ms.")
                     await this.sleep(backoff)
                     continue
                 }
@@ -1177,7 +1179,7 @@ class XChainRegtestMiner {
                             this._consecutiveErrors = consecutiveErrors
                             this._mineFailures++
                             let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
-                            console.log("There were problems mining an idle block: "+(err && err.message ? err.message : err)+"; retrying in "+backoff+"ms.")
+                            logger.info("There were problems mining an idle block: "+(err && err.message ? err.message : err)+"; retrying in "+backoff+"ms.")
                             await this.sleep(backoff)
                             continue
                         }

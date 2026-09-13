@@ -28,7 +28,7 @@
 # sibling a GitHub job checks out is REQUIRED here: missing means fail loud,
 # never skip, because GitHub will run the step this gate would be skipping.
 #
-# Sibling note: test/unit/coins-conformance.test.js (part of the "test" and
+# Sibling note: test/unit/coins_conformance.test.js (part of the "test" and
 # "coverage" jobs' mocha run) SKIPS its byte-identity half when ../xchain-hub
 # is absent rather than failing, so a gate that let that sibling go missing
 # would report green having exercised none of it. need_sib below makes that
