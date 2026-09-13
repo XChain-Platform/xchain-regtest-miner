@@ -15,7 +15,8 @@
 const axios = require('axios');
 const http = require('http');
 const https = require('https');
-axios.defaults.timeout = parseInt(process.env.NODE_RPC_TIMEOUT ?? '60000', 10)
+const config = require('./config');
+axios.defaults.timeout = config.NODE_RPC_TIMEOUT_MS
 // axios has no top-level `keepAlive` config key; connection reuse must be
 // configured on the underlying http(s) Agent. The miner's auto-mine loop polls
 // the node RPC (getRawMempool) every CHECK_BLOCK_DELAY_MS (100ms), so reusing
