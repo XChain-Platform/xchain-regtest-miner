@@ -64,14 +64,14 @@ async function minesDuringReorg(miner, { verb, guarded }) {
         return result
     }
     const originalReconsider = async () => {
-        miner._enterReorgPause()
+        miner.enterReorgPause()
         try {
             await miner._generateQueue
             const result = await miner.connector.reconsiderBlock(HASH)
             await miner.refreshWalletFunds()
             return result
         } finally {
-            miner._exitReorgPause()
+            miner.exitReorgPause()
         }
     }
 

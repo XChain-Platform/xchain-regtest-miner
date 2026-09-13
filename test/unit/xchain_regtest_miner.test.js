@@ -207,7 +207,7 @@ describe('XChainRegtestMiner', function () {
 
         it('pins BTC per call, because settxfee no longer exists there', async function () {
             const m = minerFor('bitcoin-regtest')
-            const mode = await m._pinFundingFeeRate()
+            const mode = await m.pinFundingFeeRate()
 
             assert.strictEqual(mode, 'fee_rate')
             assert.ok(connectorStub.setTxFee.notCalled, 'BTC must not call a deleted RPC')
@@ -223,7 +223,7 @@ describe('XChainRegtestMiner', function () {
                 connectorStub.sendToAddress.resetHistory()
 
                 const m = minerFor(coin + '-regtest')
-                const mode = await m._pinFundingFeeRate()
+                const mode = await m.pinFundingFeeRate()
 
                 assert.strictEqual(mode, 'settxfee', coin + ' must pin wallet-wide')
                 assert.ok(connectorStub.setTxFee.calledOnce, coin + ' must call settxfee')
@@ -243,7 +243,7 @@ describe('XChainRegtestMiner', function () {
             connectorStub.setTxFee.resolves(false)
             const m = minerFor('dogecoin-regtest')
 
-            assert.strictEqual(await m._pinFundingFeeRate(), 'none')
+            assert.strictEqual(await m.pinFundingFeeRate(), 'none')
 
             await m.sendFundsToAddress('addr', 1.0)
             assert.ok(!connectorStub.sendToAddress.firstCall.args[2])
@@ -256,7 +256,7 @@ describe('XChainRegtestMiner', function () {
             connectorStub.setTxFee.resolves(false)
             const m = minerFor('regtest')
 
-            assert.strictEqual(await m._pinFundingFeeRate(), 'fee_rate')
+            assert.strictEqual(await m.pinFundingFeeRate(), 'fee_rate')
 
             await m.sendFundsToAddress('addr', 1.0)
             const rate = connectorStub.sendToAddress.firstCall.args[2]
@@ -265,7 +265,7 @@ describe('XChainRegtestMiner', function () {
 
         it('leaves a working settxfee daemon on the wallet-wide pin', async function () {
             const m = minerFor('regtest')
-            assert.strictEqual(await m._pinFundingFeeRate(), 'settxfee')
+            assert.strictEqual(await m.pinFundingFeeRate(), 'settxfee')
 
             await m.sendFundsToAddress('addr', 1.0)
             assert.ok(!connectorStub.sendToAddress.firstCall.args[2])

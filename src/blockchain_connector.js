@@ -47,7 +47,7 @@ class BlockchainConnector {
     }
 
     // URL for wallet-context RPCs. Falls back to base URL on legacy daemons.
-    _walletEndpoint() {
+    walletEndpoint() {
         return this.walletUrl || this.url
     }
 
@@ -284,7 +284,7 @@ class BlockchainConnector {
         while (attempts < maxRetries){
             attempts++
             try {
-                response = await axios.post(this._walletEndpoint(), data, {
+                response = await axios.post(this.walletEndpoint(), data, {
                     auth: {
                         username: this.rpcUser,
                         password: this.rpcPassword,
@@ -343,7 +343,7 @@ class BlockchainConnector {
                 id: 1,
             }
 
-            const response = await axios.post(this._walletEndpoint(), data, {
+            const response = await axios.post(this.walletEndpoint(), data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
@@ -407,7 +407,7 @@ class BlockchainConnector {
                 id: 1,
             }
 
-            const response = await axios.post(this._walletEndpoint(), data, {
+            const response = await axios.post(this.walletEndpoint(), data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
@@ -443,7 +443,7 @@ class BlockchainConnector {
     async setTxFee(feePerKb){
         try {
             const data = { jsonrpc: '2.0', method: 'settxfee', params: [feePerKb], id: 1 }
-            const response = await axios.post(this._walletEndpoint(), data, {
+            const response = await axios.post(this.walletEndpoint(), data, {
                 auth: { username: this.rpcUser, password: this.rpcPassword }
             })
             return response.data && response.data.result === true
@@ -498,7 +498,7 @@ class BlockchainConnector {
                 id: 1,
             }
 
-            const response = await axios.post(this._walletEndpoint(), data, {
+            const response = await axios.post(this.walletEndpoint(), data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
@@ -520,7 +520,7 @@ class BlockchainConnector {
             // message: a transport axios error.message leaks the RPC host:port, and the
             // sanitization security suite requires a clean static thrown message.
             console.error('sendtoaddress returned no txid: ' + nodeErr)
-            throw this._sendError(nodeErr)
+            throw this.sendError(nodeErr)
         } catch (error) {
             if (error && error.walletMissing) throw error
             throw new Error('Error sending funds to address')
@@ -539,7 +539,7 @@ class BlockchainConnector {
      * startup and nothing reloads it. A boolean discloses nothing and lets
      * `sendFundsToAddress` re-bootstrap instead of failing for days.
      */
-    _sendError(nodeErr) {
+    sendError(nodeErr) {
         const err = new Error('Error sending funds to address')
         if (/wallet does not exist or is not loaded/i.test(String(nodeErr))) {
             err.walletMissing = true

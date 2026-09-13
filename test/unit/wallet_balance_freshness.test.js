@@ -103,18 +103,18 @@ describe('wallet balance freshness in the auto-mine loop', function () {
     describe('_walletRefreshDue (the cadence guard, load-bearing at a 100ms tick)', function () {
         it('is due when no balance has ever been read', function () {
             miner._balanceReadAt = null
-            assert.strictEqual(miner._walletRefreshDue(nowMs), true)
+            assert.strictEqual(miner.walletRefreshDue(nowMs), true)
         })
 
         it('is not due before the interval elapses', function () {
             miner._balanceReadAt = nowMs
-            assert.strictEqual(miner._walletRefreshDue(nowMs + TICK_MS), false)
-            assert.strictEqual(miner._walletRefreshDue(nowMs + REFRESH_MS - 1), false)
+            assert.strictEqual(miner.walletRefreshDue(nowMs + TICK_MS), false)
+            assert.strictEqual(miner.walletRefreshDue(nowMs + REFRESH_MS - 1), false)
         })
 
         it('is due once the interval has elapsed', function () {
             miner._balanceReadAt = nowMs
-            assert.strictEqual(miner._walletRefreshDue(nowMs + REFRESH_MS), true)
+            assert.strictEqual(miner.walletRefreshDue(nowMs + REFRESH_MS), true)
         })
     })
 
@@ -122,7 +122,7 @@ describe('wallet balance freshness in the auto-mine loop', function () {
     // does not report a drained wallet as funded, the guarded case below proves
     // nothing about the defect.
     it('CONTROL: without the loop refresh a drained wallet still reports funded', async function () {
-        miner._walletRefreshDue = () => false
+        miner.walletRefreshDue = () => false
 
         await miner.prepareWallet()
         connectorStub.getBalance.resolves(0)
@@ -221,6 +221,6 @@ describe('wallet balance freshness in the auto-mine loop', function () {
         assert.strictEqual(miner.getStatus().wallet_balance, null)
         assert.strictEqual(miner.getStatus().wallet_funded, false)
         assert.strictEqual(miner.getStatus().wallet_balance_at, nowMs)
-        assert.strictEqual(miner._walletRefreshDue(nowMs), false)
+        assert.strictEqual(miner.walletRefreshDue(nowMs), false)
     })
 })

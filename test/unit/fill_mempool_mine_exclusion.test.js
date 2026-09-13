@@ -51,7 +51,7 @@ async function externalMineDuringFill(miner, { guarded }) {
         try {
             await miner._generateQueue
             // The fill's own funding mine still has to run.
-            await miner._generateBlocksQueued(1)
+            await miner.generateBlocksQueued(1)
             mined--
             // Stand in for the broadcast loop at the end of fillMempool.
             await broadcastParked
@@ -64,7 +64,7 @@ async function externalMineDuringFill(miner, { guarded }) {
     await tick()
 
     let rejected = false
-    const external = (guarded ? miner.generateBlocks(1) : miner._generateBlocksQueued(1))
+    const external = (guarded ? miner.generateBlocks(1) : miner.generateBlocksQueued(1))
         .catch((err) => { rejected = /fill_mempool/.test(err && err.message) })
     await tick()
 
@@ -115,7 +115,7 @@ describe('fill_mempool vs a concurrent generate_blocks', function () {
         miner.connector = { generateToAddress: async () => { mined++; return ['hash'] } }
         miner.fillMempoolRunning = true
 
-        await miner._generateBlocksQueued(1)
+        await miner.generateBlocksQueued(1)
         assert.strictEqual(mined, 1)
     })
 

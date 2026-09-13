@@ -56,7 +56,7 @@ async function minesAfterBarrier(miner, { guarded }) {
     const iteration = (async () => {
         if (!miner.keepMining) return
         await miner.connector.getRawMempool()
-        if (miner._idleMineDue(Date.now(), 0)) {
+        if (miner.idleMineDue(Date.now(), 0)) {
             if (guarded && !miner.keepMining) return
             await miner.generateBlocks(1)
         }

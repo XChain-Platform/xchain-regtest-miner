@@ -39,7 +39,7 @@ describe('XChainRegtestMiner idle mine-empty heartbeat', function () {
         it('never reports a block due while disabled, however long the chain idles', function () {
             miner._mempoolSize = 0
             miner._lastMineAt = 0
-            assert.strictEqual(miner._idleMineDue(60 * 60 * 1000, 0), false)
+            assert.strictEqual(miner.idleMineDue(60 * 60 * 1000, 0), false)
         })
 
         it('surfaces the setting in status so an operator can see which mode a venue runs', function () {
@@ -82,35 +82,35 @@ describe('XChainRegtestMiner idle mine-empty heartbeat', function () {
         it('fires once the interval has elapsed with an empty mempool', function () {
             miner._mempoolSize = 0
             miner._lastMineAt = 1000
-            assert.strictEqual(miner._idleMineDue(6000, 0), true)
+            assert.strictEqual(miner.idleMineDue(6000, 0), true)
         })
 
         it('does not fire before the interval elapses', function () {
             miner._mempoolSize = 0
             miner._lastMineAt = 1000
-            assert.strictEqual(miner._idleMineDue(5999, 0), false)
+            assert.strictEqual(miner.idleMineDue(5999, 0), false)
         })
 
         it('never fires while the mempool holds transactions', function () {
             // Those have their own dual-timer above; racing them would mine early.
             miner._mempoolSize = 3
             miner._lastMineAt = 1000
-            assert.strictEqual(miner._idleMineDue(60000, 0), false)
+            assert.strictEqual(miner.idleMineDue(60000, 0), false)
         })
 
         it('measures from when the loop started watching when nothing has been mined yet', function () {
             // Enabling the heartbeat must not fire a block the instant the loop boots.
             miner._mempoolSize = 0
             miner._lastMineAt = null
-            assert.strictEqual(miner._idleMineDue(4000, 1000), false)
-            assert.strictEqual(miner._idleMineDue(6000, 1000), true)
+            assert.strictEqual(miner.idleMineDue(4000, 1000), false)
+            assert.strictEqual(miner.idleMineDue(6000, 1000), true)
         })
 
         it('re-arms from the last mine, so it paces at the interval', function () {
             miner._mempoolSize = 0
             miner._lastMineAt = 6000                 // the heartbeat block just landed
-            assert.strictEqual(miner._idleMineDue(7000, 0), false)
-            assert.strictEqual(miner._idleMineDue(11000, 0), true)
+            assert.strictEqual(miner.idleMineDue(7000, 0), false)
+            assert.strictEqual(miner.idleMineDue(11000, 0), true)
         })
     })
 })

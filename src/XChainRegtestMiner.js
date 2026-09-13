@@ -218,7 +218,7 @@ class XChainRegtestMiner {
     // read the same clock. A miner that has never mined (lastMineAt null) is
     // measured from `since`, the moment the loop started watching, so enabling
     // the heartbeat does not fire a block instantly on boot.
-    _idleMineDue(now, since){
+    idleMineDue(now, since){
         if (!this.idleMineIntervalMs) return false
         if (this._mempoolSize > 0) return false
         let last = this._lastMineAt != null ? this._lastMineAt : since
@@ -356,11 +356,11 @@ class XChainRegtestMiner {
                     // Fill's OWN funding mine: takes the private lane, because the
                     // public entry point is refusing mines for the duration of this
                     // fill and would otherwise reject the fill's own work.
-                    await this._generateBlocksQueued(1)
+                    await this.generateBlocksQueued(1)
                     processedChunkCount = 0
                 }
             }
-            await this._generateBlocksQueued(1)
+            await this.generateBlocksQueued(1)
 
             let utxos = []
             for (let nextChunkIndex in chunksTxids){
@@ -455,7 +455,7 @@ class XChainRegtestMiner {
             
             
             
-            await this._generateBlocksQueued(1)
+            await this.generateBlocksQueued(1)
 
             for (let nextAddressIndex in addresses){
                 let nextAddress = addresses[nextAddressIndex]
@@ -526,7 +526,7 @@ class XChainRegtestMiner {
     // predicate (same shape as _idleMineDue) because the interval guard is the
     // load-bearing part: the loop wakes every CHECK_BLOCK_DELAY_MS, so a guard
     // that mis-answers turns one RPC per 5s into ten per second.
-    _walletRefreshDue(now) {
+    walletRefreshDue(now) {
         if (this._balanceReadAt == null) return true
         return (now - this._balanceReadAt) >= WALLET_BALANCE_REFRESH_MS
     }
@@ -542,13 +542,13 @@ class XChainRegtestMiner {
         // Raised before the pause barrier, not after it: a mine appended while
         // pauseMining() is draining would otherwise run the instant the drain
         // resolves, overlapping the invalidate below.
-        const mineHold = this._enterReorgMineHold()
+        const mineHold = this.enterReorgMineHold()
         let result
         try {
             await this.pauseMining()
             result = await this.connector.invalidateBlock(blockHash)
         } finally {
-            this._exitReorgMineHold(mineHold)
+            this.exitReorgMineHold(mineHold)
         }
         // A deep invalidate is exactly the case that can strand the wallet at 0.
         await this.refreshWalletFunds()
@@ -581,14 +581,14 @@ class XChainRegtestMiner {
         // miner stalled for good. _enterReorgPause/_exitReorgPause share one
         // refcounted pause between concurrent reconsiders so only a foreign
         // mutation cancels the restore.
-        this._enterReorgPause()
+        this.enterReorgPause()
         // Raised synchronously alongside the pause, so a mine appended while the
         // barrier below drains cannot run against the node's re-evaluation.
-        const mineHold = this._enterReorgMineHold()
+        const mineHold = this.enterReorgMineHold()
         // Dropped as soon as the node call returns rather than in the finally, so
         // the balance re-read below does not keep mines waiting; the finally still
         // covers every early exit. _exitReorgMineHold is a no-op on a second call.
-        const dropMineHold = () => this._exitReorgMineHold(mineHold)
+        const dropMineHold = () => this.exitReorgMineHold(mineHold)
         try {
             // Same barrier pauseMining takes, drained inside the try so a rejected
             // in-flight mine still releases the reorg pause.
@@ -600,14 +600,14 @@ class XChainRegtestMiner {
             return result
         } finally {
             dropMineHold()
-            this._exitReorgPause()
+            this.exitReorgPause()
         }
     }
 
     // Raise a mine-vs-reorg hold and return its id. Called SYNCHRONOUSLY at the top
     // of a reorg primitive, before its first await, so no mine can be appended
     // between the decision to reorg and the hold becoming visible.
-    _enterReorgMineHold(){
+    enterReorgMineHold(){
         const id = ++this._reorgMineHoldSeq
         let release
         const held = new Promise((resolve) => { release = resolve })
@@ -617,7 +617,7 @@ class XChainRegtestMiner {
 
     // Drop one hold, releasing the mines that snapshotted it. Always called from a
     // finally, so a rejected reorg RPC never leaves the miner unable to mine.
-    _exitReorgMineHold(id){
+    exitReorgMineHold(id){
         const hold = this._reorgMineHolds.get(id)
         if (!hold) return
         this._reorgMineHolds.delete(id)
@@ -627,18 +627,18 @@ class XChainRegtestMiner {
     // Wait out the reorgs that were already in flight when this mine was queued,
     // then mine. `heldBy` is the append-time snapshot, never a live read: a reorg
     // raised after the append is itself waiting on this mine, so waiting on it back
-    // would deadlock. After the last await there is no yield before _generateBlocks,
+    // would deadlock. After the last await there is no yield before generateBlocksRaw,
     // whose first statement dispatches generatetoaddress synchronously, so a reorg
     // raised meanwhile cannot slip its own RPC in ahead of this one.
-    async _mineWhenReorgIdle(count, heldBy){
+    async mineWhenReorgIdle(count, heldBy){
         for (const held of heldBy) await held
-        return this._generateBlocks(count)
+        return this.generateBlocksRaw(count)
     }
 
     // Synchronous half of pauseMining: clear the flag and claim the generation
     // with no await between them, so no other writer can slot in and be mistaken
     // for this pause.
-    _claimPause(){
+    claimPause(){
         this.keepMining = false
         return ++this._miningStateGeneration
     }
@@ -649,18 +649,18 @@ class XChainRegtestMiner {
     // (snapshotting it is what stalled the miner). Inheritance is dropped when a
     // foreign writer moved the generation since the last reorg pause: whatever
     // the operator did most recently is then the state to honour.
-    _enterReorgPause(){
+    enterReorgPause(){
         const inherit = this._reorgPauseDepth > 0
             && this._miningStateGeneration === this._reorgPauseGeneration
         if (!inherit) this._reorgPauseWasMining = this.keepMining
         this._reorgPauseDepth++
-        this._reorgPauseGeneration = this._claimPause()
+        this._reorgPauseGeneration = this.claimPause()
     }
 
     // Release one hold on the reorg pause. Only the last one out restores, so a
     // nested reconsider never hands the chain back to the auto-mine loop while an
     // outer one is still mid-reorg. Returns whether it restored.
-    _exitReorgPause(){
+    exitReorgPause(){
         if (this._reorgPauseDepth > 0) this._reorgPauseDepth--
         if (this._reorgPauseDepth > 0) return false
         const restore = this._reorgPauseWasMining
@@ -698,7 +698,7 @@ class XChainRegtestMiner {
     // claim through _enterReorgPause because a plain generation snapshot cannot
     // tell a second reconsider apart from an operator pause.
     async pauseMining(){
-        const generation = this._claimPause()
+        const generation = this.claimPause()
         // Barrier: a pause that lands between the loop's keepMining check and its
         // generateBlocks(1) would let one more block settle after pause() resolves,
         // breaking a height-deterministic generateBlocks section. Await the in-flight
@@ -803,7 +803,7 @@ class XChainRegtestMiner {
      *
      * @returns {Promise<'fee_rate'|'settxfee'|'none'>} the mechanism in force
      */
-    async _pinFundingFeeRate(){
+    async pinFundingFeeRate(){
         const coin = String(this.network || '').split('-')[0].toLowerCase()
 
         const useFeeRate = () => {
@@ -891,7 +891,7 @@ class XChainRegtestMiner {
             // Private lane: start() runs this warmup without awaiting while the API
             // is already listening, so a fill_mempool arriving during it must not
             // turn wallet preparation into a boot failure.
-            await this._generateBlocksQueued(101)
+            await this.generateBlocksQueued(101)
 
             // Re-poll the balance in a bounded loop instead of trusting the
             // mining call: ping/status export walletReady as the readiness
@@ -920,7 +920,7 @@ class XChainRegtestMiner {
         // whose connector answers that call less reliably than this one just did.
         this._balanceReadAt = Date.now()
 
-        await this._pinFundingFeeRate()
+        await this.pinFundingFeeRate()
 
         // Wallet is fully prepared (address assigned, coinbase matured): wallet-dependent
         // RPCs (generateToAddress) are now safe. Callers gate on this via ping/status,
@@ -961,7 +961,7 @@ class XChainRegtestMiner {
         if (this.fillMempoolRunning) {
             throw new Error("mining is disabled while fill_mempool is running")
         }
-        return this._generateBlocksQueued(count)
+        return this.generateBlocksQueued(count)
     }
 
     // The mine itself, reachable while a fill holds the public entry point shut.
@@ -969,7 +969,7 @@ class XChainRegtestMiner {
     // that may bypass that guard: they are the fill's own work, not a competing
     // block, and routing them through the public method would make fillMempool
     // throw on itself.
-    async _generateBlocksQueued(count) {
+    async generateBlocksQueued(count) {
         if (!Number.isInteger(count) || count <= 0) {
             throw new Error("count must be a positive integer")
         }
@@ -993,12 +993,12 @@ class XChainRegtestMiner {
         // captured the queue tail this append is joining, so it already waits for
         // this mine; making this mine wait for it too is the deadlock.
         const heldBy = [...this._reorgMineHolds.values()].map((hold) => hold.held)
-        const run = this._generateQueue.then(() => this._mineWhenReorgIdle(count, heldBy))
+        const run = this._generateQueue.then(() => this.mineWhenReorgIdle(count, heldBy))
         this._generateQueue = run.catch(() => {})
         return run
     }
 
-    async _generateBlocks(numberOfBlocks){
+    async generateBlocksRaw(numberOfBlocks){
         let hashes = await this.connector.generateToAddress(numberOfBlocks, this.walletAddress)
 
         // Count every mine that flows through this serialized chokepoint (auto-mine
@@ -1067,7 +1067,7 @@ class XChainRegtestMiner {
             // never throws, so this cannot break the loop; and both mine sites below
             // re-read keepMining immediately before generateBlocks, so this await
             // cannot reopen the pause barrier window those guards close.
-            if (this._walletRefreshDue(Date.now())) {
+            if (this.walletRefreshDue(Date.now())) {
                 await this.refreshWalletFunds()
             }
             if (this.keepMining){
@@ -1092,7 +1092,7 @@ class XChainRegtestMiner {
                             consecutiveErrors = 0
                             this._consecutiveErrors = 0
                             this._mineFailures = 0
-                            // blocks_mined / last_mine_at are updated in _generateBlocks
+                            // blocks_mined / last_mine_at are updated in generateBlocksRaw
                             // (the chokepoint all mining paths flow through).
                         } catch (err){
                             consecutiveErrors++
@@ -1145,7 +1145,7 @@ class XChainRegtestMiner {
                     // set_idle_mine_interval turned it on). Only on the empty-mempool
                     // branch: a pending transaction has its own timer above, and
                     // racing it would mine the block early.
-                    if (this._idleMineDue(Date.now(), watchingSince)){
+                    if (this.idleMineDue(Date.now(), watchingSince)){
                         // The real window this guard closes. The loop's keepMining check
                         // sits above the `await this.connector.getRawMempool()` a few lines
                         // back, so a pauseMining()/fillMempool() that flipped the flag
