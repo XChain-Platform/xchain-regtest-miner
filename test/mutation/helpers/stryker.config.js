@@ -44,8 +44,8 @@ module.exports = {
     // Dropping it costs no mutation signal: a test that never executes the code
     // cannot kill a mutant of it. It still guards the real tree under `npm test`.
     ignore: [
-      'test/unit/jsonrpc-body-guard.test.js',
-      'test/unit/no-key-boot-warning.test.js',
+      'test/unit/jsonrpc_body_guard.test.js',
+      'test/unit/no_key_boot_warning.test.js',
     ],
     // Use a dedicated mocha config that sets timeout to 10s (instead of
     // the project default of --timeout 0 which would hang on infinite-loop mutations)
