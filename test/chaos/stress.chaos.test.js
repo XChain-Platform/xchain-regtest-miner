@@ -22,6 +22,8 @@ const sinon = require('sinon')
 const http = require('http')
 const ChaosNode = require('./helpers/ChaosNode')
 const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor } = require('./helpers/chaosSetup')
+const express = require('express');
+const jsonRpcRouter = require('express-json-rpc-router');
 
 describe('Chaos: Stress Testing', function () {
     let node
@@ -121,8 +123,6 @@ describe('Chaos: Stress Testing', function () {
 
         beforeEach(async function () {
             // Spin up the Express API server (mirrors api.js setup)
-            const express = require('express')
-            const jsonRpcRouter = require('express-json-rpc-router')
             const app = express()
             app.use(express.json())
 

@@ -14,7 +14,7 @@
 const os = require('os')
 const path = require('path')
 
-const serviceRoot = path.resolve(__dirname, '..', '..')
+const serviceRoot = path.join(__dirname, '../../..')
 
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 module.exports = {

@@ -24,6 +24,8 @@ const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
 const LatencyMockNode = require('./helpers/LatencyMockNode')
 const PerformanceCollector = require('./helpers/PerformanceCollector')
 const { assertP95Under, assertMeanUnder, assertThroughputAbove } = require('./helpers/perfAssert')
+const express = require('express');
+const jsonRpcRouter = require('express-json-rpc-router');
 
 // Minimal JSON-RPC HTTP client (avoids axios connection pool interference)
 function jsonRpcCall(port, method, params = {}) {
@@ -81,8 +83,6 @@ describe('Performance: API Throughput', function () {
         miner.keepMining = true
 
         // Skip the mining loop; only set up the API server for these tests.
-        const express = require('express')
-        const jsonRpcRouter = require('express-json-rpc-router')
 
         const app = express()
         app.use(express.json())

@@ -11,7 +11,8 @@
 const assert = require('assert')
 const sinon = require('sinon')
 
-const BlockchainConnector = require('../../src/BlockchainConnector')
+const BlockchainConnector = require('../../src/blockchain_connector')
+const CryptoNetworks = require('../../src/crypto_networks');
 
 describe('Boundary: fillMempool Chunking and Calculations', function () {
     let XChainRegtestMiner
@@ -107,7 +108,6 @@ describe('Boundary: fillMempool Chunking and Calculations', function () {
             // define dustThreshold 546. This is the path real runs take and it was
             // previously unasserted, so the suite would have stayed green if the
             // Bitcoin sizing drifted below dust.
-            const CryptoNetworks = require('../../src/CryptoNetworks')
             const net = CryptoNetworks.getBitcoinJsNetwork('bitcoin-regtest')
             assert.strictEqual(net.dustThreshold, 546)
 

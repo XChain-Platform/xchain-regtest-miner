@@ -42,9 +42,6 @@ confirming neither is dead before its rename:
   $ command grep -rl 'CryptoNetworks' across every sibling repo checkout
   hits include this repo's src/ and test/, plus
   xchain-e2e-test/test/unit/src/CryptoNetworks.test.js, which resolves this
-  repo's src/networks/crypto_networks.js by a COMPUTED path -- the move map
-  for that rename must carry this referrer; plus 3 platform-docs hits (a bare
-  count, archived reports mentioning the old path in prose)
-
-Conclusion: no deletion here. The sweep is committed to make the empty
-result auditable rather than assumed.
+  repo's src/crypto_networks.js by a COMPUTED path -- the move map for that
+  rename must carry this referrer; plus 3 platform-docs hits (a bare count,
+  archived reports mentioning the old path in prose)

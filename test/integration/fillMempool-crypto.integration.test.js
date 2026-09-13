@@ -27,7 +27,7 @@ const {
     bitcoin, bip39, bip32, ecc,
 } = require('./helpers/fixtures')
 
-const BlockchainConnector = require('../../src/BlockchainConnector')
+const BlockchainConnector = require('../../src/blockchain_connector')
 const { ECPairFactory } = require('ecpair')
 
 describe('Seam C: fillMempool ↔ bitcoinjs-lib crypto pipeline', function () {

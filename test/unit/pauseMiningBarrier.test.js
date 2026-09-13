@@ -22,6 +22,9 @@
 
 const assert = require('assert')
 const sinon = require('sinon')
+const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+const fs = require('fs');
+const path = require('path');
 
 // Drive one pass of the auto-mine loop's idle-mine branch with a getRawMempool
 // that parks until released, pause mid-RPC, then let the loop continue. Returns
@@ -73,7 +76,6 @@ describe('pauseMining barrier vs the auto-mine loop', function () {
     let miner
 
     beforeEach(function () {
-        const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
         miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
         sinon.stub(console, 'log')
     })
@@ -93,8 +95,6 @@ describe('pauseMining barrier vs the auto-mine loop', function () {
     })
 
     it('the shipped loop carries the guard at both auto-mine sites', function () {
-        const fs = require('fs')
-        const path = require('path')
         const src = fs.readFileSync(path.join(__dirname, '../../src/XChainRegtestMiner.js'), 'utf8')
         const body = src.slice(src.indexOf('while (!this._shutdown)'))
         const guards = body.split('if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }').length - 1
@@ -168,7 +168,6 @@ describe('reconsiderBlock vs a concurrent pause_mining', function () {
     let miner
 
     beforeEach(function () {
-        const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
         miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
         sinon.stub(console, 'log')
     })
@@ -265,7 +264,6 @@ describe('reconsiderBlock vs a concurrent reconsider_block', function () {
     let miner
 
     beforeEach(function () {
-        const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
         miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
         sinon.stub(console, 'log')
     })

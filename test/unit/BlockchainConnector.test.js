@@ -11,7 +11,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 const axios = require('axios')
-const BlockchainConnector = require('../../src/BlockchainConnector')
+const BlockchainConnector = require('../../src/blockchain_connector')
 
 describe('BlockchainConnector', function () {
     let connector
@@ -461,7 +461,7 @@ describe('BlockchainConnector', function () {
 
     describe('sendToAddress', function () {
         // sendtoaddress now uses POSITIONAL params (Dogecoin v1.14 compat; see
-        // the comment in src/BlockchainConnector.js#sendToAddress) and tolerates
+        // the comment in src/blockchain_connector.js#sendToAddress) and tolerates
         // both bare-string and {txid} response shapes.
         it('uses positional params and returns the txid', async function () {
             axiosPostStub.resolves(rpcSuccess('abc123'))

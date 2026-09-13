@@ -21,7 +21,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 const MockRpcServer = require('./helpers/MockRpcServer')
-const BlockchainConnector = require('../../src/BlockchainConnector')
+const BlockchainConnector = require('../../src/blockchain_connector')
 const { RPC_RESPONSES } = require('./helpers/fixtures')
 
 describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {

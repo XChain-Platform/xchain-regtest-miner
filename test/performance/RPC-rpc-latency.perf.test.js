@@ -19,7 +19,7 @@
 
 const assert = require('assert')
 const sinon = require('sinon')
-const BlockchainConnector = require('../../src/BlockchainConnector')
+const BlockchainConnector = require('../../src/blockchain_connector')
 const MockRpcServer = require('../integration/helpers/MockRpcServer')
 const PerformanceCollector = require('./helpers/PerformanceCollector')
 const { assertP95Under, assertMeanUnder, assertMaxUnder } = require('./helpers/perfAssert')
