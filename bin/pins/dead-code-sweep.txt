@@ -1,0 +1,50 @@
+xchain-regtest-miner dead-code sweep (2026-09-13)
+==========================================================
+
+Tool: bin/reachability.js --json (ported from xchain-indexer/bin/, unmodified),
+run with its default siblings sweep on (opts.siblings=true), siblingsRoot
+resolved to the platform tree beside this checkout.
+
+Result: reachability.js reports zero candidates.
+
+  sourceFiles:                        9
+  runtimeEntryPoints:                 src/api.js
+  toolingEntryPoints:                 3
+  testEntryPoints:                    75
+  dynamicEdgesDeclared:               2 (both indexer-specific edges from the
+                                         ported tool; neither `from` path
+                                         exists in this repo, so both are
+                                         inert no-ops here)
+  reachableFromIndexerRuntime:        9 (label is the ported tool's own text;
+                                         read as "reachable from this repo's
+                                         runtime entry point")
+  notReachableFromIndexerRuntime:     0
+  testOnly:                           0
+  unreferencedAcrossPlatform:         0
+  candidates for deletion:            []
+
+No file in src/ is unreached inside this repo and no file is reached only
+from test/. There is nothing to falsify with `command grep -r`, because
+there is nothing proposed for deletion: the sweep tool's own candidate list
+is empty before any grep is run.
+
+Falsification performed anyway, as due diligence on the two files this
+repo is about to rename (BlockchainConnector.js, CryptoNetworks.js),
+confirming neither is dead before its rename:
+
+  $ command grep -rl 'BlockchainConnector' across every sibling repo checkout
+  6 hits (this repo's src/ and test/, plus same-named-but-independent files
+  in xchain-decoder, xchain-e2e-test, xchain-encoder, xchain-utxo-tracker --
+  reachability.js's twinCopies field flags these as same-basename, not
+  byte-identical, so they are not frozen twin copies of a canonical file,
+  just four other repos' own miner-shaped connector class); 0 platform-docs hits
+
+  $ command grep -rl 'CryptoNetworks' across every sibling repo checkout
+  hits include this repo's src/ and test/, plus
+  xchain-e2e-test/test/unit/src/CryptoNetworks.test.js, which resolves this
+  repo's src/networks/crypto_networks.js by a COMPUTED path -- the move map
+  for that rename must carry this referrer; plus 3 platform-docs hits (a bare
+  count, archived reports mentioning the old path in prose)
+
+Conclusion: no deletion here. The sweep is committed to make the empty
+result auditable rather than assumed.
