@@ -1,0 +1,9 @@
+{
+  "note": "wall time of each npm test* unit-tier script, recorded once at AT1 so a suite over about five minutes is known to need a longer-running tier of its own",
+  "scripts": {
+    "test:unit": {
+      "realSeconds": 2.15,
+      "measuredAt": "2026-09-13"
+    }
+  }
+}
