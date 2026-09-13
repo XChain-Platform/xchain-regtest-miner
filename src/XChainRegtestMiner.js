@@ -151,8 +151,16 @@ class XChainRegtestMiner {
       this._blocksMined = 0
       this._lastMineAt = null
       this._consecutiveErrors = 0
+      // Failed block generations in a row, counted SEPARATELY from the RPC/mempool
+      // read streak above. One shared counter cross-cancelled: the loop zeroes it on
+      // every successful getRawMempool(), which runs immediately before the idle-mine
+      // heartbeat, so a generateToAddress that fails forever could never push it past
+      // 1 and the health probe stayed green while block height never advanced. Only a
+      // successful mine PERFORMED BY THE LOOP clears this one, so an operator
+      // generate_blocks call cannot mask a broken loop.
+      this._mineFailures = 0
     }
-    
+
     async sleep(ms) {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
@@ -1083,11 +1091,13 @@ class XChainRegtestMiner {
                             await this.generateBlocks(1)
                             consecutiveErrors = 0
                             this._consecutiveErrors = 0
+                            this._mineFailures = 0
                             // blocks_mined / last_mine_at are updated in _generateBlocks
                             // (the chokepoint all mining paths flow through).
                         } catch (err){
                             consecutiveErrors++
                             this._consecutiveErrors = consecutiveErrors
+                            this._mineFailures++
                             let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
                             console.log("There were problems generating a new block: "+(err && err.message ? err.message : err)+"; retrying in "+backoff+"ms.")
                             await this.sleep(backoff)
@@ -1149,9 +1159,11 @@ class XChainRegtestMiner {
                             await this.generateBlocks(1)
                             consecutiveErrors = 0
                             this._consecutiveErrors = 0
+                            this._mineFailures = 0
                         } catch (err){
                             consecutiveErrors++
                             this._consecutiveErrors = consecutiveErrors
+                            this._mineFailures++
                             let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
                             console.log("There were problems mining an idle block: "+(err && err.message ? err.message : err)+"; retrying in "+backoff+"ms.")
                             await this.sleep(backoff)
@@ -1191,6 +1203,10 @@ class XChainRegtestMiner {
             blocks_mined: this._blocksMined,
             last_mine_at: this._lastMineAt,
             consecutive_errors: this._consecutiveErrors,
+            // Consecutive FAILED MINES, on its own streak: consecutive_errors is
+            // zeroed by a successful mempool read, so it cannot report a miner that
+            // is answering RPC but unable to generate a block.
+            mine_failures: this._mineFailures,
             // Surface the paused state so a fill_mempool / invalidate_block that was never
             // paired with continue_mining is observable as a deliberate pause rather than
             // reading as a node hang (the loop holds keepMining=false until resumed).

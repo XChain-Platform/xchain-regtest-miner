@@ -25,7 +25,7 @@ const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
 // belongs here: a payload that omits it is one the real miner cannot produce, and
 // synthetic-only payloads are how the first cut of this probe certified a branch
 // production never reached.
-const READY = { wallet_ready: true, consecutive_errors: 0, mining_paused: false, mining_started: true };
+const READY = { wallet_ready: true, consecutive_errors: 0, mine_failures: 0, mining_paused: false, mining_started: true };
 
 describe('miner health probe verdict', function () {
 
@@ -43,6 +43,29 @@ describe('miner health probe verdict', function () {
     it('tolerates a short failure streak below the threshold', function () {
         const status = Object.assign({}, READY, { consecutive_errors: STALL_ERROR_THRESHOLD - 1 });
         assert.strictEqual(evaluateMinerHealth({ status, uptimeMs: 10 * 60000 }).healthy, true);
+    });
+
+    // The shape consecutive_errors structurally cannot report: the node answers
+    // getrawmempool on every cycle (zeroing that counter) while generateToAddress
+    // fails every time, so the miner is green and height never advances. That is
+    // what mine_failures is for.
+    it('is unhealthy on a sustained run of FAILED MINES while RPC reads still succeed', function () {
+        const status = Object.assign({}, READY, { consecutive_errors: 0, mine_failures: STALL_ERROR_THRESHOLD });
+        const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
+        assert.strictEqual(verdict.healthy, false);
+        assert.strictEqual(verdict.reason, 'mine_failures');
+    });
+
+    it('tolerates a mine-failure streak below the threshold', function () {
+        const status = Object.assign({}, READY, { mine_failures: STALL_ERROR_THRESHOLD - 1 });
+        assert.strictEqual(evaluateMinerHealth({ status, uptimeMs: 10 * 60000 }).healthy, true);
+    });
+
+    it('treats a deliberate pause as healthy even with a failing MINE streak', function () {
+        const status = Object.assign({}, READY, { mine_failures: 99, mining_paused: true });
+        const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
+        assert.strictEqual(verdict.healthy, true);
+        assert.strictEqual(verdict.reason, 'paused');
     });
 
     it('is unhealthy when the wallet never became ready past the cold-start grace', function () {
@@ -178,6 +201,58 @@ describe('miner health probe verdict', function () {
                 await loop;
                 // start() installs SIGTERM/SIGINT handlers that call process.exit; drop
                 // the ones this test added so a later signal cannot kill the runner.
+                for (const sig of ['SIGTERM', 'SIGINT']) {
+                    for (const listener of process.listeners(sig)) {
+                        if (!sigBefore[sig].includes(listener)) process.removeListener(sig, listener);
+                    }
+                }
+            }
+        });
+
+        // The reported failure, driven through the REAL auto-mine loop: the node
+        // answers getrawmempool on every cycle but refuses generatetoaddress. The
+        // loop zeroes consecutive_errors on each successful mempool read, which runs
+        // immediately before the idle-mine heartbeat, so that counter reads 1 forever
+        // and an unguarded probe answers {healthy:true, reason:'ok'} while block height
+        // never advances. mine_failures is the streak that has to accumulate.
+        it('accumulates mine_failures when only generatetoaddress fails, and stalls', async function () {
+            const miner = newMiner();
+            // Virtual clock: the loop's own sleeps advance it, so the idle-mine
+            // interval elapses by iteration count rather than by wall time.
+            let nowMs = 1e9;
+            const realNow = Date.now;
+            Date.now = () => nowMs;
+            miner.sleep = async (ms) => { nowMs += (Number(ms) || 0); await new Promise(r => setImmediate(r)); };
+
+            miner.prepareWallet = async function () { this.walletAddress = 'bcrt1qtest'; this.walletReady = true; };
+            // The only stubs are the network boundary. getRawMempool SUCCEEDS, which
+            // is the whole point: it is what keeps consecutive_errors pinned at 1.
+            miner.connector.getRawMempool     = async () => [];
+            miner.connector.generateToAddress = async () => { throw new Error('node refused the mine'); };
+            await miner.setIdleMineInterval(1000);
+
+            const sigBefore = { SIGTERM: process.listeners('SIGTERM'), SIGINT: process.listeners('SIGINT') };
+            const loop = miner.start();
+            try {
+                let spins = 0;
+                while (miner.getStatus().mine_failures < STALL_ERROR_THRESHOLD && spins < 20000) {
+                    spins++;
+                    await new Promise(resolve => setImmediate(resolve));
+                }
+                const status = miner.getStatus();
+                assert.ok(status.mine_failures >= STALL_ERROR_THRESHOLD,
+                    'the mine-failure streak must survive the successful mempool reads between mines, got '
+                    + status.mine_failures);
+                assert.ok(status.consecutive_errors <= 1,
+                    'precondition: the shared counter is still being zeroed by the mempool read, got '
+                    + status.consecutive_errors);
+                const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
+                assert.strictEqual(verdict.healthy, false, 'a miner that cannot mine must not read healthy');
+                assert.strictEqual(verdict.reason, 'mine_failures');
+            } finally {
+                miner._shutdown = true;
+                await loop;
+                Date.now = realNow;
                 for (const sig of ['SIGTERM', 'SIGINT']) {
                     for (const listener of process.listeners(sig)) {
                         if (!sigBefore[sig].includes(listener)) process.removeListener(sig, listener);
