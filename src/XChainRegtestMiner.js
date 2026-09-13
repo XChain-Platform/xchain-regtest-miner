@@ -18,8 +18,8 @@
  * 
  ********************************************************************/
 
-const BlockchainConnector = require('./blockchain_connector.js')
-const CryptoNetworks = require('./crypto_networks.js')
+const BlockchainConnector = require('./rpc/blockchain_connector.js')
+const CryptoNetworks = require('./networks/crypto_networks.js')
 
 // CHECK_BLOCK_DELAY_MS controls how often the loop wakes to poll the mempool and
 // check timers. It is intentionally much shorter than MIN_MINING_TIME (1000ms) so

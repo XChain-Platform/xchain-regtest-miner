@@ -10,7 +10,7 @@
 
 const assert = require('assert')
 const sinon = require('sinon')
-const BlockchainConnector = require('../../src/blockchain_connector')
+const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
 describe('Security: API Hardening', function () {
     let XChainRegtestMiner

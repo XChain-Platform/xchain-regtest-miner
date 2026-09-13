@@ -24,7 +24,7 @@
  *
  ********************************************************************/
 
-const coins = require('./coins');
+const coins = require('../coins');
 
 // Split a "<fullname>-<network>" key (e.g. "bitcoin-mainnet") into a canonical
 // {tick, net} pair, or null when it names no known coin/network.

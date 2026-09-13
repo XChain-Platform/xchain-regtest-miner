@@ -12,7 +12,7 @@ const assert = require('assert')
 const sinon = require('sinon')
 
 // Stub BlockchainConnector before requiring XChainRegtestMiner
-const BlockchainConnector = require('../../src/blockchain_connector')
+const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
 describe('XChainRegtestMiner', function () {
     let XChainRegtestMiner

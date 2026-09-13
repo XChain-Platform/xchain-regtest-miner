@@ -11,8 +11,8 @@
 const assert = require('assert')
 const sinon = require('sinon')
 
-const BlockchainConnector = require('../../src/blockchain_connector')
-const CryptoNetworks = require('../../src/crypto_networks');
+const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const CryptoNetworks = require('../../src/networks/crypto_networks');
 
 describe('Boundary: fillMempool Chunking and Calculations', function () {
     let XChainRegtestMiner
