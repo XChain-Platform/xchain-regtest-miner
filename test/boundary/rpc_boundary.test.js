@@ -13,29 +13,31 @@ const sinon = require('sinon')
 const axios = require('axios')
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
-describe('Boundary: RPC Retry and Response Shapes', function () {
-    let connector
-    let axiosPostStub
+let connector, axiosPostStub
 
-    beforeEach(function () {
-        connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass')
-        axiosPostStub = sinon.stub(axios, 'post')
-        sinon.stub(connector, 'sleep').resolves()
-        sinon.stub(console, 'error')
-        sinon.stub(console, 'log')
-    })
+function setupConnector() {
+    connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass')
+    axiosPostStub = sinon.stub(axios, 'post')
+    sinon.stub(connector, 'sleep').resolves()
+    sinon.stub(console, 'error')
+    sinon.stub(console, 'log')
+}
+function teardownConnector() {
+    sinon.restore()
+}
+function registerConnectorHooks() {
+    beforeEach(setupConnector)
+    afterEach(teardownConnector)
+}
+function rpcSuccess(result) {
+    return { data: { result, error: null, id: 1 } }
+}
 
-    afterEach(function () {
-        sinon.restore()
-    })
+function rpcNoResult() {
+    return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } }
+}
 
-    function rpcSuccess(result) {
-        return { data: { result, error: null, id: 1 } }
-    }
-
-    function rpcNoResult() {
-        return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } }
-    }
+describe('Boundary: RPC Retry and Response Shapes', function () { registerConnectorHooks()
 
     // ═══════════════════════════════════════════════════════════════════
     // createWallet retry boundaries
@@ -77,7 +79,9 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
             assert.strictEqual(axiosPostStub.callCount, 2)
         })
     })
+})
 
+describe('Boundary: RPC Retry and Response Shapes', function () { registerConnectorHooks()
     describe('createWallet with tries=1', function () {
         it('gets exactly one attempt', async function () {
             axiosPostStub.rejects(new Error('fail'))
@@ -109,11 +113,13 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
             assert.strictEqual(axiosPostStub.callCount, 3)
         })
     })
+})
 
     // ═══════════════════════════════════════════════════════════════════
     // getWalletInfo retry boundaries
     // ═══════════════════════════════════════════════════════════════════
 
+describe('Boundary: RPC Retry and Response Shapes', function () { registerConnectorHooks()
     describe('R-07: getWalletInfo fails many times then succeeds', function () {
         it('succeeds after N failures (bounded by maxRetries)', async function () {
             // Fail 9 times, succeed on 10th
@@ -172,11 +178,13 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
             assert(connector.sleep.alwaysCalledWith(1000))
         })
     })
+})
 
     // ═══════════════════════════════════════════════════════════════════
     // RPC response shape boundaries
     // ═══════════════════════════════════════════════════════════════════
 
+describe('Boundary: RPC Retry and Response Shapes', function () { registerConnectorHooks()
     describe('R-10: RPC returns result: null', function () {
         it('getNetworkInfo throws on null result', async function () {
             axiosPostStub.resolves(rpcNoResult())
@@ -211,7 +219,9 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
             await assert.rejects(() => connector.getBlockchainInfo())
         })
     })
+})
 
+describe('Boundary: RPC Retry and Response Shapes', function () { registerConnectorHooks()
     describe('R-13: RPC returns malformed JSON (axios parse error)', function () {
         it('throws clean error (does not expose parse details)', async function () {
             const parseError = new Error('Unexpected token in JSON')
@@ -261,7 +271,9 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
             assert.strictEqual(result, '0200dead...')
         })
     })
+})
 
+describe('Boundary: RPC Retry and Response Shapes', function () { registerConnectorHooks()
     describe('R-17: generateToAddress returns empty array', function () {
         it('returns empty array for 0 blocks', async function () {
             axiosPostStub.resolves(rpcSuccess([]))
@@ -319,11 +331,13 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
             await assert.rejects(() => connector.getBalance(), /Error getting balance/)
         })
     })
+})
 
     // ═══════════════════════════════════════════════════════════════════
     // sendToAddress response boundaries
     // ═══════════════════════════════════════════════════════════════════
 
+describe('Boundary: RPC Retry and Response Shapes', function () { registerConnectorHooks()
     describe('sendToAddress response shape boundaries', function () {
         it('extracts txid from verbose response', async function () {
             axiosPostStub.resolves(rpcSuccess({ txid: 'abc123', fee_reason: 'not_set' }))
@@ -354,11 +368,13 @@ describe('Boundary: RPC Retry and Response Shapes', function () {
                 'Mining should inherit axios.defaults.timeout (NODE_RPC_TIMEOUT), not hardcode one')
         })
     })
+})
 
     // ═══════════════════════════════════════════════════════════════════
     // Constructor URL building boundaries
     // ═══════════════════════════════════════════════════════════════════
 
+describe('Boundary: RPC Retry and Response Shapes', function () { registerConnectorHooks()
     describe('Constructor URL boundaries', function () {
         it('builds URL with empty host', function () {
             const c = new BlockchainConnector('', '18332', 'u', 'p')
