@@ -13,51 +13,56 @@ const sinon = require('sinon')
 
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+let XChainRegtestMiner, miner
+let connectorStub, clock
+
+function setupMiner() {
+    connectorStub = {
+        getWalletInfo: sinon.stub().resolves({ walletname: 'w' }),
+        loadWallet: sinon.stub(),
+        createWallet: sinon.stub(),
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        getRawMempool: sinon.stub().resolves([]),
+        sendToAddress: sinon.stub().resolves('txid_abc'),
+        setTxFee: sinon.stub().resolves(true),
+        setWalletName: sinon.stub(),
+        getRawTransaction: sinon.stub().resolves('0200000001...'),
+        sendRawTransaction: sinon.stub().resolves('txid_sent'),
+        getNetworkInfo: sinon.stub().resolves({}),
+    }
+
+    sinon.stub(BlockchainConnector.prototype, 'constructor')
+
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
+
+    sinon.stub(miner, 'sleep').resolves()
+    sinon.stub(miner, 'prepareWallet').resolves()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+
+    miner.walletAddress = 'bcrt1qtest'
+
+    clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false })
+}
+
+function teardownMiner() {
+    clock.restore()
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
+function registerMinerHooks() {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
+}
+
 describe('Boundary: Mempool Polling', function () {
-    let XChainRegtestMiner
-    let miner
-    let connectorStub
-    let clock
-
-    beforeEach(function () {
-        connectorStub = {
-            getWalletInfo: sinon.stub().resolves({ walletname: 'w' }),
-            loadWallet: sinon.stub(),
-            createWallet: sinon.stub(),
-            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-            getBalance: sinon.stub().resolves(50.0),
-            getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
-            generateToAddress: sinon.stub().resolves(['blockhash1']),
-            getRawMempool: sinon.stub().resolves([]),
-            sendToAddress: sinon.stub().resolves('txid_abc'),
-            setTxFee: sinon.stub().resolves(true),
-            setWalletName: sinon.stub(),
-            getRawTransaction: sinon.stub().resolves('0200000001...'),
-            sendRawTransaction: sinon.stub().resolves('txid_sent'),
-            getNetworkInfo: sinon.stub().resolves({}),
-        }
-
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
-
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(miner, 'prepareWallet').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-
-        miner.walletAddress = 'bcrt1qtest'
-
-        clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false })
-    })
-
-    afterEach(function () {
-        clock.restore()
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+    registerMinerHooks()
 
     // ─── M-01: Empty mempool on every poll ─────────────────────────────
 
@@ -104,8 +109,12 @@ describe('Boundary: Mempool Polling', function () {
                 'Should mine single-tx mempool after timer expires')
         })
     })
+})
 
     // ─── M-03: Mempool size unchanged between polls ────────────────────
+
+describe('Boundary: Mempool Polling', function () {
+    registerMinerHooks()
 
     describe('M-03: mempool size unchanged between polls', function () {
         it('does not reset extendedStartToMine', async function () {
@@ -131,8 +140,12 @@ describe('Boundary: Mempool Polling', function () {
                 'Timer should fire since mempool did not grow (no extension reset)')
         })
     })
+})
 
     // ─── M-04: Mempool decreases between polls ─────────────────────────
+
+describe('Boundary: Mempool Polling', function () {
+    registerMinerHooks()
 
     describe('M-04: mempool shrinks (tx eviction/replacement)', function () {
         it('treats shrink as no new txs (no timer extension)', async function () {
@@ -186,8 +199,12 @@ describe('Boundary: Mempool Polling', function () {
             // This validates the tracking logic handles shrink correctly
         })
     })
+})
 
     // ─── M-05: Steady stream (grows by 1 each poll) ───────────────────
+
+describe('Boundary: Mempool Polling', function () {
+    registerMinerHooks()
 
     describe('M-05: mempool grows by 1 tx every poll', function () {
         it('continuously resets extendedStartToMine; only maxTime fires', async function () {
@@ -217,8 +234,12 @@ describe('Boundary: Mempool Polling', function () {
                 'maxTimeToMineTxs should eventually force mining despite growth')
         })
     })
+})
 
     // ─── M-06: Mempool burst (0 to 10000 in one poll) ──────────────────
+
+describe('Boundary: Mempool Polling', function () {
+    registerMinerHooks()
 
     describe('M-06: mempool jumps from 0 to 10000 in one poll', function () {
         it('handles large mempool without per-tx processing', async function () {
@@ -244,8 +265,12 @@ describe('Boundary: Mempool Polling', function () {
             // The miner only checks rawMempool.length, not individual txids
         })
     })
+})
 
     // ─── M-07: getRawMempool throws on every call ──────────────────────
+
+describe('Boundary: Mempool Polling', function () {
+    registerMinerHooks()
 
     describe('M-07: getRawMempool fails continuously', function () {
         it('retries on each iteration without corrupting timer state', async function () {
@@ -291,8 +316,12 @@ describe('Boundary: Mempool Polling', function () {
                 'null mempool should not trigger mining')
         })
     })
+})
 
     // ─── M-09: Mempool non-empty after mining ──────────────────────────
+
+describe('Boundary: Mempool Polling', function () {
+    registerMinerHooks()
 
     describe('M-09: mempool non-empty after generateBlocks returns', function () {
         it('begins new mining cycle for remaining transactions', async function () {
@@ -323,8 +352,12 @@ describe('Boundary: Mempool Polling', function () {
                 'Should mine multiple times when mempool stays non-empty')
         })
     })
+})
 
     // ─── M-10: Rapid mempool changes faster than poll interval ─────────
+
+describe('Boundary: Mempool Polling', function () {
+    registerMinerHooks()
 
     describe('M-10: rapid mempool changes between polls', function () {
         it('only sees snapshot at each poll; intermediate states invisible', async function () {
