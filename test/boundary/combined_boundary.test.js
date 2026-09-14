@@ -13,51 +13,58 @@ const sinon = require('sinon')
 
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+let XChainRegtestMiner
+let miner
+let connectorStub
+let clock
+
+function setupMiner() {
+    connectorStub = {
+        getWalletInfo: sinon.stub().resolves({ walletname: 'w' }),
+        loadWallet: sinon.stub(),
+        createWallet: sinon.stub(),
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        getRawMempool: sinon.stub().resolves([]),
+        sendToAddress: sinon.stub().resolves('txid_abc'),
+        setTxFee: sinon.stub().resolves(true),
+        setWalletName: sinon.stub(),
+        getRawTransaction: sinon.stub().resolves('0200000001...'),
+        sendRawTransaction: sinon.stub().resolves('txid_sent'),
+        getNetworkInfo: sinon.stub().resolves({}),
+    }
+
+    sinon.stub(BlockchainConnector.prototype, 'constructor')
+
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
+
+    sinon.stub(miner, 'sleep').resolves()
+    sinon.stub(miner, 'prepareWallet').resolves()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+
+    miner.walletAddress = 'bcrt1qtest'
+
+    clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false })
+}
+
+function teardownMiner() {
+    clock.restore()
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
+function registerMinerHooks() {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
+}
+
 describe('Boundary: Combined Parameter Interactions', function () {
-    let XChainRegtestMiner
-    let miner
-    let connectorStub
-    let clock
-
-    beforeEach(function () {
-        connectorStub = {
-            getWalletInfo: sinon.stub().resolves({ walletname: 'w' }),
-            loadWallet: sinon.stub(),
-            createWallet: sinon.stub(),
-            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-            getBalance: sinon.stub().resolves(50.0),
-            getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
-            generateToAddress: sinon.stub().resolves(['blockhash1']),
-            getRawMempool: sinon.stub().resolves([]),
-            sendToAddress: sinon.stub().resolves('txid_abc'),
-            setTxFee: sinon.stub().resolves(true),
-            setWalletName: sinon.stub(),
-            getRawTransaction: sinon.stub().resolves('0200000001...'),
-            sendRawTransaction: sinon.stub().resolves('txid_sent'),
-            getNetworkInfo: sinon.stub().resolves({}),
-        }
-
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
-
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(miner, 'prepareWallet').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-
-        miner.walletAddress = 'bcrt1qtest'
-
-        clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false })
-    })
-
-    afterEach(function () {
-        clock.restore()
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+    registerMinerHooks()
 
     // ─── C-01: maxTimeToMineTxs=0 + large mempool ─────────────────────
 
@@ -83,8 +90,12 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 'Should mine immediately with maxTime=0 even with large mempool')
         })
     })
+})
 
     // ─── C-02: addedTimeToMineTxs=0 + frequent tx arrivals ────────────
+
+describe('Boundary: Combined Parameter Interactions', function () {
+    registerMinerHooks()
 
     describe('C-02: addedTimeToMineTxs=0 with transactions arriving every poll', function () {
         it('mines on every poll that detects mempool change', async function () {
@@ -119,8 +130,12 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 'Should mine frequently with addedTime=0 and growing mempool')
         })
     })
+})
 
     // ─── C-03: fillMempool + short maxTimeToMineTxs ────────────────────
+
+describe('Boundary: Combined Parameter Interactions', function () {
+    registerMinerHooks()
 
     describe('C-03: fillMempool with invalid input does not change keepMining', function () {
         it('keepMining is unchanged for invalid txQuantity (validation rejects early)', async function () {
@@ -165,8 +180,12 @@ describe('Boundary: Combined Parameter Interactions', function () {
             )
         })
     })
+})
 
     // ─── C-06: set_mining_time during active timer ─────────────────────
+
+describe('Boundary: Combined Parameter Interactions', function () {
+    registerMinerHooks()
 
     describe('C-06: timer threshold changes mid-countdown', function () {
         it('changing maxTimeToMineTxs lower mid-countdown triggers immediate mining', async function () {
@@ -223,8 +242,12 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 'Raising maxTime should delay mining')
         })
     })
+})
 
     // ─── C-07: continueMining called during fillMempool ────────────────
+
+describe('Boundary: Combined Parameter Interactions', function () {
+    registerMinerHooks()
 
     describe('C-07: race between continueMining and fillMempool', function () {
         it('continueMining sets keepMining=true regardless of fillMempool state', async function () {
@@ -274,8 +297,12 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 'Should mine once then stop when mempool empties')
         })
     })
+})
 
     // ─── C-09: Double error (getRawMempool + generateBlocks) ───────────
+
+describe('Boundary: Combined Parameter Interactions', function () {
+    registerMinerHooks()
 
     describe('C-09: both getRawMempool and generateBlocks fail in sequence', function () {
         it('recovers from alternating error types', async function () {
@@ -314,8 +341,12 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 'Should retry mempool after failure')
         })
     })
+})
 
     // ─── C-10: createWallet retries exhausted vs getWalletInfo ─────────
+
+describe('Boundary: Combined Parameter Interactions', function () {
+    registerMinerHooks()
 
     describe('C-10: wallet creation failure cascade', function () {
         beforeEach(function () {
