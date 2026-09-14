@@ -22,28 +22,36 @@ const sinon = require('sinon')
 const ChaosNode = require('./helpers/ChaosNode')
 const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor } = require('./helpers/chaosSetup')
 
+let node
+
+async function setupNode() {
+    node = new ChaosNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+}
+
+async function teardownNode() {
+    sinon.restore()
+    await node.stop()
+}
+
+function resetNode() {
+    node.reset()
+    // Seed wallet with lots of balance for fillMempool
+    node._rpc_createwallet(['xchain_regtest_wallet'])
+    node._rpc_generatetoaddress([200, 'bcrt1qseed'])
+    node.calls = []
+}
+
+function registerNodeHooks() {
+    before(setupNode)
+    after(teardownNode)
+    beforeEach(resetNode)
+}
+
 describe('Chaos: fillMempool Interruption (CE-06)', function () {
-    let node
-
-    before(async function () {
-        node = new ChaosNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
-
-    beforeEach(function () {
-        node.reset()
-        // Seed wallet with lots of balance for fillMempool
-        node._rpc_createwallet(['xchain_regtest_wallet'])
-        node._rpc_generatetoaddress([200, 'bcrt1qseed'])
-        node.calls = []
-    })
+    registerNodeHooks()
 
     // ─── CE-06a: fillMempoolRunning resets after failure ────────────
 
@@ -81,8 +89,12 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
         sinon.stub(console, 'log')
         sinon.stub(console, 'error')
     })
+})
 
     // ─── CE-06b: keepMining stuck at false (W-3) ────────────────────
+
+describe('Chaos: fillMempool Interruption (CE-06)', function () {
+    registerNodeHooks()
 
     it('CE-06b: keepMining is restored to true after fillMempool fails (W-3 fixed)', async function () {
         const miner = createMiner(node)
@@ -122,8 +134,12 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
         sinon.stub(console, 'log')
         sinon.stub(console, 'error')
     })
+})
 
     // ─── CE-06c: continueMining restores mining after failure ───────
+
+describe('Chaos: fillMempool Interruption (CE-06)', function () {
+    registerNodeHooks()
 
     it('CE-06c: mining works immediately after failed fillMempool (W-3 fixed)', async function () {
         const miner = createMiner(node)
