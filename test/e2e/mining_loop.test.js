@@ -24,75 +24,82 @@ const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
 const StatefulMockNode = require('./helpers/StatefulMockNode')
 
+async function startStatefulNode() {
+    const node = new StatefulMockNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+    return node
+}
+
+async function stopStatefulNode(node) {
+    sinon.restore()
+    await node.stop()
+}
+
+function createTestMiner(node) {
+    node.reset()
+
+    // Pre-seed a loaded, funded wallet
+    node._rpc_createwallet(['xchain_regtest_wallet'])
+    node._rpc_generatetoaddress([110, 'bcrt1qseed'])
+    node.calls = [] // Clear setup calls from tracking
+
+    const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+
+    // Fast polling: override sleep to 10ms instead of 1000ms
+    const originalSleep = miner.sleep.bind(miner)
+    miner.sleep = async (ms) => {
+        if (miner._shutdown) {
+            throw new Error('__E2E_SHUTDOWN__')
+        }
+        await originalSleep(10)
+    }
+    return miner
+}
+
+async function stopTestMiner(miner, startPromise) {
+    // Stop the mining loop
+    miner._shutdown = true
+    if (startPromise) {
+        try { await startPromise } catch (e) {
+            if (e.message !== '__E2E_SHUTDOWN__') throw e
+        }
+    }
+    // Clean up SIGTERM handler registered by start()
+    if (miner && miner._sigTermHandler) {
+        process.removeListener('SIGTERM', miner._sigTermHandler)
+    }
+    return null
+}
+
+function startMinerLoop(miner) {
+    return miner.start().catch(e => {
+        if (e.message !== '__E2E_SHUTDOWN__') throw e
+    })
+}
+
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function waitFor(conditionFn, timeoutMs = 5000) {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+        if (conditionFn()) return true
+        await sleep(20)
+    }
+    throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
+}
+
 describe('E2E: Mempool Monitoring and Block Generation', function () {
     let node, miner
     let startPromise
 
-    before(async function () {
-        node = new StatefulMockNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
-
-    beforeEach(async function () {
-        node.reset()
-
-        // Pre-seed a loaded, funded wallet
-        node._rpc_createwallet(['xchain_regtest_wallet'])
-        node._rpc_generatetoaddress([110, 'bcrt1qseed'])
-        node.calls = [] // Clear setup calls from tracking
-
-        miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
-
-        // Fast polling: override sleep to 10ms instead of 1000ms
-        const originalSleep = miner.sleep.bind(miner)
-        miner.sleep = async (ms) => {
-            if (miner._shutdown) {
-                throw new Error('__E2E_SHUTDOWN__')
-            }
-            await originalSleep(10)
-        }
-    })
-
-    afterEach(async function () {
-        // Stop the mining loop
-        miner._shutdown = true
-        if (startPromise) {
-            try { await startPromise } catch (e) {
-                if (e.message !== '__E2E_SHUTDOWN__') throw e
-            }
-        }
-        startPromise = null
-        // Clean up SIGTERM handler registered by start()
-        if (miner && miner._sigTermHandler) {
-            process.removeListener('SIGTERM', miner._sigTermHandler)
-        }
-    })
-
-    function startMinerLoop() {
-        startPromise = miner.start().catch(e => {
-            if (e.message !== '__E2E_SHUTDOWN__') throw e
-        })
-    }
-
-    async function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms))
-    }
-
-    async function waitFor(conditionFn, timeoutMs = 5000) {
-        const start = Date.now()
-        while (Date.now() - start < timeoutMs) {
-            if (conditionFn()) return true
-            await sleep(20)
-        }
-        throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
-    }
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
+    beforeEach(function () { miner = createTestMiner(node) })
+    afterEach(async function () { startPromise = await stopTestMiner(miner, startPromise) })
 
     // ─── B1: Single transaction: detect, wait, mine ────────────────
 
@@ -101,7 +108,7 @@ describe('E2E: Mempool Monitoring and Block Generation', function () {
         miner.addedTimeToMineTxs = 100
 
         const heightBefore = node.height
-        startMinerLoop()
+        startPromise = startMinerLoop(miner)
 
         // Wait for the loop to start
         await waitFor(() => miner.keepMining === true)
@@ -119,15 +126,25 @@ describe('E2E: Mempool Monitoring and Block Generation', function () {
         // Mempool is now empty
         assert.strictEqual(node.mempool.length, 0)
     })
+})
 
-    // ─── B2: Multiple transactions: timer extension ────────────────
+// ─── B2: Multiple transactions: timer extension ────────────────
+
+describe('E2E: Mempool Monitoring and Block Generation', function () {
+    let node, miner
+    let startPromise
+
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
+    beforeEach(function () { miner = createTestMiner(node) })
+    afterEach(async function () { startPromise = await stopTestMiner(miner, startPromise) })
 
     it('B2: batches multiple transactions into one block', async function () {
         miner.maxTimeToMineTxs = 2000
         miner.addedTimeToMineTxs = 200
 
         const heightBefore = node.height
-        startMinerLoop()
+        startPromise = startMinerLoop(miner)
         await waitFor(() => miner.keepMining === true)
 
         // Send 3 transactions with gaps shorter than addedTimeToMineTxs (200ms).
@@ -155,15 +172,25 @@ describe('E2E: Mempool Monitoring and Block Generation', function () {
         assert.ok(lastBlock.txids.includes('txid_b2_003'))
         assert.strictEqual(node.height, heightBefore + 1)
     })
+})
 
-    // ─── B3: Max timer forces mining despite new transactions ───────
+// ─── B3: Max timer forces mining despite new transactions ───────
+
+describe('E2E: Mempool Monitoring and Block Generation', function () {
+    let node, miner
+    let startPromise
+
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
+    beforeEach(function () { miner = createTestMiner(node) })
+    afterEach(async function () { startPromise = await stopTestMiner(miner, startPromise) })
 
     it('B3: max timer forces block generation despite continuous new txs', async function () {
         miner.maxTimeToMineTxs = 200
         miner.addedTimeToMineTxs = 150
 
         const heightBefore = node.height
-        startMinerLoop()
+        startPromise = startMinerLoop(miner)
         await waitFor(() => miner.keepMining === true)
 
         // Keep injecting transactions faster than addedTimeToMineTxs
@@ -181,12 +208,22 @@ describe('E2E: Mempool Monitoring and Block Generation', function () {
         // A block was mined even though new txs kept arriving
         assert.ok(node.height > heightBefore)
     })
+})
 
-    // ─── B4: Empty mempool: no unnecessary mining ──────────────────
+// ─── B4: Empty mempool: no unnecessary mining ──────────────────
+
+describe('E2E: Mempool Monitoring and Block Generation', function () {
+    let node, miner
+    let startPromise
+
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
+    beforeEach(function () { miner = createTestMiner(node) })
+    afterEach(async function () { startPromise = await stopTestMiner(miner, startPromise) })
 
     it('B4: does not mine when mempool is empty', async function () {
         const heightBefore = node.height
-        startMinerLoop()
+        startPromise = startMinerLoop(miner)
         await waitFor(() => miner.keepMining === true)
 
         // Wait several polling cycles; no mining should happen
@@ -197,15 +234,25 @@ describe('E2E: Mempool Monitoring and Block Generation', function () {
         // But mempool was polled (loop is alive)
         assert.ok(node.callsFor('getrawmempool').length > 0)
     })
+})
 
-    // ─── B5: Mining resumes after empty period ──────────────────────
+// ─── B5: Mining resumes after empty period ──────────────────────
+
+describe('E2E: Mempool Monitoring and Block Generation', function () {
+    let node, miner
+    let startPromise
+
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
+    beforeEach(function () { miner = createTestMiner(node) })
+    afterEach(async function () { startPromise = await stopTestMiner(miner, startPromise) })
 
     it('B5: mines correctly after an idle period', async function () {
         miner.maxTimeToMineTxs = 500
         miner.addedTimeToMineTxs = 100
 
         const heightBefore = node.height
-        startMinerLoop()
+        startPromise = startMinerLoop(miner)
         await waitFor(() => miner.keepMining === true)
 
         // Idle period
@@ -219,15 +266,25 @@ describe('E2E: Mempool Monitoring and Block Generation', function () {
         await waitFor(() => node.height > heightBefore, 3000)
         assert.strictEqual(node.height, heightBefore + 1)
     })
+})
 
-    // ─── B6: Multiple mining cycles ─────────────────────────────────
+// ─── B6: Multiple mining cycles ─────────────────────────────────
+
+describe('E2E: Mempool Monitoring and Block Generation', function () {
+    let node, miner
+    let startPromise
+
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
+    beforeEach(function () { miner = createTestMiner(node) })
+    afterEach(async function () { startPromise = await stopTestMiner(miner, startPromise) })
 
     it('B6: handles multiple mining cycles with state resets', async function () {
         miner.maxTimeToMineTxs = 500
         miner.addedTimeToMineTxs = 80
 
         const heightBefore = node.height
-        startMinerLoop()
+        startPromise = startMinerLoop(miner)
         await waitFor(() => miner.keepMining === true)
 
         // Cycle 1
