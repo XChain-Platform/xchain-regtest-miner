@@ -13,43 +13,104 @@ const sinon = require('sinon')
 
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+let XChainRegtestMiner, miner, controller
+
+function setupMiner() {
+    const connectorStub = {
+        getWalletInfo: sinon.stub().resolves({ walletname: 'w' }),
+        loadWallet: sinon.stub(),
+        createWallet: sinon.stub(),
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        getRawMempool: sinon.stub().resolves([]),
+        sendToAddress: sinon.stub().resolves('txid_abc'),
+        setTxFee: sinon.stub().resolves(true),
+        setWalletName: sinon.stub(),
+        getRawTransaction: sinon.stub().resolves('0200000001...'),
+        sendRawTransaction: sinon.stub().resolves('txid_sent'),
+        getNetworkInfo: sinon.stub().resolves({}),
+    }
+
+    sinon.stub(BlockchainConnector.prototype, 'constructor')
+
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
+
+    sinon.stub(miner, 'sleep').resolves()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+}
+
+function teardownMiner() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
+function registerMinerHooks() {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
+}
+
+function setupFillMempoolController() {
+    const minerStub = {
+        fillMempool: sinon.stub(),
+    }
+
+    controller = {
+        async fill_mempool({ tx_quantity }) {
+            try {
+                await minerStub.fillMempool(tx_quantity)
+            } catch (err) {
+                return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' }
+            }
+            return { result: 'ok' }
+        },
+        _miner: minerStub,
+    }
+}
+
+function setupSendFundsController() {
+    const minerStub = {
+        sendFundsToAddress: sinon.stub(),
+    }
+
+    controller = {
+        async send_funds({ address, amount }) {
+            let txid = null
+            try {
+                txid = await minerStub.sendFundsToAddress(address, amount)
+            } catch (err) {
+                return { error: 'There was a problem sending ' + amount + ' to ' + address }
+            }
+            return txid
+        },
+        _miner: minerStub,
+    }
+}
+
+function setupMiningTimeController() {
+    const minerStub = {
+        setMiningTime: sinon.stub().resolves(),
+    }
+
+    controller = {
+        async set_mining_time({ max_time, tx_added_time }) {
+            try {
+                await minerStub.setMiningTime(max_time, tx_added_time)
+            } catch (err) {
+                return { error: 'There was a problem trying to set a new time to mine blocks' }
+            }
+            return { result: 'ok' }
+        },
+        _miner: minerStub,
+    }
+}
+
 describe('Boundary: API Input Validation', function () {
-    let XChainRegtestMiner
-    let miner
-
-    beforeEach(function () {
-        const connectorStub = {
-            getWalletInfo: sinon.stub().resolves({ walletname: 'w' }),
-            loadWallet: sinon.stub(),
-            createWallet: sinon.stub(),
-            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-            getBalance: sinon.stub().resolves(50.0),
-            getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
-            generateToAddress: sinon.stub().resolves(['blockhash1']),
-            getRawMempool: sinon.stub().resolves([]),
-            sendToAddress: sinon.stub().resolves('txid_abc'),
-            setTxFee: sinon.stub().resolves(true),
-            setWalletName: sinon.stub(),
-            getRawTransaction: sinon.stub().resolves('0200000001...'),
-            sendRawTransaction: sinon.stub().resolves('txid_sent'),
-            getNetworkInfo: sinon.stub().resolves({}),
-        }
-
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
-
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+    registerMinerHooks()
 
     // ═══════════════════════════════════════════════════════════════════
     // setMiningTime input boundaries
@@ -88,6 +149,10 @@ describe('Boundary: API Input Validation', function () {
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
     })
+})
+
+describe('Boundary: API Input Validation', function () {
+    registerMinerHooks()
 
     describe('A-04: set_mining_time with strings', function () {
         it('rejects string "abc" and "def"', async function () {
@@ -121,6 +186,10 @@ describe('Boundary: API Input Validation', function () {
             assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         })
     })
+})
+
+describe('Boundary: API Input Validation', function () {
+    registerMinerHooks()
 
     describe('A-07: set_mining_time with Infinity', function () {
         it('rejects Infinity (not an integer)', async function () {
@@ -149,6 +218,10 @@ describe('Boundary: API Input Validation', function () {
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
     })
+})
+
+describe('Boundary: API Input Validation', function () {
+    registerMinerHooks()
 
     // ═══════════════════════════════════════════════════════════════════
     // setDefaultMiningTime boundaries
@@ -171,102 +244,79 @@ describe('Boundary: API Input Validation', function () {
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
     })
+})
 
-    // ═══════════════════════════════════════════════════════════════════
-    // JSON-RPC controller: fill_mempool parameter boundaries
-    // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// JSON-RPC controller: fill_mempool parameter boundaries
+// ═══════════════════════════════════════════════════════════════════
 
-    describe('fill_mempool API controller boundaries', function () {
-        let controller
+function registerFillMempoolInputs() {
+    beforeEach(setupFillMempoolController)
 
-        beforeEach(function () {
-            const minerStub = {
-                fillMempool: sinon.stub(),
-            }
-
-            controller = {
-                async fill_mempool({ tx_quantity }) {
-                    try {
-                        await minerStub.fillMempool(tx_quantity)
-                    } catch (err) {
-                        return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' }
-                    }
-                    return { result: 'ok' }
-                },
-                _miner: minerStub,
-            }
-        })
-
-        it('A-10: passes tx_quantity=0 through to fillMempool', async function () {
-            controller._miner.fillMempool.resolves()
-            const result = await controller.fill_mempool({ tx_quantity: 0 })
-            assert.deepStrictEqual(result, { result: 'ok' })
-            assert(controller._miner.fillMempool.calledWith(0))
-        })
-
-        it('A-11: passes tx_quantity=-1 through (no validation in controller)', async function () {
-            controller._miner.fillMempool.resolves()
-            const result = await controller.fill_mempool({ tx_quantity: -1 })
-            assert.deepStrictEqual(result, { result: 'ok' })
-            assert(controller._miner.fillMempool.calledWith(-1))
-        })
-
-        it('A-12: passes tx_quantity=1 through', async function () {
-            controller._miner.fillMempool.resolves()
-            const result = await controller.fill_mempool({ tx_quantity: 1 })
-            assert(controller._miner.fillMempool.calledWith(1))
-        })
-
-        it('A-14: passes tx_quantity=1.5 through (no type check)', async function () {
-            controller._miner.fillMempool.resolves()
-            await controller.fill_mempool({ tx_quantity: 1.5 })
-            assert(controller._miner.fillMempool.calledWith(1.5))
-        })
-
-        it('A-15: passes tx_quantity="not_a_number" through (no type check)', async function () {
-            controller._miner.fillMempool.resolves()
-            await controller.fill_mempool({ tx_quantity: 'not_a_number' })
-            assert(controller._miner.fillMempool.calledWith('not_a_number'))
-        })
-
-        it('A-16: passes undefined tx_quantity when missing', async function () {
-            controller._miner.fillMempool.resolves()
-            await controller.fill_mempool({})
-            assert(controller._miner.fillMempool.calledWith(undefined))
-        })
-
-        it('returns error object when fillMempool throws', async function () {
-            controller._miner.fillMempool.rejects(new Error('crash'))
-            const result = await controller.fill_mempool({ tx_quantity: -1 })
-            assert(result.error.includes('-1'))
-        })
+    it('A-10: passes tx_quantity=0 through to fillMempool', async function () {
+        controller._miner.fillMempool.resolves()
+        const result = await controller.fill_mempool({ tx_quantity: 0 })
+        assert.deepStrictEqual(result, { result: 'ok' })
+        assert(controller._miner.fillMempool.calledWith(0))
     })
+
+    it('A-11: passes tx_quantity=-1 through (no validation in controller)', async function () {
+        controller._miner.fillMempool.resolves()
+        const result = await controller.fill_mempool({ tx_quantity: -1 })
+        assert.deepStrictEqual(result, { result: 'ok' })
+        assert(controller._miner.fillMempool.calledWith(-1))
+    })
+
+    it('A-12: passes tx_quantity=1 through', async function () {
+        controller._miner.fillMempool.resolves()
+        const result = await controller.fill_mempool({ tx_quantity: 1 })
+        assert(controller._miner.fillMempool.calledWith(1))
+    })
+}
+
+function registerFillMempoolErrors() {
+    beforeEach(setupFillMempoolController)
+
+    it('A-14: passes tx_quantity=1.5 through (no type check)', async function () {
+        controller._miner.fillMempool.resolves()
+        await controller.fill_mempool({ tx_quantity: 1.5 })
+        assert(controller._miner.fillMempool.calledWith(1.5))
+    })
+
+    it('A-15: passes tx_quantity="not_a_number" through (no type check)', async function () {
+        controller._miner.fillMempool.resolves()
+        await controller.fill_mempool({ tx_quantity: 'not_a_number' })
+        assert(controller._miner.fillMempool.calledWith('not_a_number'))
+    })
+
+    it('A-16: passes undefined tx_quantity when missing', async function () {
+        controller._miner.fillMempool.resolves()
+        await controller.fill_mempool({})
+        assert(controller._miner.fillMempool.calledWith(undefined))
+    })
+
+    it('returns error object when fillMempool throws', async function () {
+        controller._miner.fillMempool.rejects(new Error('crash'))
+        const result = await controller.fill_mempool({ tx_quantity: -1 })
+        assert(result.error.includes('-1'))
+    })
+}
+
+describe('Boundary: API Input Validation', function () {
+    registerMinerHooks()
+    describe('fill_mempool API controller boundaries', registerFillMempoolInputs)
+    describe('fill_mempool API controller boundaries', registerFillMempoolErrors)
+})
+
+describe('Boundary: API Input Validation', function () {
+    registerMinerHooks()
 
     // ═══════════════════════════════════════════════════════════════════
     // JSON-RPC controller: send_funds parameter boundaries
     // ═══════════════════════════════════════════════════════════════════
 
     describe('send_funds API controller boundaries', function () {
-        let controller
-
-        beforeEach(function () {
-            const minerStub = {
-                sendFundsToAddress: sinon.stub(),
-            }
-
-            controller = {
-                async send_funds({ address, amount }) {
-                    let txid = null
-                    try {
-                        txid = await minerStub.sendFundsToAddress(address, amount)
-                    } catch (err) {
-                        return { error: 'There was a problem sending ' + amount + ' to ' + address }
-                    }
-                    return txid
-                },
-                _miner: minerStub,
-            }
-        })
+        beforeEach(setupSendFundsController)
 
         it('A-20: passes empty address and zero amount through', async function () {
             controller._miner.sendFundsToAddress.resolves('txid')
@@ -285,6 +335,14 @@ describe('Boundary: API Input Validation', function () {
             await controller.send_funds({ address: 'bcrt1q...', amount: 0.000000001 })
             assert(controller._miner.sendFundsToAddress.calledWith('bcrt1q...', 0.000000001))
         })
+    })
+})
+
+describe('Boundary: API Input Validation', function () {
+    registerMinerHooks()
+
+    describe('send_funds API controller boundaries', function () {
+        beforeEach(setupSendFundsController)
 
         it('A-23: passes total supply amount through', async function () {
             controller._miner.sendFundsToAddress.resolves('txid')
@@ -304,31 +362,17 @@ describe('Boundary: API Input Validation', function () {
             assert(result.error.includes('invalid'))
         })
     })
+})
+
+describe('Boundary: API Input Validation', function () {
+    registerMinerHooks()
 
     // ═══════════════════════════════════════════════════════════════════
     // JSON-RPC controller: set_mining_time parameter boundaries
     // ═══════════════════════════════════════════════════════════════════
 
     describe('set_mining_time API controller boundaries', function () {
-        let controller
-
-        beforeEach(function () {
-            const minerStub = {
-                setMiningTime: sinon.stub().resolves(),
-            }
-
-            controller = {
-                async set_mining_time({ max_time, tx_added_time }) {
-                    try {
-                        await minerStub.setMiningTime(max_time, tx_added_time)
-                    } catch (err) {
-                        return { error: 'There was a problem trying to set a new time to mine blocks' }
-                    }
-                    return { result: 'ok' }
-                },
-                _miner: minerStub,
-            }
-        })
+        beforeEach(setupMiningTimeController)
 
         it('passes zero values through', async function () {
             await controller.set_mining_time({ max_time: 0, tx_added_time: 0 })
