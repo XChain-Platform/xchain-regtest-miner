@@ -26,25 +26,33 @@ const ChaosNode = require('./helpers/ChaosNode')
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
 const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor, sleep } = require('./helpers/chaosSetup')
 
+let node
+
+async function setupNode() {
+    node = new ChaosNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+}
+
+async function teardownNode() {
+    sinon.restore()
+    await node.stop()
+}
+
+function resetNode() {
+    node.reset()
+    seedWallet(node)
+}
+
+function registerNodeHooks() {
+    before(setupNode)
+    after(teardownNode)
+    beforeEach(resetNode)
+}
+
 describe('Chaos: Process Lifecycle (CE-08)', function () {
-    let node
-
-    before(async function () {
-        node = new ChaosNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
-
-    beforeEach(function () {
-        node.reset()
-        seedWallet(node)
-    })
+    registerNodeHooks()
 
     // ─── CE-08: No SIGTERM handler (W-4 characterization) ──────────
 
@@ -71,6 +79,10 @@ describe('Chaos: Process Lifecycle (CE-08)', function () {
             process.removeListener('SIGTERM', miner._sigTermHandler)
         }
     })
+})
+
+describe('Chaos: Process Lifecycle (CE-08)', function () {
+    registerNodeHooks()
 
     // ─── CE-08a: Clean restart after simulated crash ────────────────
 
