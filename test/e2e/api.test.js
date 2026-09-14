@@ -28,168 +28,187 @@ const jsonRouter = require('express-json-rpc-router')
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
 const StatefulMockNode = require('./helpers/StatefulMockNode')
 
+function createJsonRpcController(miner) {
+    return {
+        async ping() { return { status: 'success' } },
+        async send_funds({ address, amount }) {
+            try {
+                return await miner.sendFundsToAddress(address, amount)
+            } catch (err) {
+                return { error: 'There was a problem sending ' + amount + ' to ' + address }
+            }
+        },
+        async fill_mempool({ tx_quantity }) {
+            try {
+                await miner.fillMempool(tx_quantity)
+            } catch (err) {
+                return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' }
+            }
+            return { result: 'ok' }
+        },
+        async continue_mining({}) {
+            try {
+                await miner.continueMining()
+            } catch (err) {
+                return { error: 'There was a problem trying to continue the mining' }
+            }
+            return { result: 'ok' }
+        },
+        async set_mining_time({ max_time, tx_added_time }) {
+            try {
+                await miner.setMiningTime(max_time, tx_added_time)
+            } catch (err) {
+                return { error: 'There was a problem trying to set a new time to mine blocks' }
+            }
+            return { result: 'ok' }
+        },
+        async set_default_mining_time() {
+            try {
+                await miner.setDefaultMiningTime()
+            } catch (err) {
+                return { error: 'There was a problem trying to set a the default time to mine blocks' }
+            }
+            return { result: 'ok' }
+        },
+    }
+}
+
+async function waitForWallet(miner) {
+    // Wait for wallet to be ready
+    await new Promise(resolve => {
+        const check = setInterval(() => {
+            if (miner.walletAddress) {
+                clearInterval(check)
+                resolve()
+            }
+        }, 20)
+    })
+}
+
+async function startApiContext() {
+    const node = new StatefulMockNode()
+    await node.start()
+
+    // Pre-seed wallet
+    node._rpc_createwallet(['xchain_regtest_wallet'])
+    node._rpc_generatetoaddress([110, 'bcrt1qseed'])
+
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+
+    const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+
+    // Fast sleep
+    const originalSleep = miner.sleep.bind(miner)
+    miner.sleep = async (ms) => {
+        if (miner._shutdown) throw new Error('__E2E_SHUTDOWN__')
+        await originalSleep(10)
+    }
+
+    // Start the mining loop in background
+    const startPromise = miner.start().catch(e => {
+        if (e.message !== '__E2E_SHUTDOWN__') throw e
+    })
+
+    await waitForWallet(miner)
+
+    // Build Express app with real miner (same structure as api.js)
+    const app = express()
+    app.use(helmet())
+    app.use(bodyParser.json())
+    app.use(cors())
+    app.use(jsonRouter({ methods: createJsonRpcController(miner) }))
+
+    let apiServer
+    await new Promise(resolve => {
+        apiServer = app.listen(0, '127.0.0.1', resolve)
+    })
+    return { node, miner, apiServer, apiPort: apiServer.address().port, startPromise }
+}
+
+async function stopApiContext(context) {
+    context.miner._shutdown = true
+    if (context.startPromise) {
+        try { await context.startPromise } catch (e) {
+            if (e.message !== '__E2E_SHUTDOWN__') throw e
+        }
+    }
+    await new Promise(resolve => context.apiServer.close(resolve))
+    sinon.restore()
+    await context.node.stop()
+}
+
+function rpcCall(apiPort, method, params = {}) {
+    return new Promise((resolve, reject) => {
+        const body = JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
+        const req = http.request({
+            hostname: '127.0.0.1',
+            port: apiPort,
+            path: '/',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+            },
+        }, (res) => {
+            let data = ''
+            res.on('data', chunk => data += chunk)
+            res.on('end', () => {
+                try { resolve({ status: res.statusCode, body: JSON.parse(data) }) }
+                catch (e) { resolve({ status: res.statusCode, body: data }) }
+            })
+        })
+        req.on('error', reject)
+        req.write(body)
+        req.end()
+    })
+}
+
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function waitFor(conditionFn, timeoutMs = 5000) {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+        if (conditionFn()) return true
+        await sleep(20)
+    }
+    throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
+}
+
 describe('E2E: JSON-RPC API Against Live Miner', function () {
-    let node, miner, app, apiServer, apiPort
-    let startPromise
+    let context, apiPort
 
     before(async function () {
-        node = new StatefulMockNode()
-        await node.start()
-
-        // Pre-seed wallet
-        node._rpc_createwallet(['xchain_regtest_wallet'])
-        node._rpc_generatetoaddress([110, 'bcrt1qseed'])
-
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-
-        miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
-
-        // Fast sleep
-        const originalSleep = miner.sleep.bind(miner)
-        miner.sleep = async (ms) => {
-            if (miner._shutdown) throw new Error('__E2E_SHUTDOWN__')
-            await originalSleep(10)
-        }
-
-        // Start the mining loop in background
-        startPromise = miner.start().catch(e => {
-            if (e.message !== '__E2E_SHUTDOWN__') throw e
-        })
-
-        // Wait for wallet to be ready
-        await new Promise(resolve => {
-            const check = setInterval(() => {
-                if (miner.walletAddress) {
-                    clearInterval(check)
-                    resolve()
-                }
-            }, 20)
-        })
-
-        // Build Express app with real miner (same structure as api.js)
-        app = express()
-        app.use(helmet())
-        app.use(bodyParser.json())
-        app.use(cors())
-
-        const jsonRpcController = {
-            async ping() { return { status: 'success' } },
-            async send_funds({ address, amount }) {
-                try {
-                    return await miner.sendFundsToAddress(address, amount)
-                } catch (err) {
-                    return { error: 'There was a problem sending ' + amount + ' to ' + address }
-                }
-            },
-            async fill_mempool({ tx_quantity }) {
-                try {
-                    await miner.fillMempool(tx_quantity)
-                } catch (err) {
-                    return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' }
-                }
-                return { result: 'ok' }
-            },
-            async continue_mining({}) {
-                try {
-                    await miner.continueMining()
-                } catch (err) {
-                    return { error: 'There was a problem trying to continue the mining' }
-                }
-                return { result: 'ok' }
-            },
-            async set_mining_time({ max_time, tx_added_time }) {
-                try {
-                    await miner.setMiningTime(max_time, tx_added_time)
-                } catch (err) {
-                    return { error: 'There was a problem trying to set a new time to mine blocks' }
-                }
-                return { result: 'ok' }
-            },
-            async set_default_mining_time() {
-                try {
-                    await miner.setDefaultMiningTime()
-                } catch (err) {
-                    return { error: 'There was a problem trying to set a the default time to mine blocks' }
-                }
-                return { result: 'ok' }
-            },
-        }
-
-        app.use(jsonRouter({ methods: jsonRpcController }))
-
-        await new Promise(resolve => {
-            apiServer = app.listen(0, '127.0.0.1', () => {
-                apiPort = apiServer.address().port
-                resolve()
-            })
-        })
+        context = await startApiContext()
+        apiPort = context.apiPort
     })
-
-    after(async function () {
-        miner._shutdown = true
-        if (startPromise) {
-            try { await startPromise } catch (e) {
-                if (e.message !== '__E2E_SHUTDOWN__') throw e
-            }
-        }
-        await new Promise(resolve => apiServer.close(resolve))
-        sinon.restore()
-        await node.stop()
-    })
-
-    function rpcCall(method, params = {}) {
-        return new Promise((resolve, reject) => {
-            const body = JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
-            const req = http.request({
-                hostname: '127.0.0.1',
-                port: apiPort,
-                path: '/',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(body),
-                },
-            }, (res) => {
-                let data = ''
-                res.on('data', chunk => data += chunk)
-                res.on('end', () => {
-                    try { resolve({ status: res.statusCode, body: JSON.parse(data) }) }
-                    catch (e) { resolve({ status: res.statusCode, body: data }) }
-                })
-            })
-            req.on('error', reject)
-            req.write(body)
-            req.end()
-        })
-    }
-
-    async function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms))
-    }
-
-    async function waitFor(conditionFn, timeoutMs = 5000) {
-        const start = Date.now()
-        while (Date.now() - start < timeoutMs) {
-            if (conditionFn()) return true
-            await sleep(20)
-        }
-        throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
-    }
+    after(async function () { await stopApiContext(context) })
 
     // ─── C1: Ping health check ──────────────────────────────────────
 
     it('C1: ping returns success while mining loop is running', async function () {
-        const res = await rpcCall('ping')
+        const res = await rpcCall(apiPort, 'ping')
         assert.strictEqual(res.status, 200)
         assert.deepStrictEqual(res.body.result, { status: 'success' })
     })
+})
 
-    // ─── C2: send_funds creates a real transaction ──────────────────
+// ─── C2: send_funds creates a real transaction ──────────────────
+
+describe('E2E: JSON-RPC API Against Live Miner', function () {
+    let context, node, apiPort
+
+    before(async function () {
+        context = await startApiContext()
+        ;({ node, apiPort } = context)
+    })
+    after(async function () { await stopApiContext(context) })
 
     it('C2: send_funds creates a transaction on the mock node', async function () {
         const mempoolBefore = node.mempool.length
-        const res = await rpcCall('send_funds', { address: 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080', amount: 1.0 })
+        const res = await rpcCall(apiPort, 'send_funds', { address: 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080', amount: 1.0 })
         assert.strictEqual(res.status, 200)
 
         // Should return a txid string
@@ -201,24 +220,44 @@ describe('E2E: JSON-RPC API Against Live Miner', function () {
         const mempoolTxids = node.mempool.map(m => m.txid)
         assert.ok(mempoolTxids.includes(txid))
     })
+})
 
-    // ─── C3: set_mining_time takes effect on live loop ──────────────
+// ─── C3: set_mining_time takes effect on live loop ──────────────
+
+describe('E2E: JSON-RPC API Against Live Miner', function () {
+    let context, miner, apiPort
+
+    before(async function () {
+        context = await startApiContext()
+        ;({ miner, apiPort } = context)
+    })
+    after(async function () { await stopApiContext(context) })
 
     it('C3: set_mining_time changes live mining behavior', async function () {
         // Set short but valid timers (minimum is 1000ms)
-        const res = await rpcCall('set_mining_time', { max_time: 1000, tx_added_time: 1000 })
+        const res = await rpcCall(apiPort, 'set_mining_time', { max_time: 1000, tx_added_time: 1000 })
         assert.deepStrictEqual(res.body.result, { result: 'ok' })
         assert.strictEqual(miner.maxTimeToMineTxs, 1000)
         assert.strictEqual(miner.addedTimeToMineTxs, 1000)
 
         // Reset to defaults
-        const res2 = await rpcCall('set_default_mining_time')
+        const res2 = await rpcCall(apiPort, 'set_default_mining_time')
         assert.deepStrictEqual(res2.body.result, { result: 'ok' })
         assert.strictEqual(miner.maxTimeToMineTxs, 30000)
         assert.strictEqual(miner.addedTimeToMineTxs, 5000)
     })
+})
 
-    // ─── C4: Pause and resume mining ────────────────────────────────
+// ─── C4: Pause and resume mining ────────────────────────────────
+
+describe('E2E: JSON-RPC API Against Live Miner', function () {
+    let context, node, miner, apiPort
+
+    before(async function () {
+        context = await startApiContext()
+        ;({ node, miner, apiPort } = context)
+    })
+    after(async function () { await stopApiContext(context) })
 
     it('C4: continue_mining resumes mining after pause', async function () {
         const heightBefore = node.height
@@ -251,7 +290,7 @@ describe('E2E: JSON-RPC API Against Live Miner', function () {
         // Resume via API
         miner.maxTimeToMineTxs = 500
         miner.addedTimeToMineTxs = 80
-        const res = await rpcCall('continue_mining', {})
+        const res = await rpcCall(apiPort, 'continue_mining', {})
         assert.deepStrictEqual(res.body.result, { result: 'ok' })
 
         // Now mining should resume and process the transaction
