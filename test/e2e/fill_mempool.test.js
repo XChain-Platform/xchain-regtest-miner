@@ -25,36 +25,42 @@ const bitcoin = require('bitcoinjs-lib')
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
 const StatefulMockNode = require('./helpers/StatefulMockNode')
 
+async function startStatefulNode() {
+    const node = new StatefulMockNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+    return node
+}
+
+async function stopStatefulNode(node) {
+    sinon.restore()
+    await node.stop()
+}
+
+async function resetMiner(node) {
+    node.reset()
+
+    // Pre-seed wallet with plenty of balance
+    node._rpc_createwallet(['xchain_regtest_wallet'])
+    node._rpc_generatetoaddress([200, 'bcrt1qseed'])
+    node.calls = []
+
+    const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+    miner.walletAddress = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
+
+    // Fast sleep
+    const originalSleep = miner.sleep.bind(miner)
+    miner.sleep = async (ms) => await originalSleep(5)
+    return miner
+}
+
 describe('E2E: fillMempool with Real Broadcasting', function () {
     let node, miner
 
-    before(async function () {
-        node = new StatefulMockNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
-
-    beforeEach(async function () {
-        node.reset()
-
-        // Pre-seed wallet with plenty of balance
-        node._rpc_createwallet(['xchain_regtest_wallet'])
-        node._rpc_generatetoaddress([200, 'bcrt1qseed'])
-        node.calls = []
-
-        miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
-        miner.walletAddress = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
-
-        // Fast sleep
-        const originalSleep = miner.sleep.bind(miner)
-        miner.sleep = async (ms) => await originalSleep(5)
-    })
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
+    beforeEach(async function () { miner = await resetMiner(node) })
 
     // ─── D1: fillMempool(1): single transaction ────────────────────
 
@@ -84,8 +90,16 @@ describe('E2E: fillMempool with Real Broadcasting', function () {
         // Intermediate mining happened (funding + distribution confirmation)
         assert.ok(node.callsFor('generatetoaddress').length >= 1)
     })
+})
 
-    // ─── D2: fillMempool(3): multiple transactions ─────────────────
+// ─── D2: fillMempool(3): multiple transactions ─────────────────
+
+describe('E2E: fillMempool with Real Broadcasting', function () {
+    let node, miner
+
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
+    beforeEach(async function () { miner = await resetMiner(node) })
 
     it('D2: fillMempool(3) creates 3 distinct stress transactions', async function () {
         this.timeout(15000)
@@ -111,8 +125,16 @@ describe('E2E: fillMempool with Real Broadcasting', function () {
             assert.strictEqual(tx.outs[0].value, 1000)
         }
     })
+})
 
-    // ─── D3: Funding and distribution transactions are valid ────────
+// ─── D3: Funding and distribution transactions are valid ────────
+
+describe('E2E: fillMempool with Real Broadcasting', function () {
+    let node, miner
+
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
+    beforeEach(async function () { miner = await resetMiner(node) })
 
     it('D3: intermediate funding and distribution txs are properly mined', async function () {
         this.timeout(15000)
