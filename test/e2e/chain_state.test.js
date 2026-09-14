@@ -23,20 +23,24 @@ const sinon = require('sinon')
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
 const StatefulMockNode = require('./helpers/StatefulMockNode')
 
+async function startStatefulNode() {
+    const node = new StatefulMockNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+    return node
+}
+
+async function stopStatefulNode(node) {
+    sinon.restore()
+    await node.stop()
+}
+
 describe('E2E: Chain State Consistency', function () {
     let node
 
-    before(async function () {
-        node = new StatefulMockNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
 
     async function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms))
@@ -77,8 +81,15 @@ describe('E2E: Chain State Consistency', function () {
         // Second block references the first
         assert.strictEqual(blockData2.previousblockhash, newBlockHash)
     })
+})
 
-    // ─── F2: Wallet balance increases with mining ───────────────────
+// ─── F2: Wallet balance increases with mining ───────────────────
+
+describe('E2E: Chain State Consistency', function () {
+    let node
+
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
 
     it('F2: wallet balance reflects mining rewards after maturity', async function () {
         node.reset()
@@ -103,8 +114,15 @@ describe('E2E: Chain State Consistency', function () {
         assert.ok(balance > 0, 'Expected positive balance after 101 blocks')
         assert.strictEqual(balance, 50) // First block's 50 BTC is now mature
     })
+})
 
-    // ─── F3: Transactions are included in mined blocks ──────────────
+// ─── F3: Transactions are included in mined blocks ──────────────
+
+describe('E2E: Chain State Consistency', function () {
+    let node
+
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
 
     it('F3: mempool transactions appear in mined blocks', async function () {
         node.reset()
@@ -135,8 +153,15 @@ describe('E2E: Chain State Consistency', function () {
         assert.ok(blockData.tx.includes('txid_f3_002'))
         assert.ok(blockData.tx.includes('txid_f3_003'))
     })
+})
 
-    // ─── F4: send_funds deducts from wallet balance ─────────────────
+// ─── F4: send_funds deducts from wallet balance ─────────────────
+
+describe('E2E: Chain State Consistency', function () {
+    let node
+
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
 
     it('F4: sendFundsToAddress reduces wallet balance', async function () {
         node.reset()
@@ -157,8 +182,15 @@ describe('E2E: Chain State Consistency', function () {
         assert.ok(balanceAfter < balanceBefore, 'Balance should decrease after send')
         assert.strictEqual(balanceBefore - balanceAfter, 1)
     })
+})
 
-    // ─── F5: Multiple generateBlocks calls maintain chain continuity ─
+// ─── F5: Multiple generateBlocks calls maintain chain continuity ─
+
+describe('E2E: Chain State Consistency', function () {
+    let node
+
+    before(async function () { node = await startStatefulNode() })
+    after(async function () { await stopStatefulNode(node) })
 
     it('F5: sequential block generation maintains ascending heights', async function () {
         node.reset()
