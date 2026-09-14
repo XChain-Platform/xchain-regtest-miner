@@ -13,46 +13,53 @@ const sinon = require('sinon')
 
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+let XChainRegtestMiner
+let miner
+let connectorStub
+
+function setupMiner() {
+    connectorStub = {
+        getWalletInfo: sinon.stub().resolves({ walletname: 'w' }),
+        loadWallet: sinon.stub(),
+        createWallet: sinon.stub(),
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        getRawMempool: sinon.stub().resolves([]),
+        sendToAddress: sinon.stub().resolves('txid_abc'),
+        setTxFee: sinon.stub().resolves(true),
+        setWalletName: sinon.stub(),
+        getRawTransaction: sinon.stub().resolves('0200000001...'),
+        sendRawTransaction: sinon.stub().resolves('txid_sent'),
+        getNetworkInfo: sinon.stub().resolves({}),
+    }
+
+    sinon.stub(BlockchainConnector.prototype, 'constructor')
+
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
+
+    sinon.stub(miner, 'sleep').resolves()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+
+    miner.walletAddress = 'bcrt1qtest'
+}
+
+function teardownMiner() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
+function registerMinerHooks() {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
+}
+
 describe('Boundary: Block Generation', function () {
-    let XChainRegtestMiner
-    let miner
-    let connectorStub
-
-    beforeEach(function () {
-        connectorStub = {
-            getWalletInfo: sinon.stub().resolves({ walletname: 'w' }),
-            loadWallet: sinon.stub(),
-            createWallet: sinon.stub(),
-            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-            getBalance: sinon.stub().resolves(50.0),
-            getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
-            generateToAddress: sinon.stub().resolves(['blockhash1']),
-            getRawMempool: sinon.stub().resolves([]),
-            sendToAddress: sinon.stub().resolves('txid_abc'),
-            setTxFee: sinon.stub().resolves(true),
-            setWalletName: sinon.stub(),
-            getRawTransaction: sinon.stub().resolves('0200000001...'),
-            sendRawTransaction: sinon.stub().resolves('txid_sent'),
-            getNetworkInfo: sinon.stub().resolves({}),
-        }
-
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
-
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-
-        miner.walletAddress = 'bcrt1qtest'
-    })
-
-    afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+    registerMinerHooks()
 
     // ─── G-01: generateBlocks(0) ───────────────────────────────────────
 
@@ -87,8 +94,12 @@ describe('Boundary: Block Generation', function () {
             assert(console.log.calledWithMatch(/A new block has been generated/))
         })
     })
+})
 
     // ─── G-03: generateBlocks(101) during prepareWallet ────────────────
+
+describe('Boundary: Block Generation', function () {
+    registerMinerHooks()
 
     describe('G-03: generateBlocks(101) for coinbase maturity', function () {
         it('calls generateToAddress with count=101', async function () {
@@ -127,8 +138,12 @@ describe('Boundary: Block Generation', function () {
             )
         })
     })
+})
 
     // ─── G-06: Concurrent generateBlocks calls ─────────────────────────
+
+describe('Boundary: Block Generation', function () {
+    registerMinerHooks()
 
     describe('G-06: concurrent generateBlocks calls', function () {
         it('second call is serialized behind first; both complete in queue order', async function () {
@@ -170,8 +185,12 @@ describe('Boundary: Block Generation', function () {
             assert(connectorStub.generateToAddress.calledWith(1, ''))
         })
     })
+})
 
     // ─── Large block count ─────────────────────────────────────────────
+
+describe('Boundary: Block Generation', function () {
+    registerMinerHooks()
 
     describe('Large block count', function () {
         it('generateBlocks(1000) passes count to connector', async function () {
