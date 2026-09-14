@@ -23,60 +23,118 @@ const http = require('http')
 const ChaosNode = require('./helpers/ChaosNode')
 const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor } = require('./helpers/chaosSetup')
 
-describe('Chaos: Stress Testing', function () {
-    let node
+async function startChaosNode() {
+    const node = new ChaosNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+    node.reset()
+    seedWallet(node)
+    return node
+}
 
-    before(async function () {
-        node = new ChaosNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+async function stopChaosNode(node) {
+    sinon.restore()
+    await node.stop()
+}
 
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
+// ── JSON-RPC helper for API tests ───────────────────────────────
 
-    beforeEach(function () {
-        node.reset()
-        seedWallet(node)
-    })
-
-    // ── JSON-RPC helper for API tests ───────────────────────────────
-
-    function rpcCall(port, method, params = {}) {
-        return new Promise((resolve, reject) => {
-            const body = JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
-            const req = http.request({
-                hostname: '127.0.0.1',
-                port,
-                path: '/',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(body),
-                },
-            }, (res) => {
-                let data = ''
-                res.on('data', chunk => data += chunk)
-                res.on('end', () => {
-                    try {
-                        resolve({ status: res.statusCode, body: JSON.parse(data) })
-                    } catch (e) {
-                        resolve({ status: res.statusCode, body: data })
-                    }
-                })
+function rpcCall(port, method, params = {}) {
+    return new Promise((resolve, reject) => {
+        const body = JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
+        const req = http.request({
+            hostname: '127.0.0.1',
+            port,
+            path: '/',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+            },
+        }, (res) => {
+            let data = ''
+            res.on('data', chunk => data += chunk)
+            res.on('end', () => {
+                try {
+                    resolve({ status: res.statusCode, body: JSON.parse(data) })
+                } catch (e) {
+                    resolve({ status: res.statusCode, body: data })
+                }
             })
-            req.on('error', reject)
-            req.write(body)
-            req.end()
         })
+        req.on('error', reject)
+        req.write(body)
+        req.end()
+    })
+}
+
+async function startApiContext() {
+    const node = await startChaosNode()
+    const express = require('express')
+    const jsonRpcRouter = require('express-json-rpc-router')
+    // Spin up the Express API server (mirrors api.js setup)
+    const app = express()
+    app.use(express.json())
+
+    const miner = createMiner(node)
+    // Pre-set wallet address so send_funds works
+    miner.walletAddress = 'bcrt1qseed'
+    miner.keepMining = true
+
+    const controller = {
+        async ping() { return { status: 'success' } },
+        async send_funds({ address, amount }) {
+            try {
+                const txid = await miner.sendFundsToAddress(address, amount)
+                return txid
+            } catch (err) {
+                return { error: err.message }
+            }
+        },
+        async fill_mempool({ tx_quantity }) {
+            try {
+                const result = await miner.fillMempool(tx_quantity)
+                if (result && result.error) return result
+                return { result: 'ok' }
+            } catch (err) {
+                return { error: err.message }
+            }
+        },
+        async set_mining_time({ max_time, tx_added_time }) {
+            try {
+                const result = await miner.setMiningTime(max_time, tx_added_time)
+                if (result && result.error) return result
+                return { result: 'ok' }
+            } catch (err) {
+                return { error: err.message }
+            }
+        },
     }
+
+    app.use(jsonRpcRouter({ methods: controller }))
+
+    let apiServer
+    await new Promise(resolve => {
+        apiServer = app.listen(0, '127.0.0.1', resolve)
+    })
+    return { apiPort: apiServer.address().port, apiServer, miner, node }
+}
+
+async function stopApiContext(context) {
+    await new Promise(resolve => context.apiServer.close(resolve))
+    await stopChaosNode(context.node)
+}
+
+describe('Chaos: Stress Testing', function () {
 
     // ─── CE-07: Large Mempool ───────────────────────────────────────
 
     describe('CE-07: Large Mempool (10,000+ entries)', function () {
+        let node
+
+        beforeEach(async function () { node = await startChaosNode() })
+        afterEach(async function () { await stopChaosNode(node) })
 
         it('CE-07: miner handles 10,000+ mempool entries without memory issues', async function () {
             const miner = createMiner(node)
@@ -112,74 +170,23 @@ describe('Chaos: Stress Testing', function () {
             await stopMinerLoop(miner, startPromise)
         })
     })
+})
 
-    // ─── CE-09: Concurrent API Abuse ────────────────────────────────
+// ─── CE-09: Concurrent API Abuse ────────────────────────────────
 
+describe('Chaos: Stress Testing', function () {
     describe('CE-09: Concurrent API Abuse', function () {
-        let apiServer
+        let context
         let apiPort
 
         beforeEach(async function () {
-            const express = require('express')
-            const jsonRpcRouter = require('express-json-rpc-router')
-            // Spin up the Express API server (mirrors api.js setup)
-            const app = express()
-            app.use(express.json())
-
-            const miner = createMiner(node)
-            // Pre-set wallet address so send_funds works
-            miner.walletAddress = 'bcrt1qseed'
-            miner.keepMining = true
-
+            context = await startApiContext()
+            apiPort = context.apiPort
             // Store miner reference for assertions
-            this.miner = miner
-
-            const controller = {
-                async ping() { return { status: 'success' } },
-                async send_funds({ address, amount }) {
-                    try {
-                        const txid = await miner.sendFundsToAddress(address, amount)
-                        return txid
-                    } catch (err) {
-                        return { error: err.message }
-                    }
-                },
-                async fill_mempool({ tx_quantity }) {
-                    try {
-                        const result = await miner.fillMempool(tx_quantity)
-                        if (result && result.error) return result
-                        return { result: 'ok' }
-                    } catch (err) {
-                        return { error: err.message }
-                    }
-                },
-                async set_mining_time({ max_time, tx_added_time }) {
-                    try {
-                        const result = await miner.setMiningTime(max_time, tx_added_time)
-                        if (result && result.error) return result
-                        return { result: 'ok' }
-                    } catch (err) {
-                        return { error: err.message }
-                    }
-                },
-            }
-
-            app.use(jsonRpcRouter({ methods: controller }))
-
-            await new Promise(resolve => {
-                apiServer = app.listen(0, '127.0.0.1', () => {
-                    apiPort = apiServer.address().port
-                    resolve()
-                })
-            })
+            this.miner = context.miner
         })
 
-        afterEach(async function () {
-            if (apiServer) {
-                await new Promise(resolve => apiServer.close(resolve))
-                apiServer = null
-            }
-        })
+        afterEach(async function () { await stopApiContext(context) })
 
         it('CE-09a: 10 concurrent fill_mempool calls; exactly 1 accepted, rest rejected by guard', async function () {
             const miner = this.miner
@@ -214,6 +221,20 @@ describe('Chaos: Stress Testing', function () {
 
             miner.connector.sleep.restore()
         })
+    })
+})
+
+describe('Chaos: Stress Testing', function () {
+    describe('CE-09: Concurrent API Abuse', function () {
+        let context
+        let apiPort
+
+        beforeEach(async function () {
+            context = await startApiContext()
+            apiPort = context.apiPort
+        })
+
+        afterEach(async function () { await stopApiContext(context) })
 
         it('CE-09b: 50 concurrent send_funds calls complete without crashing', async function () {
             const results = await Promise.all(
@@ -234,6 +255,21 @@ describe('Chaos: Stress Testing', function () {
             assert.strictEqual(pingResult.body.result.status, 'success',
                 'API server should still be responsive after 50 concurrent calls')
         })
+    })
+})
+
+describe('Chaos: Stress Testing', function () {
+    describe('CE-09: Concurrent API Abuse', function () {
+        let context
+        let apiPort
+
+        beforeEach(async function () {
+            context = await startApiContext()
+            apiPort = context.apiPort
+            this.miner = context.miner
+        })
+
+        afterEach(async function () { await stopApiContext(context) })
 
         it('CE-09c: 20 concurrent set_mining_time calls produce valid final state', async function () {
             const miner = this.miner
