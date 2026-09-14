@@ -23,24 +23,25 @@ const ChaosNode = require('./helpers/ChaosNode')
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
 const { sleep, waitFor } = require('./helpers/chaosSetup')
 
+async function startChaosNode() {
+    const node = new ChaosNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+    return node
+}
+
+async function stopChaosNode(node) {
+    sinon.restore()
+    await node.stop()
+}
+
 describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
     let node
 
-    before(async function () {
-        node = new ChaosNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
-
-    beforeEach(function () {
-        node.reset()
-    })
+    before(async function () { node = await startChaosNode() })
+    after(async function () { await stopChaosNode(node) })
+    beforeEach(function () { node.reset() })
 
     // ─── CE-05a: Node comes online within retry window ──────────────
 
@@ -85,8 +86,16 @@ describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
 
         miner.connector.sleep.restore()
     })
+})
 
-    // ─── CE-05b: Node stays offline, retries exhausted (W-2) ────────
+// ─── CE-05b: Node stays offline, retries exhausted (W-2) ────────
+
+describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
+    let node
+
+    before(async function () { node = await startChaosNode() })
+    after(async function () { await stopChaosNode(node) })
+    beforeEach(function () { node.reset() })
 
     it('CE-05b: miner initialization fails after exhausting retry windows (documented W-2)', async function () {
         // Node stays offline for the entire test
@@ -116,8 +125,16 @@ describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
         node.goOnline()
         miner.connector.sleep.restore()
     })
+})
 
-    // ─── CE-05c: Restart with existing wallet after outage ──────────
+// ─── CE-05c: Restart with existing wallet after outage ──────────
+
+describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
+    let node
+
+    before(async function () { node = await startChaosNode() })
+    after(async function () { await stopChaosNode(node) })
+    beforeEach(function () { node.reset() })
 
     it('CE-05c: miner re-initializes with existing wallet after node outage and recovery', async function () {
         // First: create a wallet and seed it while online
