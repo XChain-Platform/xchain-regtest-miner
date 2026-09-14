@@ -13,44 +13,51 @@ const sinon = require('sinon')
 
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+let XChainRegtestMiner
+let miner
+let connectorStub
+
+function setupMiner() {
+    connectorStub = {
+        getWalletInfo: sinon.stub(),
+        loadWallet: sinon.stub(),
+        createWallet: sinon.stub(),
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        getRawMempool: sinon.stub().resolves([]),
+        sendToAddress: sinon.stub().resolves('txid_abc'),
+        setTxFee: sinon.stub().resolves(true),
+        setWalletName: sinon.stub(),
+        getRawTransaction: sinon.stub().resolves('0200000001...'),
+        sendRawTransaction: sinon.stub().resolves('txid_sent'),
+        getNetworkInfo: sinon.stub().resolves({}),
+    }
+
+    sinon.stub(BlockchainConnector.prototype, 'constructor')
+
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
+
+    sinon.stub(miner, 'sleep').resolves()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+}
+
+function teardownMiner() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
+function registerMinerHooks() {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
+}
+
 describe('Boundary: Wallet Preparation', function () {
-    let XChainRegtestMiner
-    let miner
-    let connectorStub
-
-    beforeEach(function () {
-        connectorStub = {
-            getWalletInfo: sinon.stub(),
-            loadWallet: sinon.stub(),
-            createWallet: sinon.stub(),
-            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-            getBalance: sinon.stub().resolves(50.0),
-            getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
-            generateToAddress: sinon.stub().resolves(['blockhash1']),
-            getRawMempool: sinon.stub().resolves([]),
-            sendToAddress: sinon.stub().resolves('txid_abc'),
-            setTxFee: sinon.stub().resolves(true),
-            setWalletName: sinon.stub(),
-            getRawTransaction: sinon.stub().resolves('0200000001...'),
-            sendRawTransaction: sinon.stub().resolves('txid_sent'),
-            getNetworkInfo: sinon.stub().resolves({}),
-        }
-
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
-
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+    registerMinerHooks()
 
     // ─── W-01: Wallet loaded, balance > 0, height > 100 ───────────────
 
@@ -97,8 +104,12 @@ describe('Boundary: Wallet Preparation', function () {
             assert(connectorStub.generateToAddress.calledWith(101, 'bcrt1qtest'))
         })
     })
+})
 
     // ─── W-04: Wallet loaded, balance = 0, height = 100 ───────────────
+
+describe('Boundary: Wallet Preparation', function () {
+    registerMinerHooks()
 
     describe('W-04: wallet loaded, balance = 0, height = 100', function () {
         it('mines 101 blocks (height <= 100, uses <= comparison)', async function () {
@@ -144,8 +155,12 @@ describe('Boundary: Wallet Preparation', function () {
             assert.strictEqual(miner.walletReady, false)
         })
     })
+})
 
     // ─── W-06: Wallet not loaded, exists on disk ───────────────────────
+
+describe('Boundary: Wallet Preparation', function () {
+    registerMinerHooks()
 
     describe('W-06: wallet not loaded, exists on disk', function () {
         it('loads wallet without creating', async function () {
@@ -191,8 +206,12 @@ describe('Boundary: Wallet Preparation', function () {
             )
         })
     })
+})
 
     // ─── W-09: getWalletInfo permanently fails ─────────────────────────
+
+describe('Boundary: Wallet Preparation', function () {
+    registerMinerHooks()
 
     describe('W-09: getNewAddress probe exhausts retries (not infinite loop)', function () {
         it('catches probe failure and proceeds to load/create flow', async function () {
@@ -208,8 +227,12 @@ describe('Boundary: Wallet Preparation', function () {
             assert(connectorStub.loadWallet.calledOnce)
         })
     })
+})
 
     // ─── W-10: Balance at floating-point boundary ──────────────────────
+
+describe('Boundary: Wallet Preparation', function () {
+    registerMinerHooks()
 
     describe('W-10: balance at floating-point boundary', function () {
         it('treats very small positive balance as positive (no mining)', async function () {
@@ -260,8 +283,12 @@ describe('Boundary: Wallet Preparation', function () {
                 '-0 satisfies <= 0 check')
         })
     })
+})
 
     // ─── W-11: getWalletInfo returns null ──────────────────────────────
+
+describe('Boundary: Wallet Preparation', function () {
+    registerMinerHooks()
 
     describe('W-11: probe returns no usable address', function () {
         it('treats a failed probe as no wallet loaded', async function () {
