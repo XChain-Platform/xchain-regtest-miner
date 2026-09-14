@@ -23,25 +23,30 @@ const sinon = require('sinon')
 const ChaosNode = require('./helpers/ChaosNode')
 const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor } = require('./helpers/chaosSetup')
 
+async function startChaosNode() {
+    const node = new ChaosNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+    return node
+}
+
+async function stopChaosNode(node) {
+    sinon.restore()
+    await node.stop()
+}
+
+function resetChaosNode(node) {
+    node.reset()
+    seedWallet(node)
+}
+
 describe('Chaos: RPC Disruption', function () {
     let node
 
-    before(async function () {
-        node = new ChaosNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
-
-    beforeEach(function () {
-        node.reset()
-        seedWallet(node)
-    })
+    before(async function () { node = await startChaosNode() })
+    after(async function () { await stopChaosNode(node) })
+    beforeEach(function () { resetChaosNode(node) })
 
     // ─── CE-01: RPC Connection Loss ─────────────────────────────────
 
@@ -94,7 +99,17 @@ describe('Chaos: RPC Disruption', function () {
 
             await stopMinerLoop(miner, startPromise)
         })
+    })
+})
 
+describe('Chaos: RPC Disruption', function () {
+    let node
+
+    before(async function () { node = await startChaosNode() })
+    after(async function () { await stopChaosNode(node) })
+    beforeEach(function () { resetChaosNode(node) })
+
+    describe('CE-01: RPC Connection Loss', function () {
         it('CE-01b: miner does not crash during extended outage', async function () {
             const miner = createMiner(node)
 
@@ -114,8 +129,16 @@ describe('Chaos: RPC Disruption', function () {
             await stopMinerLoop(miner, startPromise)
         })
     })
+})
 
-    // ─── CE-02: RPC Timeout During Block Generation ─────────────────
+// ─── CE-02: RPC Timeout During Block Generation ─────────────────
+
+describe('Chaos: RPC Disruption', function () {
+    let node
+
+    before(async function () { node = await startChaosNode() })
+    after(async function () { await stopChaosNode(node) })
+    beforeEach(function () { resetChaosNode(node) })
 
     describe('CE-02: RPC Timeout on generatetoaddress', function () {
 
@@ -166,8 +189,16 @@ describe('Chaos: RPC Disruption', function () {
             await stopMinerLoop(miner, startPromise)
         })
     })
+})
 
-    // ─── CE-03: Intermittent RPC Flapping ───────────────────────────
+// ─── CE-03: Intermittent RPC Flapping ───────────────────────────
+
+describe('Chaos: RPC Disruption', function () {
+    let node
+
+    before(async function () { node = await startChaosNode() })
+    after(async function () { await stopChaosNode(node) })
+    beforeEach(function () { resetChaosNode(node) })
 
     describe('CE-03: 50% RPC Flapping', function () {
 
@@ -210,7 +241,17 @@ describe('Chaos: RPC Disruption', function () {
             node.clearFailRates()
             await stopMinerLoop(miner, startPromise)
         })
+    })
+})
 
+describe('Chaos: RPC Disruption', function () {
+    let node
+
+    before(async function () { node = await startChaosNode() })
+    after(async function () { await stopChaosNode(node) })
+    beforeEach(function () { resetChaosNode(node) })
+
+    describe('CE-03: 50% RPC Flapping', function () {
         it('CE-03b: mining resumes cleanly after flapping period ends', async function () {
             const miner = createMiner(node)
             miner.maxTimeToMineTxs = 300
