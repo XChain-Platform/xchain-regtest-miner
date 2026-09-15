@@ -24,9 +24,9 @@ const MockRpcServer = require('./helpers/MockRpcServer')
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 const { RPC_RESPONSES } = require('./helpers/fixtures')
 
-describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
-    let server, connector
+let server, connector
 
+function useConnector() {
     before(async function () {
         server = new MockRpcServer()
         await server.start()
@@ -47,120 +47,149 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
     afterEach(function () {
         sinon.restore()
     })
+}
+
+async function testGetBlockchainInfo() {
+    server.onMethod('getblockchaininfo').returns(RPC_RESPONSES.BLOCKCHAIN_INFO_MATURE)
+    const result = await connector.getBlockchainInfo()
+    assert.deepStrictEqual(result, RPC_RESPONSES.BLOCKCHAIN_INFO_MATURE)
+
+    const call = server.callsFor('getblockchaininfo')[0]
+    assert.strictEqual(call.method, 'getblockchaininfo')
+    assert.strictEqual(call.id, 1)
+}
+
+async function testGetNetworkInfo() {
+    server.onMethod('getnetworkinfo').returns(RPC_RESPONSES.NETWORK_INFO)
+    const result = await connector.getNetworkInfo()
+    assert.strictEqual(result.version, 250000)
+}
+
+async function testEmptyMempool() {
+    server.onMethod('getrawmempool').returns([])
+    const result = await connector.getRawMempool()
+    assert.deepStrictEqual(result, [])
+}
+
+async function testPopulatedMempool() {
+    server.onMethod('getrawmempool').returns(['tx1', 'tx2', 'tx3'])
+    const result = await connector.getRawMempool()
+    assert.deepStrictEqual(result, ['tx1', 'tx2', 'tx3'])
+}
+
+async function testGenerateToAddress() {
+    server.onMethod('generatetoaddress').returns(['hash1', 'hash2'])
+    const result = await connector.generateToAddress(2, 'bcrt1qtest')
+    assert.deepStrictEqual(result, ['hash1', 'hash2'])
+
+    const call = server.callsFor('generatetoaddress')[0]
+    assert.deepStrictEqual(call.params, [2, 'bcrt1qtest'])
+}
+
+async function testGetBlockHash() {
+    server.onMethod('getblockhash').returns('000000abcdef')
+    const result = await connector.getBlockHash(42)
+    assert.strictEqual(result, '000000abcdef')
+
+    const call = server.callsFor('getblockhash')[0]
+    assert.deepStrictEqual(call.params, [42])
+}
+
+async function testGetBlockHex() {
+    server.onMethod('getblock').returns('0100000000...')
+    const result = await connector.getBlock('hash123', true)
+    assert.strictEqual(result, '0100000000...')
+
+    // getblock verbose is sent as a boolean (Dogecoin 1.14 rejects
+    // integer verbosity); hexFormat=true means verbose=false.
+    const call = server.callsFor('getblock')[0]
+    assert.deepStrictEqual(call.params, ['hash123', false])
+}
+
+async function testGetBlockJson() {
+    const blockObj = { hash: 'hash123', height: 1, tx: ['tx1'] }
+    server.onMethod('getblock').returns(blockObj)
+    const result = await connector.getBlock('hash123', false)
+    assert.deepStrictEqual(result, blockObj)
+
+    const call = server.callsFor('getblock')[0]
+    assert.deepStrictEqual(call.params, ['hash123', true])
+}
+
+async function testZeroBalance() {
+    server.onMethod('getbalance').returns(0)
+    const result = await connector.getBalance()
+    assert.strictEqual(result, 0)
+}
+
+async function testPositiveBalance() {
+    server.onMethod('getbalance').returns(50.0)
+    const result = await connector.getBalance()
+    assert.strictEqual(result, 50.0)
+}
+
+async function testSendToAddress() {
+    server.onMethod('sendtoaddress').returns({ txid: 'abc123' })
+    const result = await connector.sendToAddress('bcrt1qaddr', 1.5)
+    assert.strictEqual(result, 'abc123')
+
+    const call = server.callsFor('sendtoaddress')[0]
+    assert.deepStrictEqual(call.params, ['bcrt1qaddr', 1.5])
+}
+
+async function testSendRawTransaction() {
+    server.onMethod('sendrawtransaction').returns('txid_result')
+    const result = await connector.sendRawTransaction('0200abcd...')
+    assert.strictEqual(result, 'txid_result')
+
+    const call = server.callsFor('sendrawtransaction')[0]
+    assert.deepStrictEqual(call.params, ['0200abcd...'])
+}
+
+async function testGetMempoolEntry() {
+    const entry = { vsize: 200, weight: 800, fee: 0.0001 }
+    server.onMethod('getmempoolentry').returns(entry)
+    const result = await connector.getMempoolEntry('tx123')
+    assert.deepStrictEqual(result, entry)
+}
+
+async function testGetNewAddress() {
+    server.onMethod('getnewaddress').returns('bcrt1qnewaddr')
+    const result = await connector.getNewAddress()
+    assert.strictEqual(result, 'bcrt1qnewaddr')
+}
+
+describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
+    useConnector()
 
     // ─── Basic Round-Trips ──────────────────────────────────────────────
 
     describe('RPC round-trips', function () {
-        it('getBlockchainInfo: sends correct payload and parses response', async function () {
-            server.onMethod('getblockchaininfo').returns(RPC_RESPONSES.BLOCKCHAIN_INFO_MATURE)
-            const result = await connector.getBlockchainInfo()
-            assert.deepStrictEqual(result, RPC_RESPONSES.BLOCKCHAIN_INFO_MATURE)
-
-            const call = server.callsFor('getblockchaininfo')[0]
-            assert.strictEqual(call.method, 'getblockchaininfo')
-            assert.strictEqual(call.id, 1)
-        })
-
-        it('getNetworkInfo: round-trip', async function () {
-            server.onMethod('getnetworkinfo').returns(RPC_RESPONSES.NETWORK_INFO)
-            const result = await connector.getNetworkInfo()
-            assert.strictEqual(result.version, 250000)
-        })
-
-        it('getRawMempool: returns empty array', async function () {
-            server.onMethod('getrawmempool').returns([])
-            const result = await connector.getRawMempool()
-            assert.deepStrictEqual(result, [])
-        })
-
-        it('getRawMempool: returns populated array', async function () {
-            server.onMethod('getrawmempool').returns(['tx1', 'tx2', 'tx3'])
-            const result = await connector.getRawMempool()
-            assert.deepStrictEqual(result, ['tx1', 'tx2', 'tx3'])
-        })
-
-        it('generateToAddress: sends count and address params', async function () {
-            server.onMethod('generatetoaddress').returns(['hash1', 'hash2'])
-            const result = await connector.generateToAddress(2, 'bcrt1qtest')
-            assert.deepStrictEqual(result, ['hash1', 'hash2'])
-
-            const call = server.callsFor('generatetoaddress')[0]
-            assert.deepStrictEqual(call.params, [2, 'bcrt1qtest'])
-        })
-
-        it('getBlockHash: sends blockindex param', async function () {
-            server.onMethod('getblockhash').returns('000000abcdef')
-            const result = await connector.getBlockHash(42)
-            assert.strictEqual(result, '000000abcdef')
-
-            const call = server.callsFor('getblockhash')[0]
-            assert.deepStrictEqual(call.params, [42])
-        })
-
-        it('getBlock: sends blockhash with verbose=false (hex format)', async function () {
-            server.onMethod('getblock').returns('0100000000...')
-            const result = await connector.getBlock('hash123', true)
-            assert.strictEqual(result, '0100000000...')
-
-            // getblock verbose is sent as a boolean (Dogecoin 1.14 rejects
-            // integer verbosity); hexFormat=true means verbose=false.
-            const call = server.callsFor('getblock')[0]
-            assert.deepStrictEqual(call.params, ['hash123', false])
-        })
-
-        it('getBlock: sends blockhash with verbose=true (JSON format)', async function () {
-            const blockObj = { hash: 'hash123', height: 1, tx: ['tx1'] }
-            server.onMethod('getblock').returns(blockObj)
-            const result = await connector.getBlock('hash123', false)
-            assert.deepStrictEqual(result, blockObj)
-
-            const call = server.callsFor('getblock')[0]
-            assert.deepStrictEqual(call.params, ['hash123', true])
-        })
-
-        it('getBalance: returns zero correctly (falsy but valid)', async function () {
-            server.onMethod('getbalance').returns(0)
-            const result = await connector.getBalance()
-            assert.strictEqual(result, 0)
-        })
-
-        it('getBalance: returns positive balance', async function () {
-            server.onMethod('getbalance').returns(50.0)
-            const result = await connector.getBalance()
-            assert.strictEqual(result, 50.0)
-        })
-
-        it('sendToAddress: sends positional params (DOGE v1.14 compat)', async function () {
-            server.onMethod('sendtoaddress').returns({ txid: 'abc123' })
-            const result = await connector.sendToAddress('bcrt1qaddr', 1.5)
-            assert.strictEqual(result, 'abc123')
-
-            const call = server.callsFor('sendtoaddress')[0]
-            assert.deepStrictEqual(call.params, ['bcrt1qaddr', 1.5])
-        })
-
-        it('sendRawTransaction: sends tx hex param', async function () {
-            server.onMethod('sendrawtransaction').returns('txid_result')
-            const result = await connector.sendRawTransaction('0200abcd...')
-            assert.strictEqual(result, 'txid_result')
-
-            const call = server.callsFor('sendrawtransaction')[0]
-            assert.deepStrictEqual(call.params, ['0200abcd...'])
-        })
-
-        it('getMempoolEntry: sends txid param', async function () {
-            const entry = { vsize: 200, weight: 800, fee: 0.0001 }
-            server.onMethod('getmempoolentry').returns(entry)
-            const result = await connector.getMempoolEntry('tx123')
-            assert.deepStrictEqual(result, entry)
-        })
-
-        it('getNewAddress: returns address string', async function () {
-            server.onMethod('getnewaddress').returns('bcrt1qnewaddr')
-            const result = await connector.getNewAddress()
-            assert.strictEqual(result, 'bcrt1qnewaddr')
-        })
+        it('getBlockchainInfo: sends correct payload and parses response', testGetBlockchainInfo)
+        it('getNetworkInfo: round-trip', testGetNetworkInfo)
+        it('getRawMempool: returns empty array', testEmptyMempool)
+        it('getRawMempool: returns populated array', testPopulatedMempool)
     })
+
+    describe('RPC round-trips', function () {
+        it('generateToAddress: sends count and address params', testGenerateToAddress)
+        it('getBlockHash: sends blockindex param', testGetBlockHash)
+        it('getBlock: sends blockhash with verbose=false (hex format)', testGetBlockHex)
+        it('getBlock: sends blockhash with verbose=true (JSON format)', testGetBlockJson)
+    })
+
+    describe('RPC round-trips', function () {
+        it('getBalance: returns zero correctly (falsy but valid)', testZeroBalance)
+        it('getBalance: returns positive balance', testPositiveBalance)
+        it('sendToAddress: sends positional params (DOGE v1.14 compat)', testSendToAddress)
+        it('sendRawTransaction: sends tx hex param', testSendRawTransaction)
+        it('getMempoolEntry: sends txid param', testGetMempoolEntry)
+        it('getNewAddress: returns address string', testGetNewAddress)
+    })
+})
+
+describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
+    useConnector()
 
     // ─── Authentication ─────────────────────────────────────────────────
 
@@ -178,6 +207,10 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
             assert.strictEqual(decoded, 'rpcuser:rpcpass')
         })
     })
+})
+
+describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
+    useConnector()
 
     // ─── getRawTransaction (silent null pattern) ────────────────────────
 
@@ -194,6 +227,10 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
             assert.strictEqual(result, null)
         })
     })
+})
+
+describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
+    useConnector()
 
     // ─── Retry Behavior ─────────────────────────────────────────────────
 
@@ -240,6 +277,10 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
             )
         })
     })
+})
+
+describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
+    useConnector()
 
     // ─── Error Shapes ───────────────────────────────────────────────────
 
@@ -263,6 +304,10 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
             )
         })
     })
+})
+
+describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
+    useConnector()
 
     // ─── Multiple Sequential Calls ──────────────────────────────────────
 
