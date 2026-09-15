@@ -13,21 +13,28 @@ const sinon = require('sinon')
 const axios = require('axios')
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+let connector
+let axiosPostStub
+
+function setupConnector() {
+    connector = new BlockchainConnector('localhost', '18332', 'secretuser', 'secretpass')
+    axiosPostStub = sinon.stub(axios, 'post')
+    sinon.stub(connector, 'sleep').resolves()
+    sinon.stub(console, 'error')
+    sinon.stub(console, 'log')
+}
+
+function teardownConnector() {
+    sinon.restore()
+}
+
+function useConnectorFixtures() {
+    beforeEach(setupConnector)
+    afterEach(teardownConnector)
+}
+
 describe('Security: Error Sanitization & Information Disclosure', function () {
-    let connector
-    let axiosPostStub
-
-    beforeEach(function () {
-        connector = new BlockchainConnector('localhost', '18332', 'secretuser', 'secretpass')
-        axiosPostStub = sinon.stub(axios, 'post')
-        sinon.stub(connector, 'sleep').resolves()
-        sinon.stub(console, 'error')
-        sinon.stub(console, 'log')
-    })
-
-    afterEach(function () {
-        sinon.restore()
-    })
+    useConnectorFixtures()
 
     // ─── SEC-004: RPC credential leakage ───────────────────────────────
 
@@ -85,7 +92,10 @@ describe('Security: Error Sanitization & Information Disclosure', function () {
             }
         })
     })
+})
 
+describe('Security: Error Sanitization & Information Disclosure', function () {
+    useConnectorFixtures()
     describe('sendRawTransaction error sanitization (SEC-004)', function () {
         it('throws a clean error message', async function () {
             const axiosError = new Error('connect ECONNREFUSED http://localhost:18332')
@@ -140,9 +150,11 @@ describe('Security: Error Sanitization & Information Disclosure', function () {
             }
         })
     })
+})
 
+describe('Security: Error Sanitization & Information Disclosure', function () {
+    useConnectorFixtures()
     // ─── SEC-012: API error message reflection ─────────────────────────
-
     describe('API error messages do not reflect user input (SEC-012)', function () {
         let XChainRegtestMiner
         let minerInstance
