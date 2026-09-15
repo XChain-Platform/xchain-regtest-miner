@@ -27,6 +27,134 @@ const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
 // production never reached.
 const READY = { wallet_ready: true, consecutive_errors: 0, mine_failures: 0, mining_paused: false, mining_started: true };
 
+function newMiner () {
+    return new XChainRegtestMiner('bitcoin-regtest', 'localhost', '18443', 'user', 'pass');
+}
+
+function realMinerBasics() {
+    // The production scenario the probe exists for: prepareWallet() never resolves
+    // (wedged coin node, a wallet RPC that hangs), so start() never reaches
+    // keepMining = true. A prepareWallet that THROWS was already covered by
+    // api.js's start().catch(process.exit(1)); a hang is what this catches.
+    it('reports a wedged wallet preparation as stalled, not as paused', function () {
+        const status = newMiner().getStatus();
+        assert.strictEqual(status.wallet_ready, false);
+        assert.strictEqual(status.mining_paused, true,  'precondition: an unprepared miner also looks paused');
+        assert.strictEqual(status.mining_started, false);
+
+        const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
+        assert.strictEqual(verdict.healthy, false, 'ten minutes in with no wallet must not read healthy');
+        assert.strictEqual(verdict.reason, 'wallet_not_ready');
+    });
+
+    it('reports that same miner healthy inside the cold-start grace', function () {
+        const verdict = evaluateMinerHealth({ status: newMiner().getStatus(), uptimeMs: WALLET_GRACE_MS - 1 });
+        assert.strictEqual(verdict.healthy, true);
+    });
+}
+
+function realMinerLifecycle() {
+    it('reports a started loop healthy, and an operator pause healthy too', async function () {
+        const miner = newMiner();
+        // Mirror prepareWallet()'s last statement (walletReady = true) and answer the
+        // mempool poll locally; start()'s own ordering of keepMining / miningStarted
+        // is left untouched, which is the ordering under test.
+        miner.prepareWallet = async function () { this.walletReady = true; };
+        miner.connector.getRawMempool = async () => [];
+
+        const sigBefore = { SIGTERM: process.listeners('SIGTERM'), SIGINT: process.listeners('SIGINT') };
+        const loop = miner.start();
+        try {
+            // Poll for the state start() is expected to reach rather than
+            // settling for a fixed 50ms: prepareWallet is stubbed but still
+            // async, so the handover is a scheduling fact, not a duration.
+            // start() sets keepMining and miningStarted back to back with no
+            // await between them, so mining_started implies mining_paused.
+            const readyBy = Date.now() + 3000;
+            while (!miner.getStatus().mining_started && Date.now() < readyBy) {
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+
+            const running = miner.getStatus();
+            assert.strictEqual(running.mining_started, true);
+            assert.strictEqual(running.mining_paused, false);
+            assert.strictEqual(evaluateMinerHealth({ status: running, uptimeMs: 10 * 60000 }).reason, 'ok');
+
+            await miner.pauseMining();
+            const paused = miner.getStatus();
+            assert.strictEqual(paused.mining_paused, true);
+            assert.strictEqual(paused.mining_started, true, 'a pause must not read as never-started');
+            const verdict = evaluateMinerHealth({ status: paused, uptimeMs: 10 * 60000 });
+            assert.strictEqual(verdict.healthy, true);
+            assert.strictEqual(verdict.reason, 'paused');
+        } finally {
+            miner._shutdown = true;
+            await loop;
+            // start() installs SIGTERM/SIGINT handlers that call process.exit; drop
+            // the ones this test added so a later signal cannot kill the runner.
+            for (const sig of ['SIGTERM', 'SIGINT']) {
+                for (const listener of process.listeners(sig)) {
+                    if (!sigBefore[sig].includes(listener)) process.removeListener(sig, listener);
+                }
+            }
+        }
+    });
+}
+
+function realMinerFailures() {
+    // The reported failure, driven through the REAL auto-mine loop: the node
+    // answers getrawmempool on every cycle but refuses generatetoaddress. The
+    // loop zeroes consecutive_errors on each successful mempool read, which runs
+    // immediately before the idle-mine heartbeat, so that counter reads 1 forever
+    // and an unguarded probe answers {healthy:true, reason:'ok'} while block height
+    // never advances. mine_failures is the streak that has to accumulate.
+    it('accumulates mine_failures when only generatetoaddress fails, and stalls', async function () {
+        const miner = newMiner();
+        // Virtual clock: the loop's own sleeps advance it, so the idle-mine
+        // interval elapses by iteration count rather than by wall time.
+        let nowMs = 1e9;
+        const realNow = Date.now;
+        Date.now = () => nowMs;
+        miner.sleep = async (ms) => { nowMs += (Number(ms) || 0); await new Promise(r => setImmediate(r)); };
+
+        miner.prepareWallet = async function () { this.walletAddress = 'bcrt1qtest'; this.walletReady = true; };
+        // The only stubs are the network boundary. getRawMempool SUCCEEDS, which
+        // is the whole point: it is what keeps consecutive_errors pinned at 1.
+        miner.connector.getRawMempool     = async () => [];
+        miner.connector.generateToAddress = async () => { throw new Error('node refused the mine'); };
+        await miner.setIdleMineInterval(1000);
+
+        const sigBefore = { SIGTERM: process.listeners('SIGTERM'), SIGINT: process.listeners('SIGINT') };
+        const loop = miner.start();
+        try {
+            let spins = 0;
+            while (miner.getStatus().mine_failures < STALL_ERROR_THRESHOLD && spins < 20000) {
+                spins++;
+                await new Promise(resolve => setImmediate(resolve));
+            }
+            const status = miner.getStatus();
+            assert.ok(status.mine_failures >= STALL_ERROR_THRESHOLD,
+                'the mine-failure streak must survive the successful mempool reads between mines, got '
+                + status.mine_failures);
+            assert.ok(status.consecutive_errors <= 1,
+                'precondition: the shared counter is still being zeroed by the mempool read, got '
+                + status.consecutive_errors);
+            const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
+            assert.strictEqual(verdict.healthy, false, 'a miner that cannot mine must not read healthy');
+            assert.strictEqual(verdict.reason, 'mine_failures');
+        } finally {
+            miner._shutdown = true;
+            await loop;
+            Date.now = realNow;
+            for (const sig of ['SIGTERM', 'SIGINT']) {
+                for (const listener of process.listeners(sig)) {
+                    if (!sigBefore[sig].includes(listener)) process.removeListener(sig, listener);
+                }
+            }
+        }
+    });
+}
+
 describe('miner health probe verdict', function () {
 
     it('is healthy when the wallet is ready and the loop is not failing', function () {
@@ -67,7 +195,9 @@ describe('miner health probe verdict', function () {
         assert.strictEqual(verdict.healthy, true);
         assert.strictEqual(verdict.reason, 'paused');
     });
+});
 
+describe('miner health probe verdict', function () {
     it('is unhealthy when the wallet never became ready past the cold-start grace', function () {
         const status = Object.assign({}, READY, { wallet_ready: false });
         const verdict = evaluateMinerHealth({ status, uptimeMs: WALLET_GRACE_MS + 1 });
@@ -104,7 +234,9 @@ describe('miner health probe verdict', function () {
         assert.strictEqual(verdict.healthy, false);
         assert.strictEqual(verdict.reason, 'wallet_not_ready');
     });
+});
 
+describe('miner health probe verdict', function () {
     it('is unhealthy when the wallet is ready but the mining loop never started', function () {
         const status = Object.assign({}, READY, { mining_started: false, mining_paused: true });
         const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
@@ -131,137 +263,9 @@ describe('miner health probe verdict', function () {
         assert.ok(/evaluateMinerHealth\(/.test(controller), 'health does not consult the verdict');
         assert.ok(/if \(!verdict\.healthy\) res\.status\(503\)/.test(controller), 'health never sets 503');
     });
+});
 
-    // Everything above feeds the pure function a hand-built payload, which is exactly
-    // how the unreachable branch got certified. These ask a REAL XChainRegtestMiner
-    // instead. Only the network boundary is stubbed (a coin node is not available to
-    // a unit run); the state machine that sets walletReady / keepMining /
-    // miningStarted is the shipped one.
-    describe('against a real XChainRegtestMiner', function () {
-
-        function newMiner () {
-            return new XChainRegtestMiner('bitcoin-regtest', 'localhost', '18443', 'user', 'pass');
-        }
-
-        // The production scenario the probe exists for: prepareWallet() never resolves
-        // (wedged coin node, a wallet RPC that hangs), so start() never reaches
-        // keepMining = true. A prepareWallet that THROWS was already covered by
-        // api.js's start().catch(process.exit(1)); a hang is what this catches.
-        it('reports a wedged wallet preparation as stalled, not as paused', function () {
-            const status = newMiner().getStatus();
-            assert.strictEqual(status.wallet_ready, false);
-            assert.strictEqual(status.mining_paused, true,  'precondition: an unprepared miner also looks paused');
-            assert.strictEqual(status.mining_started, false);
-
-            const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
-            assert.strictEqual(verdict.healthy, false, 'ten minutes in with no wallet must not read healthy');
-            assert.strictEqual(verdict.reason, 'wallet_not_ready');
-        });
-
-        it('reports that same miner healthy inside the cold-start grace', function () {
-            const verdict = evaluateMinerHealth({ status: newMiner().getStatus(), uptimeMs: WALLET_GRACE_MS - 1 });
-            assert.strictEqual(verdict.healthy, true);
-        });
-
-        it('reports a started loop healthy, and an operator pause healthy too', async function () {
-            const miner = newMiner();
-            // Mirror prepareWallet()'s last statement (walletReady = true) and answer the
-            // mempool poll locally; start()'s own ordering of keepMining / miningStarted
-            // is left untouched, which is the ordering under test.
-            miner.prepareWallet = async function () { this.walletReady = true; };
-            miner.connector.getRawMempool = async () => [];
-
-            const sigBefore = { SIGTERM: process.listeners('SIGTERM'), SIGINT: process.listeners('SIGINT') };
-            const loop = miner.start();
-            try {
-                // Poll for the state start() is expected to reach rather than
-                // settling for a fixed 50ms: prepareWallet is stubbed but still
-                // async, so the handover is a scheduling fact, not a duration.
-                // start() sets keepMining and miningStarted back to back with no
-                // await between them, so mining_started implies mining_paused.
-                const readyBy = Date.now() + 3000;
-                while (!miner.getStatus().mining_started && Date.now() < readyBy) {
-                    await new Promise(resolve => setTimeout(resolve, 10));
-                }
-
-                const running = miner.getStatus();
-                assert.strictEqual(running.mining_started, true);
-                assert.strictEqual(running.mining_paused, false);
-                assert.strictEqual(evaluateMinerHealth({ status: running, uptimeMs: 10 * 60000 }).reason, 'ok');
-
-                await miner.pauseMining();
-                const paused = miner.getStatus();
-                assert.strictEqual(paused.mining_paused, true);
-                assert.strictEqual(paused.mining_started, true, 'a pause must not read as never-started');
-                const verdict = evaluateMinerHealth({ status: paused, uptimeMs: 10 * 60000 });
-                assert.strictEqual(verdict.healthy, true);
-                assert.strictEqual(verdict.reason, 'paused');
-            } finally {
-                miner._shutdown = true;
-                await loop;
-                // start() installs SIGTERM/SIGINT handlers that call process.exit; drop
-                // the ones this test added so a later signal cannot kill the runner.
-                for (const sig of ['SIGTERM', 'SIGINT']) {
-                    for (const listener of process.listeners(sig)) {
-                        if (!sigBefore[sig].includes(listener)) process.removeListener(sig, listener);
-                    }
-                }
-            }
-        });
-
-        // The reported failure, driven through the REAL auto-mine loop: the node
-        // answers getrawmempool on every cycle but refuses generatetoaddress. The
-        // loop zeroes consecutive_errors on each successful mempool read, which runs
-        // immediately before the idle-mine heartbeat, so that counter reads 1 forever
-        // and an unguarded probe answers {healthy:true, reason:'ok'} while block height
-        // never advances. mine_failures is the streak that has to accumulate.
-        it('accumulates mine_failures when only generatetoaddress fails, and stalls', async function () {
-            const miner = newMiner();
-            // Virtual clock: the loop's own sleeps advance it, so the idle-mine
-            // interval elapses by iteration count rather than by wall time.
-            let nowMs = 1e9;
-            const realNow = Date.now;
-            Date.now = () => nowMs;
-            miner.sleep = async (ms) => { nowMs += (Number(ms) || 0); await new Promise(r => setImmediate(r)); };
-
-            miner.prepareWallet = async function () { this.walletAddress = 'bcrt1qtest'; this.walletReady = true; };
-            // The only stubs are the network boundary. getRawMempool SUCCEEDS, which
-            // is the whole point: it is what keeps consecutive_errors pinned at 1.
-            miner.connector.getRawMempool     = async () => [];
-            miner.connector.generateToAddress = async () => { throw new Error('node refused the mine'); };
-            await miner.setIdleMineInterval(1000);
-
-            const sigBefore = { SIGTERM: process.listeners('SIGTERM'), SIGINT: process.listeners('SIGINT') };
-            const loop = miner.start();
-            try {
-                let spins = 0;
-                while (miner.getStatus().mine_failures < STALL_ERROR_THRESHOLD && spins < 20000) {
-                    spins++;
-                    await new Promise(resolve => setImmediate(resolve));
-                }
-                const status = miner.getStatus();
-                assert.ok(status.mine_failures >= STALL_ERROR_THRESHOLD,
-                    'the mine-failure streak must survive the successful mempool reads between mines, got '
-                    + status.mine_failures);
-                assert.ok(status.consecutive_errors <= 1,
-                    'precondition: the shared counter is still being zeroed by the mempool read, got '
-                    + status.consecutive_errors);
-                const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
-                assert.strictEqual(verdict.healthy, false, 'a miner that cannot mine must not read healthy');
-                assert.strictEqual(verdict.reason, 'mine_failures');
-            } finally {
-                miner._shutdown = true;
-                await loop;
-                Date.now = realNow;
-                for (const sig of ['SIGTERM', 'SIGINT']) {
-                    for (const listener of process.listeners(sig)) {
-                        if (!sigBefore[sig].includes(listener)) process.removeListener(sig, listener);
-                    }
-                }
-            }
-        });
-    });
-
+describe('miner health probe verdict', function () {
     // The Dockerfile probe exits non-zero only on a non-200, so the whole fix rests on
     // res.status(503) surviving express-json-rpc-router, which wraps every handler
     // result in a JSON-RPC envelope. Asserted over a real socket rather than trusted:
@@ -307,5 +311,15 @@ describe('miner health probe verdict', function () {
         assert.ok(healthcheck.includes("method:'health'"), 'HEALTHCHECK still probes the wrong method');
         assert.ok(!healthcheck.includes("method:'ping'"), 'HEALTHCHECK still probes ping');
     });
+});
 
+// Everything above feeds the pure function a hand-built payload, which is exactly
+// how the unreachable branch got certified. These ask a REAL XChainRegtestMiner
+// instead. Only the network boundary is stubbed (a coin node is not available to
+// a unit run); the state machine that sets walletReady / keepMining /
+// miningStarted is the shipped one.
+describe('miner health probe verdict', function () {
+    describe('against a real XChainRegtestMiner', realMinerBasics);
+    describe('against a real XChainRegtestMiner', realMinerLifecycle);
+    describe('against a real XChainRegtestMiner', realMinerFailures);
 });
