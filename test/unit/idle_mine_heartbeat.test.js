@@ -16,20 +16,23 @@
 const assert = require('assert')
 const sinon = require('sinon')
 
+let XChainRegtestMiner
+let miner
+
+function setupMiner() {
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    sinon.stub(console, 'log')
+}
+
+function teardownMiner() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
 describe('XChainRegtestMiner idle mine-empty heartbeat', function () {
-    let XChainRegtestMiner
-    let miner
-
-    beforeEach(function () {
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        sinon.stub(console, 'log')
-    })
-
-    afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     describe('default posture', function () {
         it('is disabled out of the box', function () {
@@ -48,6 +51,11 @@ describe('XChainRegtestMiner idle mine-empty heartbeat', function () {
             assert.strictEqual(miner.getStatus().idle_mine_interval_ms, 5000)
         })
     })
+})
+
+describe('XChainRegtestMiner idle mine-empty heartbeat', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     describe('setIdleMineInterval', function () {
         it('enables the heartbeat', async function () {
@@ -73,6 +81,11 @@ describe('XChainRegtestMiner idle mine-empty heartbeat', function () {
             await assert.rejects(() => miner.setIdleMineInterval(3600001), /too large/)
         })
     })
+})
+
+describe('XChainRegtestMiner idle mine-empty heartbeat', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     describe('_idleMineDue', function () {
         beforeEach(async function () {
