@@ -11,7 +11,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
 let XChainRegtestMiner
 let miner
 let connectorStub
@@ -37,7 +37,7 @@ function setupMiner() {
 
     sinon.stub(BlockchainConnector.prototype, 'constructor')
 
-    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
     miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
     miner.connector = connectorStub
 
@@ -54,7 +54,7 @@ function setupMiner() {
 function teardownMiner() {
     clock.restore()
     sinon.restore()
-    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
 }
 
 function registerMinerHooks() {
@@ -62,47 +62,16 @@ function registerMinerHooks() {
     afterEach(teardownMiner)
 }
 
-async function runLoopIterations(miner, iterations) {
-    let loopCount = 0
-    miner.sleep.callsFake(async () => {
-        loopCount++
-        if (loopCount >= iterations) {
-            miner.keepMining = false
-            throw new Error('__LOOP_BREAK__')
-        }
-    })
-    try {
-        await miner.start()
-    } catch (e) {
-        if (e.message !== '__LOOP_BREAK__') throw e
-    }
-}
-
 describe('Boundary: Adaptive Mining Timer Logic', function () {
     registerMinerHooks()
 
-    // ─── T-01: maxTimeToMineTxs = 0 ────────────────────────────────────
+    // ─── T-11: Negative timer values ───────────────────────────────────
 
-    describe('T-01: maxTimeToMineTxs = 0', function () {
-        it('mines immediately on next poll after first tx detected', async function () {
-            miner.maxTimeToMineTxs = 0
-            miner.addedTimeToMineTxs = 50000
-
-            connectorStub.getRawMempool.resolves(['txid1'])
-
-            let iterCount = 0
-            miner.sleep.callsFake(async () => {
-                iterCount++
-                // No clock.tick needed; 0ms timer means it fires on next check
-                if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
-            })
-
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-
-            assert(connectorStub.generateToAddress.called,
-                'Should mine immediately when maxTimeToMineTxs=0')
+    describe('T-11: negative timer values via setMiningTime', function () {
+        it('rejects negative values', async function () {
+            await assert.rejects(() => miner.setMiningTime(-1, -1))
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
     })
 })

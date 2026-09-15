@@ -11,7 +11,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
 let XChainRegtestMiner
 let miner
 let connectorStub
@@ -40,7 +40,7 @@ function setupMiner() {
 
     sinon.stub(BlockchainConnector.prototype, 'constructor')
 
-    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
     miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
     miner.connector = connectorStub
 
@@ -53,7 +53,7 @@ function setupMiner() {
 
 function teardownMiner() {
     sinon.restore()
-    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
 }
 
 function registerMinerHooks() {
@@ -64,21 +64,33 @@ function registerMinerHooks() {
 describe('Boundary: fillMempool Chunking and Calculations', function () {
     registerMinerHooks()
 
-    // ─── F-01: tx_quantity = 0 ─────────────────────────────────────────
+    // ─── F-05: tx_quantity = 2501 ──────────────────────────────────────
 
-    describe('F-01: tx_quantity = 0', function () {
-        it('rejects invalid input and does not change keepMining', async function () {
-            miner.keepMining = true
+    describe('F-05: tx_quantity = 2501 (one above chunk size)', function () {
+        it('creates 2 chunks: one of 2500 and one of 1', function () {
+            const txQuantity = 2501
+            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
+            assert.strictEqual(chunks, 2)
 
-            // txQuantity=0 fails validation (< 1) and throws before
-            // modifying keepMining or processing chunks
-            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
+            const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
+            assert.strictEqual(remainder, 1)
+        })
 
-            assert.strictEqual(miner.keepMining, true,
-                'Should not change keepMining for invalid input')
-            // No processing should occur
-            assert.strictEqual(connectorStub.sendToAddress.callCount, 0,
-                'Should not send any funding transactions')
+        it('first chunk is full size, second is remainder', function () {
+            const txQuantity = 2501
+            const txsChunksCount = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
+            const chunkSizes = []
+
+            for (let i = 0; i < txsChunksCount; i++) {
+                let txRemainder = OUTPUTS_QUANTITY_PER_TX
+                if (i === txsChunksCount - 1) {
+                    const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
+                    if (remainder > 0) txRemainder = remainder
+                }
+                chunkSizes.push(txRemainder)
+            }
+
+            assert.deepStrictEqual(chunkSizes, [2500, 1])
         })
     })
 })

@@ -11,7 +11,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
 let XChainRegtestMiner
 let miner
 let connectorStub
@@ -40,7 +40,7 @@ function setupMiner() {
 
     sinon.stub(BlockchainConnector.prototype, 'constructor')
 
-    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
     miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
     miner.connector = connectorStub
 
@@ -53,7 +53,7 @@ function setupMiner() {
 
 function teardownMiner() {
     sinon.restore()
-    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
 }
 
 function registerMinerHooks() {
@@ -64,21 +64,16 @@ function registerMinerHooks() {
 describe('Boundary: fillMempool Chunking and Calculations', function () {
     registerMinerHooks()
 
-    // ─── F-01: tx_quantity = 0 ─────────────────────────────────────────
+    // ─── F-06: tx_quantity = 5000 ──────────────────────────────────────
 
-    describe('F-01: tx_quantity = 0', function () {
-        it('rejects invalid input and does not change keepMining', async function () {
-            miner.keepMining = true
+    describe('F-06: tx_quantity = 5000 (exactly two chunks)', function () {
+        it('creates 2 full chunks with no remainder', function () {
+            const txQuantity = 5000
+            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
+            assert.strictEqual(chunks, 2)
 
-            // txQuantity=0 fails validation (< 1) and throws before
-            // modifying keepMining or processing chunks
-            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
-
-            assert.strictEqual(miner.keepMining, true,
-                'Should not change keepMining for invalid input')
-            // No processing should occur
-            assert.strictEqual(connectorStub.sendToAddress.callCount, 0,
-                'Should not send any funding transactions')
+            const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
+            assert.strictEqual(remainder, 0)
         })
     })
 })

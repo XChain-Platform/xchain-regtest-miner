@@ -11,7 +11,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
 let XChainRegtestMiner
 let miner
 let connectorStub
@@ -40,7 +40,7 @@ function setupMiner() {
 
     sinon.stub(BlockchainConnector.prototype, 'constructor')
 
-    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
     miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
     miner.connector = connectorStub
 
@@ -53,7 +53,7 @@ function setupMiner() {
 
 function teardownMiner() {
     sinon.restore()
-    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
 }
 
 function registerMinerHooks() {
@@ -64,21 +64,25 @@ function registerMinerHooks() {
 describe('Boundary: fillMempool Chunking and Calculations', function () {
     registerMinerHooks()
 
-    // ─── F-01: tx_quantity = 0 ─────────────────────────────────────────
+    // ─── Chunk mining threshold boundary ───────────────────────────────
 
-    describe('F-01: tx_quantity = 0', function () {
-        it('rejects invalid input and does not change keepMining', async function () {
-            miner.keepMining = true
+    describe('Chunk mining threshold (processedChunkCount >= 20)', function () {
+        it('does not mine at exactly 19 processed chunks', function () {
+            let processedChunkCount = 19
+            assert.strictEqual(processedChunkCount >= 20, false)
+        })
 
-            // txQuantity=0 fails validation (< 1) and throws before
-            // modifying keepMining or processing chunks
-            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
+        it('mines at exactly 20 processed chunks', function () {
+            let processedChunkCount = 20
+            assert.strictEqual(processedChunkCount >= 20, true)
+        })
 
-            assert.strictEqual(miner.keepMining, true,
-                'Should not change keepMining for invalid input')
-            // No processing should occur
-            assert.strictEqual(connectorStub.sendToAddress.callCount, 0,
-                'Should not send any funding transactions')
+        it('resets to 0 after mining at 20 (counter does not stay at 21)', function () {
+            let processedChunkCount = 20
+            if (processedChunkCount >= 20) processedChunkCount = 0
+            processedChunkCount++ // next chunk
+            assert.strictEqual(processedChunkCount, 1,
+                'After reset, next chunk starts at 1')
         })
     })
 })

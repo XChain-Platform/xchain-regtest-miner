@@ -11,7 +11,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
 let XChainRegtestMiner
 let miner
 let connectorStub
@@ -40,7 +40,7 @@ function setupMiner() {
 
     sinon.stub(BlockchainConnector.prototype, 'constructor')
 
-    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
     miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
     miner.connector = connectorStub
 
@@ -53,7 +53,7 @@ function setupMiner() {
 
 function teardownMiner() {
     sinon.restore()
-    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
 }
 
 function registerMinerHooks() {
@@ -64,21 +64,38 @@ function registerMinerHooks() {
 describe('Boundary: fillMempool Chunking and Calculations', function () {
     registerMinerHooks()
 
-    // ─── F-01: tx_quantity = 0 ─────────────────────────────────────────
+    // ─── PSBT output distribution boundaries ───────────────────────────
 
-    describe('F-01: tx_quantity = 0', function () {
-        it('rejects invalid input and does not change keepMining', async function () {
-            miner.keepMining = true
+    describe('PSBT output distribution per chunk', function () {
+        it('first chunk processes addresses 0 to 2499', function () {
+            const nextUtxoIndex = 0
+            const start = nextUtxoIndex * OUTPUTS_QUANTITY_PER_TX
+            const end = (parseInt(nextUtxoIndex) + 1) * OUTPUTS_QUANTITY_PER_TX
+            assert.strictEqual(start, 0)
+            assert.strictEqual(end, 2500)
+        })
 
-            // txQuantity=0 fails validation (< 1) and throws before
-            // modifying keepMining or processing chunks
-            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
+        it('second chunk processes addresses 2500 to 4999', function () {
+            const nextUtxoIndex = 1
+            const start = nextUtxoIndex * OUTPUTS_QUANTITY_PER_TX
+            const end = (parseInt(nextUtxoIndex) + 1) * OUTPUTS_QUANTITY_PER_TX
+            assert.strictEqual(start, 2500)
+            assert.strictEqual(end, 5000)
+        })
 
-            assert.strictEqual(miner.keepMining, true,
-                'Should not change keepMining for invalid input')
-            // No processing should occur
-            assert.strictEqual(connectorStub.sendToAddress.callCount, 0,
-                'Should not send any funding transactions')
+        it('address index capped by addresses.length for partial last chunk', function () {
+            const txQuantity = 2501
+            const addressesLength = txQuantity
+            const nextUtxoIndex = 1 // second chunk
+            const start = nextUtxoIndex * OUTPUTS_QUANTITY_PER_TX
+            const end = (parseInt(nextUtxoIndex) + 1) * OUTPUTS_QUANTITY_PER_TX
+
+            let outputCount = 0
+            for (let i = start; i < end && i < addressesLength; i++) {
+                outputCount++
+            }
+            assert.strictEqual(outputCount, 1,
+                'Second chunk of 2501 should only have 1 output')
         })
     })
 })

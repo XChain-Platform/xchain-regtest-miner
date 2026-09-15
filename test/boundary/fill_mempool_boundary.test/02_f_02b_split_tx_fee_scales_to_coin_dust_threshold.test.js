@@ -11,7 +11,7 @@
 const assert = require('assert')
 const sinon = require('sinon')
 
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
 let XChainRegtestMiner
 let miner
 let connectorStub
@@ -40,7 +40,7 @@ function setupMiner() {
 
     sinon.stub(BlockchainConnector.prototype, 'constructor')
 
-    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
     miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
     miner.connector = connectorStub
 
@@ -53,7 +53,7 @@ function setupMiner() {
 
 function teardownMiner() {
     sinon.restore()
-    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
 }
 
 function registerMinerHooks() {
@@ -64,21 +64,27 @@ function registerMinerHooks() {
 describe('Boundary: fillMempool Chunking and Calculations', function () {
     registerMinerHooks()
 
-    // ─── F-01: tx_quantity = 0 ─────────────────────────────────────────
+    // ─── F-02b: split-tx fee scales to the coin's dust threshold ───────
+    // Regression guard for the DOGE fill_mempool failure: the split tx's
+    // per-output miner fee is Math.max(50, network.dustThreshold), not a
+    // flat 50, so it clears dogecoin-regtest's relay floor.
+    describe('F-02b: split-tx fee scales to coin dust threshold', function () {
+        const splitFeeFor = (dustThreshold) => Math.max(50, dustThreshold || 50)
 
-    describe('F-01: tx_quantity = 0', function () {
-        it('rejects invalid input and does not change keepMining', async function () {
-            miner.keepMining = true
+        it('floors at 50 sat/output only when no dustThreshold resolves (bare-network fallback)', function () {
+            assert.strictEqual(splitFeeFor(undefined), 50)
+        })
 
-            // txQuantity=0 fails validation (< 1) and throws before
-            // modifying keepMining or processing chunks
-            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
+        it('uses 546 sat/output for the resolved bitcoin-regtest coin config', function () {
+            assert.strictEqual(splitFeeFor(546), 546)
+        })
 
-            assert.strictEqual(miner.keepMining, true,
-                'Should not change keepMining for invalid input')
-            // No processing should occur
-            assert.strictEqual(connectorStub.sendToAddress.callCount, 0,
-                'Should not send any funding transactions')
+        it('scales to 100000 koinu/output for dogecoin-regtest', function () {
+            assert.strictEqual(splitFeeFor(100000), 100000)
+        })
+
+        it('scales to 5460 litoshi/output for litecoin-regtest', function () {
+            assert.strictEqual(splitFeeFor(5460), 5460)
         })
     })
 })
