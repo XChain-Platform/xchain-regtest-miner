@@ -27,44 +27,47 @@ const sinon = require('sinon')
 
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+let XChainRegtestMiner
+let miner
+let connectorStub
+
+function setupMiner() {
+    connectorStub = {
+        getWalletInfo: sinon.stub(),
+        loadWallet: sinon.stub(),
+        createWallet: sinon.stub(),
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        getRawMempool: sinon.stub().resolves([]),
+        setTxFee: sinon.stub().resolves(true),
+        invalidateBlock: sinon.stub().resolves('invalidated'),
+        reconsiderBlock: sinon.stub().resolves('reconsidered'),
+    }
+
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
+
+    sinon.stub(miner, 'sleep').resolves()
+    sinon.stub(console, 'log')
+
+    // Post-startup state: prepared wallet, observed funds, mining running.
+    miner.walletAddress = 'bcrt1qtest'
+    miner.walletReady = true
+    miner.balance = 50.0
+    miner.keepMining = true
+}
+
+function teardownMiner() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
 describe('reorg wallet-funds refresh', function () {
-    let XChainRegtestMiner
-    let miner
-    let connectorStub
-
-    beforeEach(function () {
-        connectorStub = {
-            getWalletInfo: sinon.stub(),
-            loadWallet: sinon.stub(),
-            createWallet: sinon.stub(),
-            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-            getBalance: sinon.stub().resolves(50.0),
-            getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
-            generateToAddress: sinon.stub().resolves(['blockhash1']),
-            getRawMempool: sinon.stub().resolves([]),
-            setTxFee: sinon.stub().resolves(true),
-            invalidateBlock: sinon.stub().resolves('invalidated'),
-            reconsiderBlock: sinon.stub().resolves('reconsidered'),
-        }
-
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
-
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-
-        // Post-startup state: prepared wallet, observed funds, mining running.
-        miner.walletAddress = 'bcrt1qtest'
-        miner.walletReady = true
-        miner.balance = 50.0
-        miner.keepMining = true
-    })
-
-    afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     it('reports the wallet unfunded once an invalidate strands the balance at 0', async function () {
         connectorStub.getBalance.resolves(0)
@@ -96,6 +99,11 @@ describe('reorg wallet-funds refresh', function () {
         assert.strictEqual(miner.getStatus().wallet_balance, 50.0)
         assert.strictEqual(miner.getStatus().wallet_funded, true)
     })
+})
+
+describe('reorg wallet-funds refresh', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     it('still resolves the reorg RPC when the balance re-read throws', async function () {
         connectorStub.getBalance.rejects(new Error('node unreachable'))
