@@ -52,86 +52,95 @@ function jsonRpcCall(port, method, params = {}) {
     })
 }
 
-describe('Performance: API Throughput', function () {
-    let node, miner, collector
-    let apiServer, apiPort
+let node, miner, collector
+let apiServer, apiPort
 
-    before(async function () {
-        node = new LatencyMockNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+async function startNode() {
+    node = new LatencyMockNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+}
 
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
+async function stopNode() {
+    sinon.restore()
+    await node.stop()
+}
 
-    beforeEach(async function () {
-        node.reset()
-        node._rpc_createwallet(['xchain_regtest_wallet'])
-        node._rpc_generatetoaddress([110, 'bcrt1qseed'])
-        node.calls = []
+async function setupApi() {
+    node.reset()
+    node._rpc_createwallet(['xchain_regtest_wallet'])
+    node._rpc_generatetoaddress([110, 'bcrt1qseed'])
+    node.calls = []
 
-        collector = new PerformanceCollector('API')
-        miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
-        miner.walletAddress = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
-        miner.balance = 50.0
-        miner.keepMining = true
+    collector = new PerformanceCollector('API')
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+    miner.walletAddress = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
+    miner.balance = 50.0
+    miner.keepMining = true
 
-        // Skip the mining loop; only set up the API server for these tests.
+    // Skip the mining loop; only set up the API server for these tests.
 
-        const express = require('express')
-        const jsonRpcRouter = require('express-json-rpc-router')
-        const app = express()
-        app.use(express.json())
+    const express = require('express')
+    const jsonRpcRouter = require('express-json-rpc-router')
+    const app = express()
+    app.use(express.json())
 
-        const controller = {
-            ping: async () => ({ status: 'success' }),
-            send_funds: async ({ address, amount }) => {
-                const result = await miner.sendFundsToAddress(address, amount)
-                if (result && result.error) return result
-                return { result: 'ok' }
-            },
-            set_mining_time: async ({ max_time, tx_added_time }) => {
-                // setMiningTime throws on invalid input (uuid:24c35056); this
-                // mirror only ever exercises valid values, but catch defensively
-                // to match the real controller's contract.
-                try {
-                    await miner.setMiningTime(max_time, tx_added_time)
-                } catch (err) {
-                    return { error: err.message }
-                }
-                return { result: 'ok' }
-            },
-            set_default_mining_time: async () => {
-                await miner.setDefaultMiningTime()
-                return { result: 'ok' }
-            },
-        }
+    const controller = {
+        ping: async () => ({ status: 'success' }),
+        send_funds: async ({ address, amount }) => {
+            const result = await miner.sendFundsToAddress(address, amount)
+            if (result && result.error) return result
+            return { result: 'ok' }
+        },
+        set_mining_time: async ({ max_time, tx_added_time }) => {
+            // setMiningTime throws on invalid input (uuid:24c35056); this
+            // mirror only ever exercises valid values, but catch defensively
+            // to match the real controller's contract.
+            try {
+                await miner.setMiningTime(max_time, tx_added_time)
+            } catch (err) {
+                return { error: err.message }
+            }
+            return { result: 'ok' }
+        },
+        set_default_mining_time: async () => {
+            await miner.setDefaultMiningTime()
+            return { result: 'ok' }
+        },
+    }
 
-        app.use('/', jsonRpcRouter({ methods: controller }))
+    app.use('/', jsonRpcRouter({ methods: controller }))
 
-        apiServer = await new Promise(resolve => {
-            const srv = app.listen(0, '127.0.0.1', () => {
-                apiPort = srv.address().port
-                resolve(srv)
-            })
+    apiServer = await new Promise(resolve => {
+        const srv = app.listen(0, '127.0.0.1', () => {
+            apiPort = srv.address().port
+            resolve(srv)
         })
     })
+}
 
-    afterEach(async function () {
-        if (apiServer) {
-            await new Promise(resolve => apiServer.close(resolve))
-            apiServer = null
-        }
+async function teardownApi() {
+    if (apiServer) {
+        await new Promise(resolve => apiServer.close(resolve))
+        apiServer = null
+    }
 
-        const names = collector.getMetricNames()
-        if (names.length > 0) {
-            process.stdout.write(collector.summary())
-        }
-    })
+    const names = collector.getMetricNames()
+    if (names.length > 0) {
+        process.stdout.write(collector.summary())
+    }
+}
+
+function useApiFixtures() {
+    before(startNode)
+    after(stopNode)
+    beforeEach(setupApi)
+    afterEach(teardownApi)
+}
+
+describe('Performance: API Throughput', function () {
+    useApiFixtures()
 
     // ─── API-001: Ping flood, 50 sequential pings ─────────────────────
 
@@ -172,7 +181,10 @@ describe('Performance: API Throughput', function () {
         assertP95Under(collector, 'api:set_mining_time', 50)
         assertP95Under(collector, 'api:set_default_mining_time', 50)
     })
+})
 
+describe('Performance: API Throughput', function () {
+    useApiFixtures()
     // ─── API-003: Concurrent requests, 10 pings at once ──────────────
 
     it('API-003: concurrent requests, 10 simultaneous pings', async function () {
