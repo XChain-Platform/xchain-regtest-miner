@@ -261,19 +261,22 @@ async function keepMiningAfterNestedReconsider(miner, { guarded }) {
     return miner.keepMining
 }
 
+let miner
+
+function setupNestedReconsiderMiner() {
+    const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    sinon.stub(console, 'log')
+}
+
+function teardownNestedReconsiderMiner() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
 describe('reconsiderBlock vs a concurrent reconsider_block', function () {
-    let miner
-
-    beforeEach(function () {
-        const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        sinon.stub(console, 'log')
-    })
-
-    afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+    beforeEach(setupNestedReconsiderMiner)
+    afterEach(teardownNestedReconsiderMiner)
 
     it('CONTROL: an epoch-only guard silently stalls the miner', async function () {
         assert.strictEqual(await keepMiningAfterNestedReconsider(miner, { guarded: false }), false,
@@ -284,6 +287,11 @@ describe('reconsiderBlock vs a concurrent reconsider_block', function () {
         assert.strictEqual(await keepMiningAfterNestedReconsider(miner, { guarded: true }), true,
             'no operator ever paused, so the miner must not be left stalled')
     })
+})
+
+describe('reconsiderBlock vs a concurrent reconsider_block', function () {
+    beforeEach(setupNestedReconsiderMiner)
+    afterEach(teardownNestedReconsiderMiner)
 
     it('an operator pause between two overlapping reconsiders still wins', async function () {
         let releaseFirst
@@ -308,6 +316,11 @@ describe('reconsiderBlock vs a concurrent reconsider_block', function () {
         assert.strictEqual(miner.keepMining, false,
             'a pause_mining answered "ok" must survive a later reconsider_block')
     })
+})
+
+describe('reconsiderBlock vs a concurrent reconsider_block', function () {
+    beforeEach(setupNestedReconsiderMiner)
+    afterEach(teardownNestedReconsiderMiner)
 
     it('the last reconsider out is the one that restores', async function () {
         let releaseFirst
