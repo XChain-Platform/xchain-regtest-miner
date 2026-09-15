@@ -27,6 +27,167 @@ const {
     logger
 } = require('./constants.js')
 
+const MAX_BACKOFF_MS = 30000
+
+// Graceful shutdown on SIGTERM/SIGINT: stop the mining loop, close the API
+// server, then exit. Merely flipping this._shutdown is not enough: registering
+// a signal listener suppresses Node's default terminate, and the listening
+// Express server keeps the event loop alive, so the process would hang until
+// docker's stop-grace SIGKILL. Close the server (thread in via api.js) and exit.
+function installShutdownHandlers(){
+    this._sigTermHandler = (signal) => {
+        logger.info("Received " + (signal || "SIGTERM") + ", shutting down gracefully...")
+        this._shutdown = true
+        const done = () => process.exit(0)
+        if (this.apiServer && typeof this.apiServer.close === "function") {
+            this.apiServer.close(done)
+            // Failsafe: force exit if lingering keep-alive sockets stall close().
+            setTimeout(done, 2000).unref()
+        } else {
+            done()
+        }
+    }
+    process.on('SIGTERM', () => this._sigTermHandler('SIGTERM'))
+    process.on('SIGINT',  () => this._sigTermHandler('SIGINT'))
+}
+
+// The auto-mine loop itself. `loop` carries the mempool timers, the RPC error
+// streak and the heartbeat baseline across passes.
+async function runMineLoop(loop){
+    while (!this._shutdown){
+        // Bound wallet_balance staleness at WALLET_BALANCE_REFRESH_MS whatever
+        // moved the wallet: send_funds, fill_mempool, coinbase maturity, a
+        // node-side change. Deliberately ABOVE the keepMining gate, because
+        // fill_mempool and pause_mining hold that flag false for exactly the
+        // windows in which the wallet drains, and a refresh that only ran while
+        // mining would go quiet at the moment it is needed. refreshWalletFunds()
+        // never throws, so this cannot break the loop; and both mine sites below
+        // re-read keepMining immediately before generateBlocks, so this await
+        // cannot reopen the pause barrier window those guards close.
+        if (this.walletRefreshDue(Date.now())) {
+            await this.refreshWalletFunds()
+        }
+        if (this.keepMining){
+            if (timerMineDue.call(this, loop)){
+                // Re-read keepMining immediately before mining, with NO await
+                // between the check and the call. generateBlocks appends to
+                // _generateQueue synchronously, so a pause that lands after this
+                // check is already behind the barrier pauseMining()/fillMempool()
+                // await, and one that lands before it stops the mine outright.
+                // Nothing awaits between the loop's own keepMining check above and
+                // here today, so this guard changes no behavior at this site; it
+                // pins the invariant so inserting an await above cannot silently
+                // reopen the window the idle-mine site below actually had.
+                if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
+                if (!(await mineLoopBlock.call(this, loop, "generating a new block"))) continue
+
+                loop.initialStartToMine = 0
+                loop.extendedStartToMine = 0
+                loop.lastRawMempoolLength = 0
+            }
+
+            const read = await readLoopMempool.call(this, loop)
+            if (!read.ok) continue
+
+            // Mine-empty heartbeat (off unless IDLE_MINE_INTERVAL_MS /
+            // set_idle_mine_interval turned it on). Only on the empty-mempool
+            // branch: a pending transaction has its own timer above, and
+            // racing it would mine the block early.
+            if (trackMempool.call(this, loop, read.rawMempool) && this.idleMineDue(Date.now(), loop.watchingSince)){
+                // The real window this guard closes. The loop's keepMining check
+                // sits above the `await this.connector.getRawMempool()` in readLoopMempool,
+                // so a pauseMining()/fillMempool() that flipped the flag
+                // during that RPC had already cleared its _generateQueue barrier
+                // and returned by the time control reached here: the heartbeat then
+                // landed a block INSIDE a section the caller had been told was
+                // serialized, corrupting exactly the height-deterministic reorg and
+                // mempool drills the barrier exists for.
+                if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
+                if (!(await mineLoopBlock.call(this, loop, "mining an idle block"))) continue
+            }
+        }
+        await this.sleep(CHECK_BLOCK_DELAY_MS)
+    }
+}
+
+// Whether a pending mempool is due to be mined: the first tx has waited
+// maxTimeToMineTxs, or no new tx has arrived for addedTimeToMineTxs.
+function timerMineDue(loop){
+    if ((loop.initialStartToMine > 0) && (loop.extendedStartToMine > 0)){
+        let timeNow = Date.now()
+        let initialTimePassed = timeNow-loop.initialStartToMine
+        let extendedStartTime = timeNow-loop.extendedStartToMine
+
+        return (initialTimePassed >= this.maxTimeToMineTxs) || (extendedStartTime >= this.addedTimeToMineTxs)
+    }
+    return false
+}
+
+// Mines one block for the loop. Resolves true on success; on failure it extends
+// both error streaks, backs off, and resolves false so the loop starts its next pass.
+async function mineLoopBlock(loop, what){
+    try {
+        await this.generateBlocks(1)
+        loop.consecutiveErrors = 0
+        this._consecutiveErrors = 0
+        this._mineFailures = 0
+        // blocks_mined / last_mine_at are updated in generateBlocksRaw
+        // (the chokepoint all mining paths flow through).
+        return true
+    } catch (err){
+        loop.consecutiveErrors++
+        this._consecutiveErrors = loop.consecutiveErrors
+        this._mineFailures++
+        let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, loop.consecutiveErrors), MAX_BACKOFF_MS)
+        logger.info("There were problems "+what+": "+(err && err.message ? err.message : err)+"; retrying in "+backoff+"ms.")
+        await this.sleep(backoff)
+        return false
+    }
+}
+
+// Reads the mempool for one pass. Resolves { ok: true, rawMempool }, or after
+// extending the error streak and backing off, { ok: false } to skip the pass.
+async function readLoopMempool(loop){
+    let rawMempool = null
+    try {
+        rawMempool = await this.connector.getRawMempool()
+        loop.consecutiveErrors = 0
+        this._consecutiveErrors = 0
+    } catch (error){
+        loop.consecutiveErrors++
+        this._consecutiveErrors = loop.consecutiveErrors
+        let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, loop.consecutiveErrors), MAX_BACKOFF_MS)
+        logger.info("There were problems getting the mempool: "+(error && error.message ? error.message : error)+"; retrying in "+backoff+"ms.")
+        await this.sleep(backoff)
+        return { ok: false }
+    }
+    return { ok: true, rawMempool }
+}
+
+// Updates the mempool timers and the exported size from one read. Returns true
+// when the mempool is empty, the only state the idle heartbeat may mine in.
+function trackMempool(loop, rawMempool){
+    if (rawMempool != null && rawMempool.length > 0){
+        if (rawMempool.length > loop.lastRawMempoolLength){
+            //there are new txs in the mempool
+            if (loop.initialStartToMine == 0){
+                loop.initialStartToMine = Date.now()
+                loop.extendedStartToMine = loop.initialStartToMine
+            } else {
+                loop.extendedStartToMine = Date.now()
+            }
+        }
+        loop.lastRawMempoolLength = rawMempool.length
+        this._mempoolSize = rawMempool.length
+        return false
+    }
+    loop.initialStartToMine = 0
+    loop.extendedStartToMine = 0
+    loop.lastRawMempoolLength = 0
+    this._mempoolSize = 0
+    return true
+}
+
 module.exports = {
     // Throws on invalid count, like setMiningTime: a sentinel
     // return of `[]` would let generate_blocks({count:0|-1|'abc'}) silently
@@ -115,34 +276,17 @@ module.exports = {
         //If there are no new tx in that time, then mine a block
         logger.info("Ready. Checking for new txs")
 
-        // Graceful shutdown on SIGTERM/SIGINT: stop the mining loop, close the API
-        // server, then exit. Merely flipping this._shutdown is not enough: registering
-        // a signal listener suppresses Node's default terminate, and the listening
-        // Express server keeps the event loop alive, so the process would hang until
-        // docker's stop-grace SIGKILL. Close the server (thread in via api.js) and exit.
-        this._sigTermHandler = (signal) => {
-            logger.info("Received " + (signal || "SIGTERM") + ", shutting down gracefully...")
-            this._shutdown = true
-            const done = () => process.exit(0)
-            if (this.apiServer && typeof this.apiServer.close === "function") {
-                this.apiServer.close(done)
-                // Failsafe: force exit if lingering keep-alive sockets stall close().
-                setTimeout(done, 2000).unref()
-            } else {
-                done()
-            }
-        }
-        process.on('SIGTERM', () => this._sigTermHandler('SIGTERM'))
-        process.on('SIGINT',  () => this._sigTermHandler('SIGINT'))
+        installShutdownHandlers.call(this)
 
-        let lastRawMempoolLength = 0
-        let initialStartToMine = 0
-        let extendedStartToMine = 0
-        let consecutiveErrors = 0
-        const MAX_BACKOFF_MS = 30000
-        // Baseline for the mine-empty heartbeat on a miner that has not mined yet,
-        // so enabling it never fires a block the instant the loop starts.
-        const watchingSince = Date.now()
+        const loop = {
+            lastRawMempoolLength: 0,
+            initialStartToMine: 0,
+            extendedStartToMine: 0,
+            consecutiveErrors: 0,
+            // Baseline for the mine-empty heartbeat on a miner that has not mined yet,
+            // so enabling it never fires a block the instant the loop starts.
+            watchingSince: Date.now()
+        }
         this.keepMining = true
         this._miningStateGeneration++
         // Reached only after prepareWallet() resolved, so from here a keepMining=false
@@ -150,124 +294,7 @@ module.exports = {
         // clears keepMining, and a paused loop has still started.
         this.miningStarted = true
 
-        while (!this._shutdown){
-            // Bound wallet_balance staleness at WALLET_BALANCE_REFRESH_MS whatever
-            // moved the wallet: send_funds, fill_mempool, coinbase maturity, a
-            // node-side change. Deliberately ABOVE the keepMining gate, because
-            // fill_mempool and pause_mining hold that flag false for exactly the
-            // windows in which the wallet drains, and a refresh that only ran while
-            // mining would go quiet at the moment it is needed. refreshWalletFunds()
-            // never throws, so this cannot break the loop; and both mine sites below
-            // re-read keepMining immediately before generateBlocks, so this await
-            // cannot reopen the pause barrier window those guards close.
-            if (this.walletRefreshDue(Date.now())) {
-                await this.refreshWalletFunds()
-            }
-            if (this.keepMining){
-                if ((initialStartToMine > 0) && (extendedStartToMine > 0)){
-                    let timeNow = Date.now()
-                    let initialTimePassed = timeNow-initialStartToMine
-                    let extendedStartTime = timeNow-extendedStartToMine
-
-                    if ((initialTimePassed >= this.maxTimeToMineTxs) || (extendedStartTime >= this.addedTimeToMineTxs)){
-                        // Re-read keepMining immediately before mining, with NO await
-                        // between the check and the call. generateBlocks appends to
-                        // _generateQueue synchronously, so a pause that lands after this
-                        // check is already behind the barrier pauseMining()/fillMempool()
-                        // await, and one that lands before it stops the mine outright.
-                        // Nothing awaits between the loop's own keepMining check above and
-                        // here today, so this guard changes no behavior at this site; it
-                        // pins the invariant so inserting an await above cannot silently
-                        // reopen the window the idle-mine site below actually had.
-                        if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
-                        try {
-                            await this.generateBlocks(1)
-                            consecutiveErrors = 0
-                            this._consecutiveErrors = 0
-                            this._mineFailures = 0
-                            // blocks_mined / last_mine_at are updated in generateBlocksRaw
-                            // (the chokepoint all mining paths flow through).
-                        } catch (err){
-                            consecutiveErrors++
-                            this._consecutiveErrors = consecutiveErrors
-                            this._mineFailures++
-                            let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
-                            logger.info("There were problems generating a new block: "+(err && err.message ? err.message : err)+"; retrying in "+backoff+"ms.")
-                            await this.sleep(backoff)
-                            continue
-                        }
-
-                        initialStartToMine = 0
-                        extendedStartToMine = 0
-                        lastRawMempoolLength = 0
-                    }
-                }
-
-                let rawMempool = null
-                try {
-                    rawMempool = await this.connector.getRawMempool()
-                    consecutiveErrors = 0
-                    this._consecutiveErrors = 0
-                } catch (error){
-                    consecutiveErrors++
-                    this._consecutiveErrors = consecutiveErrors
-                    let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
-                    logger.info("There were problems getting the mempool: "+(error && error.message ? error.message : error)+"; retrying in "+backoff+"ms.")
-                    await this.sleep(backoff)
-                    continue
-                }
-
-                if (rawMempool != null && rawMempool.length > 0){
-                    if (rawMempool.length > lastRawMempoolLength){
-                        //there are new txs in the mempool
-                        if (initialStartToMine == 0){
-                            initialStartToMine = Date.now()
-                            extendedStartToMine = initialStartToMine
-                        } else {
-                            extendedStartToMine = Date.now()
-                        }
-                    }
-                    lastRawMempoolLength = rawMempool.length
-                    this._mempoolSize = rawMempool.length
-                } else {
-                    initialStartToMine = 0
-                    extendedStartToMine = 0
-                    lastRawMempoolLength = 0
-                    this._mempoolSize = 0
-
-                    // Mine-empty heartbeat (off unless IDLE_MINE_INTERVAL_MS /
-                    // set_idle_mine_interval turned it on). Only on the empty-mempool
-                    // branch: a pending transaction has its own timer above, and
-                    // racing it would mine the block early.
-                    if (this.idleMineDue(Date.now(), watchingSince)){
-                        // The real window this guard closes. The loop's keepMining check
-                        // sits above the `await this.connector.getRawMempool()` a few lines
-                        // back, so a pauseMining()/fillMempool() that flipped the flag
-                        // during that RPC had already cleared its _generateQueue barrier
-                        // and returned by the time control reached here: the heartbeat then
-                        // landed a block INSIDE a section the caller had been told was
-                        // serialized, corrupting exactly the height-deterministic reorg and
-                        // mempool drills the barrier exists for.
-                        if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
-                        try {
-                            await this.generateBlocks(1)
-                            consecutiveErrors = 0
-                            this._consecutiveErrors = 0
-                            this._mineFailures = 0
-                        } catch (err){
-                            consecutiveErrors++
-                            this._consecutiveErrors = consecutiveErrors
-                            this._mineFailures++
-                            let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, consecutiveErrors), MAX_BACKOFF_MS)
-                            logger.info("There were problems mining an idle block: "+(err && err.message ? err.message : err)+"; retrying in "+backoff+"ms.")
-                            await this.sleep(backoff)
-                            continue
-                        }
-                    }
-                }
-            }
-            await this.sleep(CHECK_BLOCK_DELAY_MS)
-        }
+        await runMineLoop.call(this, loop)
     },
 
     getStatus(){
