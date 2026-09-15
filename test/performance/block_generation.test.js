@@ -25,74 +25,83 @@ const LatencyMockNode = require('./helpers/LatencyMockNode')
 const PerformanceCollector = require('./helpers/PerformanceCollector')
 const { assertP95Under, assertMeanUnder, assertMaxUnder } = require('./helpers/perfAssert')
 
-describe('Performance: BG: Block Generation Latency', function () {
-    let node, miner, collector
-    let startPromise
+let node, miner, collector
+let startPromise
 
-    before(async function () {
-        node = new LatencyMockNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+async function startNode() {
+    node = new LatencyMockNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+}
 
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
+async function stopNode() {
+    sinon.restore()
+    await node.stop()
+}
 
-    beforeEach(async function () {
-        node.reset()
-        // Pre-seed a loaded, funded wallet
-        node._rpc_createwallet(['xchain_regtest_wallet'])
-        node._rpc_generatetoaddress([110, 'bcrt1qseed'])
-        node.calls = []
+async function setupMiner() {
+    node.reset()
+    // Pre-seed a loaded, funded wallet
+    node._rpc_createwallet(['xchain_regtest_wallet'])
+    node._rpc_generatetoaddress([110, 'bcrt1qseed'])
+    node.calls = []
 
-        collector = new PerformanceCollector('BG')
-        miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+    collector = new PerformanceCollector('BG')
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
 
-        // Fast polling: 10ms instead of 1000ms
-        const originalSleep = miner.sleep.bind(miner)
-        miner.sleep = async (ms) => {
-            if (miner._shutdown) throw new Error('__E2E_SHUTDOWN__')
-            await originalSleep(10)
-        }
-    })
+    // Fast polling: 10ms instead of 1000ms
+    const originalSleep = miner.sleep.bind(miner)
+    miner.sleep = async (ms) => {
+        if (miner._shutdown) throw new Error('__E2E_SHUTDOWN__')
+        await originalSleep(10)
+    }
+}
 
-    afterEach(async function () {
-        miner._shutdown = true
-        if (startPromise) {
-            try { await startPromise } catch (e) {
-                if (e.message !== '__E2E_SHUTDOWN__') throw e
-            }
-        }
-        startPromise = null
-
-        // Print summary for this test
-        const names = collector.getMetricNames()
-        if (names.length > 0) {
-            process.stdout.write(collector.summary())
-        }
-    })
-
-    function startMinerLoop() {
-        startPromise = miner.start().catch(e => {
+async function teardownMiner() {
+    miner._shutdown = true
+    if (startPromise) {
+        try { await startPromise } catch (e) {
             if (e.message !== '__E2E_SHUTDOWN__') throw e
-        })
-    }
-
-    async function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms))
-    }
-
-    async function waitFor(conditionFn, timeoutMs = 5000) {
-        const start = Date.now()
-        while (Date.now() - start < timeoutMs) {
-            if (conditionFn()) return true
-            await sleep(20)
         }
-        throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
     }
+    startPromise = null
+
+    // Print summary for this test
+    const names = collector.getMetricNames()
+    if (names.length > 0) {
+        process.stdout.write(collector.summary())
+    }
+}
+
+function startMinerLoop() {
+    startPromise = miner.start().catch(e => {
+        if (e.message !== '__E2E_SHUTDOWN__') throw e
+    })
+}
+
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function waitFor(conditionFn, timeoutMs = 5000) {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+        if (conditionFn()) return true
+        await sleep(20)
+    }
+    throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
+}
+
+function useMinerFixtures() {
+    before(startNode)
+    after(stopNode)
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
+}
+
+describe('Performance: BG: Block Generation Latency', function () {
+    useMinerFixtures()
 
     // ─── BG-001: Empty mempool, baseline generateToAddress latency ────
 
@@ -133,7 +142,10 @@ describe('Performance: BG: Block Generation Latency', function () {
 
         assertP95Under(collector, 'miningCycle:10tx', 2000)
     })
+})
 
+describe('Performance: BG: Block Generation Latency', function () {
+    useMinerFixtures()
     // ─── BG-003: Medium mempool (100 txs), mining cycle latency ───────
 
     it('BG-003: mining cycle latency with 100 txs in mempool (3 cycles)', async function () {
@@ -177,7 +189,10 @@ describe('Performance: BG: Block Generation Latency', function () {
 
         assertMaxUnder(collector, 'miningCycle:1000tx', 5000)
     })
+})
 
+describe('Performance: BG: Block Generation Latency', function () {
+    useMinerFixtures()
     // ─── BG-005: Rapid sequential mining, 10 blocks ───────────────────
 
     it('BG-005: rapid sequential generateToAddress, 10 blocks', async function () {
