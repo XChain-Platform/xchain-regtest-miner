@@ -26,162 +26,173 @@ const helmet = require('helmet')
 const cors = require('cors')
 const jsonRouter = require('express-json-rpc-router')
 
-describe('Seam A: HTTP ↔ JSON-RPC controller', function () {
-    let app, server, port, miner
+let app, server, port, miner
 
-    before(function (done) {
-        miner = {
-            sendFundsToAddress: sinon.stub().resolves('txid_abc123'),
-            fillMempool: sinon.stub().resolves(),
-            continueMining: sinon.stub().resolves(),
-            setMiningTime: sinon.stub().resolves(),
-            setDefaultMiningTime: sinon.stub().resolves(),
-        }
+function createMiner() {
+    return {
+        sendFundsToAddress: sinon.stub().resolves('txid_abc123'),
+        fillMempool: sinon.stub().resolves(),
+        continueMining: sinon.stub().resolves(),
+        setMiningTime: sinon.stub().resolves(),
+        setDefaultMiningTime: sinon.stub().resolves(),
+    }
+}
 
-        // Recreate the exact Express stack from api.js
-        app = express()
-        app.use(helmet())
-        app.use(bodyParser.json())
-        app.use(cors())
+function createJsonRpcController() {
+    return {
+        async ping() {
+            return { status: 'success' }
+        },
+        async send_funds({ address, amount }) {
+            let txid = null
+            try {
+                txid = await miner.sendFundsToAddress(address, amount)
+            } catch (err) {
+                return { error: 'There was a problem sending ' + amount + ' to ' + address }
+            }
+            return txid
+        },
+        async fill_mempool({ tx_quantity }) {
+            try {
+                await miner.fillMempool(tx_quantity)
+            } catch (err) {
+                return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' }
+            }
+            return { result: 'ok' }
+        },
+        async continue_mining({}) {
+            try {
+                await miner.continueMining()
+            } catch (err) {
+                return { error: 'There was a problem trying to continue the mining' }
+            }
+            return { result: 'ok' }
+        },
+        async set_mining_time({ max_time, tx_added_time }) {
+            try {
+                await miner.setMiningTime(max_time, tx_added_time)
+            } catch (err) {
+                return { error: 'There was a problem trying to set a new time to mine blocks' }
+            }
+            return { result: 'ok' }
+        },
+        async set_default_mining_time() {
+            try {
+                await miner.setDefaultMiningTime()
+            } catch (err) {
+                return { error: 'There was a problem trying to set a the default time to mine blocks' }
+            }
+            return { result: 'ok' }
+        },
+    }
+}
 
-        const jsonRpcController = {
-            async ping() {
-                return { status: 'success' }
-            },
-            async send_funds({ address, amount }) {
-                let txid = null
-                try {
-                    txid = await miner.sendFundsToAddress(address, amount)
-                } catch (err) {
-                    return { error: 'There was a problem sending ' + amount + ' to ' + address }
-                }
-                return txid
-            },
-            async fill_mempool({ tx_quantity }) {
-                try {
-                    await miner.fillMempool(tx_quantity)
-                } catch (err) {
-                    return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' }
-                }
-                return { result: 'ok' }
-            },
-            async continue_mining({}) {
-                try {
-                    await miner.continueMining()
-                } catch (err) {
-                    return { error: 'There was a problem trying to continue the mining' }
-                }
-                return { result: 'ok' }
-            },
-            async set_mining_time({ max_time, tx_added_time }) {
-                try {
-                    await miner.setMiningTime(max_time, tx_added_time)
-                } catch (err) {
-                    return { error: 'There was a problem trying to set a new time to mine blocks' }
-                }
-                return { result: 'ok' }
-            },
-            async set_default_mining_time() {
-                try {
-                    await miner.setDefaultMiningTime()
-                } catch (err) {
-                    return { error: 'There was a problem trying to set a the default time to mine blocks' }
-                }
-                return { result: 'ok' }
-            },
-        }
+function startApp(done) {
+    miner = createMiner()
 
-        app.use(jsonRouter({ methods: jsonRpcController }))
+    // Recreate the exact Express stack from api.js
+    app = express()
+    app.use(helmet())
+    app.use(bodyParser.json())
+    app.use(cors())
+    app.use(jsonRouter({ methods: createJsonRpcController() }))
 
-        server = app.listen(0, '127.0.0.1', () => {
-            port = server.address().port
-            done()
-        })
+    server = app.listen(0, '127.0.0.1', () => {
+        port = server.address().port
+        done()
     })
+}
 
+function resetMiner() {
+    // Reset stubs between tests
+    miner.sendFundsToAddress.resetHistory()
+    miner.sendFundsToAddress.resolves('txid_abc123')
+    miner.fillMempool.resetHistory()
+    miner.fillMempool.resolves()
+    miner.continueMining.resetHistory()
+    miner.continueMining.resolves()
+    miner.setMiningTime.resetHistory()
+    miner.setMiningTime.resolves()
+    miner.setDefaultMiningTime.resetHistory()
+    miner.setDefaultMiningTime.resolves()
+}
+
+function useApi() {
+    before(startApp)
     after(function (done) {
         server.close(done)
     })
+    beforeEach(resetMiner)
+}
 
-    beforeEach(function () {
-        // Reset stubs between tests
-        miner.sendFundsToAddress.resetHistory()
-        miner.sendFundsToAddress.resolves('txid_abc123')
-        miner.fillMempool.resetHistory()
-        miner.fillMempool.resolves()
-        miner.continueMining.resetHistory()
-        miner.continueMining.resolves()
-        miner.setMiningTime.resetHistory()
-        miner.setMiningTime.resolves()
-        miner.setDefaultMiningTime.resetHistory()
-        miner.setDefaultMiningTime.resolves()
+// Helper: send a JSON-RPC request and get the parsed response
+function rpcCall(method, params = {}) {
+    return new Promise((resolve, reject) => {
+        const body = JSON.stringify({
+            jsonrpc: '2.0',
+            method,
+            params,
+            id: 1,
+        })
+
+        const req = http.request({
+            hostname: '127.0.0.1',
+            port,
+            path: '/',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+            },
+        }, (res) => {
+            let data = ''
+            res.on('data', chunk => data += chunk)
+            res.on('end', () => {
+                try {
+                    resolve({
+                        status: res.statusCode,
+                        headers: res.headers,
+                        body: JSON.parse(data),
+                    })
+                } catch (e) {
+                    resolve({
+                        status: res.statusCode,
+                        headers: res.headers,
+                        body: data,
+                    })
+                }
+            })
+        })
+
+        req.on('error', reject)
+        req.write(body)
+        req.end()
     })
+}
 
-    // Helper: send a JSON-RPC request and get the parsed response
-    function rpcCall(method, params = {}) {
-        return new Promise((resolve, reject) => {
-            const body = JSON.stringify({
-                jsonrpc: '2.0',
-                method,
-                params,
-                id: 1,
-            })
-
-            const req = http.request({
-                hostname: '127.0.0.1',
-                port,
-                path: '/',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(body),
-                },
-            }, (res) => {
-                let data = ''
-                res.on('data', chunk => data += chunk)
-                res.on('end', () => {
-                    try {
-                        resolve({
-                            status: res.statusCode,
-                            headers: res.headers,
-                            body: JSON.parse(data),
-                        })
-                    } catch (e) {
-                        resolve({
-                            status: res.statusCode,
-                            headers: res.headers,
-                            body: data,
-                        })
-                    }
-                })
-            })
-
-            req.on('error', reject)
-            req.write(body)
-            req.end()
+function rawRequest(options, body) {
+    return new Promise((resolve, reject) => {
+        const req = http.request({
+            hostname: '127.0.0.1',
+            port,
+            ...options,
+        }, (res) => {
+            let data = ''
+            res.on('data', chunk => data += chunk)
+            res.on('end', () => resolve({
+                status: res.statusCode,
+                headers: res.headers,
+                body: data,
+            }))
         })
-    }
+        req.on('error', reject)
+        if (body) req.write(body)
+        req.end()
+    })
+}
 
-    function rawRequest(options, body) {
-        return new Promise((resolve, reject) => {
-            const req = http.request({
-                hostname: '127.0.0.1',
-                port,
-                ...options,
-            }, (res) => {
-                let data = ''
-                res.on('data', chunk => data += chunk)
-                res.on('end', () => resolve({
-                    status: res.statusCode,
-                    headers: res.headers,
-                    body: data,
-                }))
-            })
-            req.on('error', reject)
-            if (body) req.write(body)
-            req.end()
-        })
-    }
+describe('Seam A: HTTP ↔ JSON-RPC controller', function () {
+    useApi()
 
     // ─── JSON-RPC Method Routing ────────────────────────────────────────
 
@@ -222,6 +233,10 @@ describe('Seam A: HTTP ↔ JSON-RPC controller', function () {
             assert.ok(res.body.result.error)
         })
     })
+})
+
+describe('Seam A: HTTP ↔ JSON-RPC controller', function () {
+    useApi()
 
     describe('continue_mining', function () {
         it('returns ok on success', async function () {
@@ -246,6 +261,10 @@ describe('Seam A: HTTP ↔ JSON-RPC controller', function () {
             assert(miner.setDefaultMiningTime.calledOnce)
         })
     })
+})
+
+describe('Seam A: HTTP ↔ JSON-RPC controller', function () {
+    useApi()
 
     // ─── Security Headers (Helmet) ──────────────────────────────────────
 
@@ -260,6 +279,10 @@ describe('Seam A: HTTP ↔ JSON-RPC controller', function () {
             assert.ok(res.headers['x-frame-options'])
         })
     })
+})
+
+describe('Seam A: HTTP ↔ JSON-RPC controller', function () {
+    useApi()
 
     // ─── CORS ───────────────────────────────────────────────────────────
 
