@@ -74,19 +74,22 @@ async function externalMineDuringFill(miner, { guarded }) {
     return { mined, rejected }
 }
 
+let miner
+
+function setupMiner() {
+    const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    sinon.stub(console, 'log')
+}
+
+function teardownMiner() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
 describe('fill_mempool vs a concurrent generate_blocks', function () {
-    let miner
-
-    beforeEach(function () {
-        const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        sinon.stub(console, 'log')
-    })
-
-    afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     it('CONTROL: the ungated mine path drains the mempool mid-fill', async function () {
         const { mined, rejected } = await externalMineDuringFill(miner, { guarded: false })
@@ -108,6 +111,11 @@ describe('fill_mempool vs a concurrent generate_blocks', function () {
         assert.strictEqual(miner._generateQueue, queueBefore,
             'a refused mine must not have been appended to the mine queue')
     })
+})
+
+describe('fill_mempool vs a concurrent generate_blocks', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     it('lets the fill run its own funding mines while the public entry point is shut', async function () {
         let mined = 0
