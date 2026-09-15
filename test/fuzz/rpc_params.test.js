@@ -12,10 +12,62 @@ const assert = require('assert')
 const sinon = require('sinon')
 const fc = require('fast-check')
 
-describe('Fuzz: JSON-RPC API parameters', function () {
-    let miner
-    let controller
+let miner
+let controller
 
+function createController() {
+    return {
+        async ping() {
+            return { status: 'success' }
+        },
+        async send_funds({ address, amount }) {
+            let txid = null
+            try {
+                txid = await miner.sendFundsToAddress(address, amount)
+            } catch (err) {
+                console.log(err)
+                try { return { error: 'There was a problem sending ' + amount + ' to ' + address } } catch(e) { return { error: 'There was a problem sending funds' } }
+            }
+            return txid
+        },
+        async fill_mempool({ tx_quantity }) {
+            try {
+                await miner.fillMempool(tx_quantity)
+            } catch (err) {
+                console.log(err)
+                try { return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' } } catch(e) { return { error: 'There was a problem trying to fill the mempool' } }
+            }
+            return { result: 'ok' }
+        },
+        async continue_mining({}) {
+            try {
+                await miner.continueMining()
+            } catch (err) {
+                console.log(err)
+                return { error: 'There was a problem trying to continue the mining' }
+            }
+            return { result: 'ok' }
+        },
+        async set_mining_time({ max_time, tx_added_time }) {
+            try {
+                await miner.setMiningTime(max_time, tx_added_time)
+            } catch (err) {
+                return { error: 'There was a problem trying to set a new time to mine blocks' }
+            }
+            return { result: 'ok' }
+        },
+        async set_default_mining_time() {
+            try {
+                await miner.setDefaultMiningTime()
+            } catch (err) {
+                return { error: 'There was a problem trying to set a the default time to mine blocks' }
+            }
+            return { result: 'ok' }
+        },
+    }
+}
+
+function useController() {
     beforeEach(function () {
         miner = {
             sendFundsToAddress: sinon.stub().resolves('txid_abc'),
@@ -30,60 +82,16 @@ describe('Fuzz: JSON-RPC API parameters', function () {
         sinon.stub(console, 'error')
 
         // Mirror the controller from api.js
-        controller = {
-            async ping() {
-                return { status: 'success' }
-            },
-            async send_funds({ address, amount }) {
-                let txid = null
-                try {
-                    txid = await miner.sendFundsToAddress(address, amount)
-                } catch (err) {
-                    console.log(err)
-                    try { return { error: 'There was a problem sending ' + amount + ' to ' + address } } catch(e) { return { error: 'There was a problem sending funds' } }
-                }
-                return txid
-            },
-            async fill_mempool({ tx_quantity }) {
-                try {
-                    await miner.fillMempool(tx_quantity)
-                } catch (err) {
-                    console.log(err)
-                    try { return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' } } catch(e) { return { error: 'There was a problem trying to fill the mempool' } }
-                }
-                return { result: 'ok' }
-            },
-            async continue_mining({}) {
-                try {
-                    await miner.continueMining()
-                } catch (err) {
-                    console.log(err)
-                    return { error: 'There was a problem trying to continue the mining' }
-                }
-                return { result: 'ok' }
-            },
-            async set_mining_time({ max_time, tx_added_time }) {
-                try {
-                    await miner.setMiningTime(max_time, tx_added_time)
-                } catch (err) {
-                    return { error: 'There was a problem trying to set a new time to mine blocks' }
-                }
-                return { result: 'ok' }
-            },
-            async set_default_mining_time() {
-                try {
-                    await miner.setDefaultMiningTime()
-                } catch (err) {
-                    return { error: 'There was a problem trying to set a the default time to mine blocks' }
-                }
-                return { result: 'ok' }
-            },
-        }
+        controller = createController()
     })
 
     afterEach(function () {
         sinon.restore()
     })
+}
+
+describe('Fuzz: JSON-RPC API parameters', function () {
+    useController()
 
     // ─── send_funds ─────────────────────────────────────────────────
 
@@ -136,6 +144,10 @@ describe('Fuzz: JSON-RPC API parameters', function () {
             )
         })
     })
+})
+
+describe('Fuzz: JSON-RPC API parameters', function () {
+    useController()
 
     // ─── fill_mempool ───────────────────────────────────────────────
 
@@ -171,6 +183,10 @@ describe('Fuzz: JSON-RPC API parameters', function () {
             )
         })
     })
+})
+
+describe('Fuzz: JSON-RPC API parameters', function () {
+    useController()
 
     // ─── set_mining_time ────────────────────────────────────────────
 
@@ -196,6 +212,10 @@ describe('Fuzz: JSON-RPC API parameters', function () {
             )
         })
     })
+})
+
+describe('Fuzz: JSON-RPC API parameters', function () {
+    useController()
 
     // ─── continue_mining ────────────────────────────────────────────
 
@@ -210,6 +230,10 @@ describe('Fuzz: JSON-RPC API parameters', function () {
             )
         })
     })
+})
+
+describe('Fuzz: JSON-RPC API parameters', function () {
+    useController()
 
     // ─── ping ───────────────────────────────────────────────────────
 
@@ -221,6 +245,10 @@ describe('Fuzz: JSON-RPC API parameters', function () {
             }
         })
     })
+})
+
+describe('Fuzz: JSON-RPC API parameters', function () {
+    useController()
 
     // ─── Malformed parameter objects ────────────────────────────────
 
