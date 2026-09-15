@@ -28,6 +28,73 @@ const {
     logger
 } = require('./constants.js')
 
+// The wallet-availability probe prepareWallet opens with. Resolves the probed
+// address, or null when every attempt failed and the load/create path must run.
+async function probeWalletAddress(){
+    // Probe with getNewAddress: succeeds whenever ANY wallet is usable,
+    // including modern Bitcoin Core 0.17+ with an already-loaded named
+    // wallet, or legacy single-wallet chains (Dogecoin v1.14.x, older
+    // Litecoin) that auto-load a default wallet and don't implement
+    // createwallet / loadwallet / listwallets at all.
+    //
+    // Retry the probe for a few seconds because legacy daemons accept
+    // RPC requests before their wallet has finished loading. Dogecoin
+    // v1.14 in particular reliably loses this race on the first start
+    // after a fresh `xchain-node reset` (the miner crashes because
+    // `createWallet` as the fallback isn't supported on DOGE). A handful
+    // of 1-second retries covers wallet load in practice.
+    let probeAddress = null
+    const PROBE_MAX_ATTEMPTS = 10
+    const PROBE_INTERVAL_MS  = 1000
+    for (let attempt = 1; attempt <= PROBE_MAX_ATTEMPTS; attempt++) {
+        try {
+            probeAddress = await this.connector.getNewAddress()
+            break
+        } catch(err){
+            if (attempt < PROBE_MAX_ATTEMPTS) {
+                await this.sleep(PROBE_INTERVAL_MS)
+            }
+            // After the last attempt, fall through to the load/create path.
+        }
+    }
+    return probeAddress
+}
+
+// Mines to coinbase maturity and waits for a spendable balance, for a wallet that
+// prepareWallet found empty. Throws when the balance never arrives.
+async function mineToFundedBalance(){
+    logger.info("Mining blocks to get balance in the wallet")
+    // Always mine to coinbase-maturity depth regardless of current chain
+    // height: fewer blocks (e.g. a single one on an aged chain) would only
+    // add an immature coinbase (spendable after 100 confirmations), leaving
+    // the balance at 0 while walletReady is about to be set true. The
+    // bounded balance re-poll below is the real readiness guard.
+    // Private entry point: start() runs this warmup without awaiting while the API
+    // is already listening, so a fill_mempool arriving during it must not
+    // turn wallet preparation into a boot failure.
+    await this.generateBlocksQueued(101)
+
+    // Re-poll the balance in a bounded loop instead of trusting the
+    // mining call: ping/status export walletReady as the readiness
+    // oracle, so it must reflect an observed spendable balance, not
+    // just that a mining RPC was issued.
+    const BALANCE_POLL_MAX_ATTEMPTS = 10
+    const BALANCE_POLL_INTERVAL_MS = 1000
+    for (let attempt = 1; attempt <= BALANCE_POLL_MAX_ATTEMPTS; attempt++) {
+        this.balance = await this.connector.getBalance()
+        if (this.balance > 0){
+            break
+        }
+        if (attempt < BALANCE_POLL_MAX_ATTEMPTS) {
+            await this.sleep(BALANCE_POLL_INTERVAL_MS)
+        }
+    }
+
+    if (this.balance <= 0){
+        throw new Error("Wallet balance still 0 after mining to maturity; cannot mark wallet ready")
+    }
+}
+
 module.exports = {
     /**
      * Loads the named wallet, creating it if the node has never seen it, and
@@ -158,32 +225,7 @@ module.exports = {
     async prepareWallet(){
         logger.info("Checking wallet availability")
 
-        // Probe with getNewAddress: succeeds whenever ANY wallet is usable,
-        // including modern Bitcoin Core 0.17+ with an already-loaded named
-        // wallet, or legacy single-wallet chains (Dogecoin v1.14.x, older
-        // Litecoin) that auto-load a default wallet and don't implement
-        // createwallet / loadwallet / listwallets at all.
-        //
-        // Retry the probe for a few seconds because legacy daemons accept
-        // RPC requests before their wallet has finished loading. Dogecoin
-        // v1.14 in particular reliably loses this race on the first start
-        // after a fresh `xchain-node reset` (the miner crashes because
-        // `createWallet` as the fallback isn't supported on DOGE). A handful
-        // of 1-second retries covers wallet load in practice.
-        let probeAddress = null
-        const PROBE_MAX_ATTEMPTS = 10
-        const PROBE_INTERVAL_MS  = 1000
-        for (let attempt = 1; attempt <= PROBE_MAX_ATTEMPTS; attempt++) {
-            try {
-                probeAddress = await this.connector.getNewAddress()
-                break
-            } catch(err){
-                if (attempt < PROBE_MAX_ATTEMPTS) {
-                    await this.sleep(PROBE_INTERVAL_MS)
-                }
-                // After the last attempt, fall through to the load/create path.
-            }
-        }
+        const probeAddress = await probeWalletAddress.call(this)
 
         if (probeAddress == null){
             await this.ensureWalletLoaded()
@@ -198,36 +240,7 @@ module.exports = {
         this.balance = await this.connector.getBalance()
 
         if (this.balance <= 0){
-            logger.info("Mining blocks to get balance in the wallet")
-            // Always mine to coinbase-maturity depth regardless of current chain
-            // height: fewer blocks (e.g. a single one on an aged chain) would only
-            // add an immature coinbase (spendable after 100 confirmations), leaving
-            // the balance at 0 while walletReady is about to be set true. The
-            // bounded balance re-poll below is the real readiness guard.
-            // Private entry point: start() runs this warmup without awaiting while the API
-            // is already listening, so a fill_mempool arriving during it must not
-            // turn wallet preparation into a boot failure.
-            await this.generateBlocksQueued(101)
-
-            // Re-poll the balance in a bounded loop instead of trusting the
-            // mining call: ping/status export walletReady as the readiness
-            // oracle, so it must reflect an observed spendable balance, not
-            // just that a mining RPC was issued.
-            const BALANCE_POLL_MAX_ATTEMPTS = 10
-            const BALANCE_POLL_INTERVAL_MS = 1000
-            for (let attempt = 1; attempt <= BALANCE_POLL_MAX_ATTEMPTS; attempt++) {
-                this.balance = await this.connector.getBalance()
-                if (this.balance > 0){
-                    break
-                }
-                if (attempt < BALANCE_POLL_MAX_ATTEMPTS) {
-                    await this.sleep(BALANCE_POLL_INTERVAL_MS)
-                }
-            }
-
-            if (this.balance <= 0){
-                throw new Error("Wallet balance still 0 after mining to maturity; cannot mark wallet ready")
-            }
+            await mineToFundedBalance.call(this)
         }
 
         // Stamp the startup read so the auto-mine loop's cadence starts one full
