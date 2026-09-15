@@ -28,7 +28,7 @@ const tick = () => new Promise((resolve) => setImmediate(resolve))
 
 // Park the reorg's node RPC, land a generate_blocks while it is parked, and count
 // the mines that reached the node with the reorg still in flight.
-async function minesDuringReorg(miner, { verb, guarded }) {
+function prepareReorgOverlap(miner) {
     let releaseNode
     const nodeParked = new Promise((resolve) => { releaseNode = resolve })
 
@@ -74,35 +74,44 @@ async function minesDuringReorg(miner, { verb, guarded }) {
         }
     }
 
+    return { releaseNode, originalInvalidate, originalReconsider, overlaps: () => overlaps }
+}
+
+async function minesDuringReorg(miner, { verb, guarded }) {
+    const fixture = prepareReorgOverlap(miner)
+
     let reorg
     if (guarded) reorg = verb === 'invalidate' ? miner.invalidateBlock(HASH) : miner.reconsiderBlock(HASH)
-    else reorg = verb === 'invalidate' ? originalInvalidate() : originalReconsider()
+    else reorg = verb === 'invalidate' ? fixture.originalInvalidate() : fixture.originalReconsider()
 
     // Let the reorg reach the parked node call before the concurrent RPC lands.
     await tick()
     const mine = miner.generateBlocks(1)
     await tick()
 
-    releaseNode()
+    fixture.releaseNode()
     await reorg
     await mine
 
-    return overlaps
+    return fixture.overlaps()
+}
+
+let miner
+
+function setupMiner() {
+    const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    sinon.stub(console, 'log')
+}
+
+function teardownMiner() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
 }
 
 describe('reorg primitives vs a concurrent generate_blocks', function () {
-    let miner
-
-    beforeEach(function () {
-        const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        sinon.stub(console, 'log')
-    })
-
-    afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     it('CONTROL: the drain-only invalidate lets a mine land mid-reorg', async function () {
         assert.strictEqual(await minesDuringReorg(miner, { verb: 'invalidate', guarded: false }), 1,
@@ -121,6 +130,11 @@ describe('reorg primitives vs a concurrent generate_blocks', function () {
     it('reconsiderBlock holds off a generate_blocks that arrives mid-reorg', async function () {
         assert.strictEqual(await minesDuringReorg(miner, { verb: 'reconsider', guarded: true }), 0)
     })
+})
+
+describe('reorg primitives vs a concurrent generate_blocks', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     it('the held-off mine still runs once the reorg finishes', async function () {
         let releaseNode
@@ -158,6 +172,11 @@ describe('reorg primitives vs a concurrent generate_blocks', function () {
         assert.strictEqual(miner._reorgMineHolds.size, 0, 'a failed reorg must not wedge mining')
         assert.deepStrictEqual(await miner.generateBlocks(1), ['hash'])
     })
+})
+
+describe('reorg primitives vs a concurrent generate_blocks', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     it('a mine queued before the reorg is drained by it, not gated on it', async function () {
         let releaseMine
