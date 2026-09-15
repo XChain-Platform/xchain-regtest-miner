@@ -14,6 +14,86 @@ const axios = require('axios')
 
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+function createMinerContext() {
+    const connectorStub = {
+        getWalletInfo: sinon.stub(),
+        loadWallet: sinon.stub(),
+        createWallet: sinon.stub(),
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        getRawMempool: sinon.stub().resolves([]),
+        sendToAddress: sinon.stub().resolves('txid_abc'),
+        setTxFee: sinon.stub().resolves(true),
+        setWalletName: sinon.stub(),
+    }
+
+    sinon.stub(BlockchainConnector.prototype, 'constructor')
+
+    const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    const miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
+
+    sinon.stub(miner, 'sleep').resolves()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+    return { miner, connectorStub }
+}
+
+function restoreMinerContext() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
+// Helper to run the mining loop for a controlled number of iterations
+async function runLoopIterations(miner, iterations) {
+    let loopCount = 0
+
+    miner.sleep.callsFake(async () => {
+        loopCount++
+        if (loopCount >= iterations) {
+            miner.keepMining = false
+            throw new Error('__LOOP_BREAK__')
+        }
+    })
+
+    try {
+        await miner.start()
+    } catch (e) {
+        if (e.message !== '__LOOP_BREAK__') throw e
+    }
+}
+
+function createController(miner) {
+    sinon.stub(console, 'log')
+
+    // Recreate the controller logic as defined in api.js
+    return {
+        async ping() {
+            return { status: 'success' }
+        },
+        async send_funds({ address, amount }) {
+            let txid = null
+            try {
+                txid = await miner.sendFundsToAddress(address, amount)
+            } catch (err) {
+                console.log(err)
+                return { error: 'There was a problem sending ' + amount + ' to ' + address }
+            }
+            return txid
+        },
+        async set_mining_time({ max_time, tx_added_time }) {
+            try {
+                await miner.setMiningTime(max_time, tx_added_time)
+            } catch (err) {
+                return { error: 'There was a problem trying to set a new time to mine blocks' }
+            }
+            return { result: 'ok' }
+        },
+    }
+}
+
 describe('Regtest Miner Smoke Tests', function () {
 
     // ─── BlockchainConnector ────────────────────────────────────────────
@@ -31,63 +111,17 @@ describe('Regtest Miner Smoke Tests', function () {
             assert.strictEqual(connector.rpcPassword, 'rpcpass')
         })
     })
+})
 
+describe('Regtest Miner Smoke Tests', function () {
     // ─── XChainRegtestMiner ─────────────────────────────────────────────
 
     describe('XChainRegtestMiner', function () {
-        let XChainRegtestMiner
         let miner
         let connectorStub
 
-        beforeEach(function () {
-            connectorStub = {
-                getWalletInfo: sinon.stub(),
-                loadWallet: sinon.stub(),
-                createWallet: sinon.stub(),
-                getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-                getBalance: sinon.stub().resolves(50.0),
-                getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
-                generateToAddress: sinon.stub().resolves(['blockhash1']),
-                getRawMempool: sinon.stub().resolves([]),
-                sendToAddress: sinon.stub().resolves('txid_abc'),
-                setTxFee: sinon.stub().resolves(true),
-                setWalletName: sinon.stub(),
-            }
-
-            sinon.stub(BlockchainConnector.prototype, 'constructor')
-
-            XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-            miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-            miner.connector = connectorStub
-
-            sinon.stub(miner, 'sleep').resolves()
-            sinon.stub(console, 'log')
-            sinon.stub(console, 'error')
-        })
-
-        afterEach(function () {
-            sinon.restore()
-            delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-        })
-
-        // Helper to run the mining loop for a controlled number of iterations
-        async function runLoopIterations(miner, iterations) {
-            let loopCount = 0
-
-            miner.sleep.callsFake(async () => {
-                loopCount++
-                if (loopCount >= iterations) {
-                    miner.keepMining = false
-                    throw new Error('__LOOP_BREAK__')
-                }
-            })
-
-            try {
-                await miner.start()
-            } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-        }
+        beforeEach(function () { ({ miner, connectorStub } = createMinerContext()) })
+        afterEach(function () { restoreMinerContext() })
 
         it('ST-02: instantiates with correct defaults', function () {
             assert.ok(miner.connector)
@@ -127,6 +161,16 @@ describe('Regtest Miner Smoke Tests', function () {
             assert(connectorStub.generateToAddress.notCalled)
             assert.strictEqual(miner.walletAddress, 'bcrt1qtest')
         })
+    })
+})
+
+describe('Regtest Miner Smoke Tests', function () {
+    describe('XChainRegtestMiner', function () {
+        let miner
+        let connectorStub
+
+        beforeEach(function () { ({ miner, connectorStub } = createMinerContext()) })
+        afterEach(function () { restoreMinerContext() })
 
         it('ST-05: detects new mempool transactions', async function () {
             connectorStub.getRawMempool.resolves(['txid1'])
@@ -174,6 +218,16 @@ describe('Regtest Miner Smoke Tests', function () {
 
             assert(connectorStub.generateToAddress.called)
         })
+    })
+})
+
+describe('Regtest Miner Smoke Tests', function () {
+    describe('XChainRegtestMiner', function () {
+        let miner
+        let connectorStub
+
+        beforeEach(function () { ({ miner, connectorStub } = createMinerContext()) })
+        afterEach(function () { restoreMinerContext() })
 
         it('ST-07: max timer forces generation despite new txs arriving', async function () {
             const clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false })
@@ -207,6 +261,16 @@ describe('Regtest Miner Smoke Tests', function () {
 
             assert(connectorStub.generateToAddress.called)
         })
+    })
+})
+
+describe('Regtest Miner Smoke Tests', function () {
+    describe('XChainRegtestMiner', function () {
+        let miner
+        let connectorStub
+
+        beforeEach(function () { ({ miner, connectorStub } = createMinerContext()) })
+        afterEach(function () { restoreMinerContext() })
 
         it('ST-08: pauses and resumes mining via keepMining flag', async function () {
             sinon.stub(miner, 'prepareWallet').resolves()
@@ -239,6 +303,15 @@ describe('Regtest Miner Smoke Tests', function () {
             assert.strictEqual(connectorStub.getRawMempool.callCount, 0)
             assert.strictEqual(mempoolCalledWhilePaused, false)
         })
+    })
+})
+
+describe('Regtest Miner Smoke Tests', function () {
+    describe('XChainRegtestMiner', function () {
+        let miner
+
+        beforeEach(function () { ({ miner } = createMinerContext()) })
+        afterEach(function () { restoreMinerContext() })
 
         it('ST-09: overrides and resets mining time constants', async function () {
             await miner.setMiningTime(10000, 2000)
@@ -250,7 +323,9 @@ describe('Regtest Miner Smoke Tests', function () {
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
     })
+})
 
+describe('Regtest Miner Smoke Tests', function () {
     // ─── JSON-RPC API ───────────────────────────────────────────────────
 
     describe('JSON-RPC API', function () {
@@ -266,33 +341,7 @@ describe('Regtest Miner Smoke Tests', function () {
                 setDefaultMiningTime: sinon.stub(),
                 start: sinon.stub(),
             }
-
-            sinon.stub(console, 'log')
-
-            // Recreate the controller logic as defined in api.js
-            controller = {
-                async ping() {
-                    return { status: 'success' }
-                },
-                async send_funds({ address, amount }) {
-                    let txid = null
-                    try {
-                        txid = await miner.sendFundsToAddress(address, amount)
-                    } catch (err) {
-                        console.log(err)
-                        return { error: 'There was a problem sending ' + amount + ' to ' + address }
-                    }
-                    return txid
-                },
-                async set_mining_time({ max_time, tx_added_time }) {
-                    try {
-                        await miner.setMiningTime(max_time, tx_added_time)
-                    } catch (err) {
-                        return { error: 'There was a problem trying to set a new time to mine blocks' }
-                    }
-                    return { result: 'ok' }
-                },
-            }
+            controller = createController(miner)
         })
 
         afterEach(function () {
