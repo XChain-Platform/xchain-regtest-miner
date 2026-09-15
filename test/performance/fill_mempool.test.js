@@ -25,43 +25,52 @@ const PerformanceCollector = require('./helpers/PerformanceCollector')
 const MemorySampler = require('./helpers/MemorySampler')
 const { assertMaxUnder, assertHeapDeltaUnder } = require('./helpers/perfAssert')
 
+let node, miner, collector
+
+async function startNode() {
+    node = new LatencyMockNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+}
+
+async function stopNode() {
+    sinon.restore()
+    await node.stop()
+}
+
+async function setupMiner() {
+    node.reset()
+    // Pre-seed wallet with plenty of balance (500 blocks of rewards)
+    node._rpc_createwallet(['xchain_regtest_wallet'])
+    node._rpc_generatetoaddress([500, 'bcrt1qseed'])
+    node.calls = []
+
+    collector = new PerformanceCollector('FM')
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+    miner.walletAddress = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
+
+    // Fast sleep for fillMempool retries
+    const originalSleep = miner.sleep.bind(miner)
+    miner.sleep = async (ms) => await originalSleep(5)
+}
+
+async function reportMetrics() {
+    const names = collector.getMetricNames()
+    if (names.length > 0) {
+        process.stdout.write(collector.summary())
+    }
+}
+
+function useMinerFixtures() {
+    before(startNode)
+    after(stopNode)
+    beforeEach(setupMiner)
+    afterEach(reportMetrics)
+}
+
 describe('Performance: FM: fillMempool', function () {
-    let node, miner, collector
-
-    before(async function () {
-        node = new LatencyMockNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
-
-    beforeEach(async function () {
-        node.reset()
-        // Pre-seed wallet with plenty of balance (500 blocks of rewards)
-        node._rpc_createwallet(['xchain_regtest_wallet'])
-        node._rpc_generatetoaddress([500, 'bcrt1qseed'])
-        node.calls = []
-
-        collector = new PerformanceCollector('FM')
-        miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
-        miner.walletAddress = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
-
-        // Fast sleep for fillMempool retries
-        const originalSleep = miner.sleep.bind(miner)
-        miner.sleep = async (ms) => await originalSleep(5)
-    })
-
-    afterEach(async function () {
-        const names = collector.getMetricNames()
-        if (names.length > 0) {
-            process.stdout.write(collector.summary())
-        }
-    })
+    useMinerFixtures()
 
     // ─── FM-001: fillMempool(10), small scale baseline ────────────────
 
@@ -105,7 +114,10 @@ describe('Performance: FM: fillMempool', function () {
         assertMaxUnder(collector, 'fillMempool:100', 30000)
         assertHeapDeltaUnder(sampler, 50 * 1024 * 1024) // < 50MB growth
     })
+})
 
+describe('Performance: FM: fillMempool', function () {
+    useMinerFixtures()
     // ─── FM-003: fillMempool(500), scaling behavior ───────────────────
 
     it('FM-003: fillMempool(500): scaling behavior', async function () {
@@ -127,7 +139,10 @@ describe('Performance: FM: fillMempool', function () {
         assertMaxUnder(collector, 'fillMempool:500', 60000)
         assertHeapDeltaUnder(sampler, 100 * 1024 * 1024) // < 100MB growth
     })
+})
 
+describe('Performance: FM: fillMempool', function () {
+    useMinerFixtures()
     // ─── FM-004: Scaling ratio, fillMempool(10) vs fillMempool(100) ───
 
     it('FM-004: scaling ratio: fillMempool(10) vs fillMempool(100) time', async function () {
@@ -161,7 +176,10 @@ describe('Performance: FM: fillMempool', function () {
             `Scaling issue: 10tx=${time10}ms, 100tx=${time100}ms, ratio=${(time100 / time10).toFixed(1)}x`
         )
     })
+})
 
+describe('Performance: FM: fillMempool', function () {
+    useMinerFixtures()
     // ─── FM-005: Concurrent fillMempool, mutex rejection ─────────────
 
     it('FM-005: concurrent fillMempool calls: second rejected immediately', async function () {
