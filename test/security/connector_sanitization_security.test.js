@@ -13,60 +13,60 @@ const sinon = require('sinon')
 const axios = require('axios')
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+let connector
+let axiosPostStub
+const RPC_USER = 'admin'
+const RPC_PASS = 'sup3rs3cret'
+const RPC_HOST = '10.0.0.5'
+const RPC_PORT = '18332'
+function setupConnector() {
+    connector = new BlockchainConnector(RPC_HOST, RPC_PORT, RPC_USER, RPC_PASS)
+    axiosPostStub = sinon.stub(axios, 'post')
+    sinon.stub(connector, 'sleep').resolves()
+    sinon.stub(console, 'error')
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'warn')
+}
+function teardownConnector() {
+    sinon.restore()
+}
+function makeAxiosError(message) {
+    const err = new Error(message)
+    err.config = {
+        url: 'http://' + RPC_HOST + ':' + RPC_PORT,
+        auth: { username: RPC_USER, password: RPC_PASS },
+        data: '{"jsonrpc":"2.0","method":"sendtoaddress"}'
+    }
+    err.response = { status: 500, data: { error: { code: -1, message: 'Internal error' } } }
+    return err
+}
+// Helper to assert an error has no credential leaks
+function assertCleanError(err, expectedMessage) {
+    // Error message should be a clean generic message
+    assert.strictEqual(err.message, expectedMessage)
+    // Error object must NOT carry axios config with credentials
+    assert.strictEqual(err.config, undefined, 'Error object carries .config (potential credential leak)')
+    assert.ok(!err.message.includes(RPC_PASS), 'Error message contains password')
+    assert.ok(!err.message.includes(RPC_USER), 'Error message contains username')
+    assert.ok(!err.message.includes(RPC_HOST), 'Error message contains host')
+}
+// Helper to assert no console output contains credentials
+function assertConsoleClean() {
+    for (const call of [...console.error.getCalls(), ...console.log.getCalls(), ...console.warn.getCalls()]) {
+        for (const arg of call.args) {
+            const str = typeof arg === 'string' ? arg : (typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg))
+            assert.ok(!str.includes(RPC_PASS), 'Console output contains password')
+            assert.ok(!str.includes(RPC_USER), 'Console output contains username')
+        }
+    }
+}
+function useConnectorFixtures() {
+    beforeEach(setupConnector)
+    afterEach(teardownConnector)
+}
+
 describe('Security: BlockchainConnector Error Sanitization', function () {
-    let connector
-    let axiosPostStub
-
-    const RPC_USER = 'admin'
-    const RPC_PASS = 'sup3rs3cret'
-    const RPC_HOST = '10.0.0.5'
-    const RPC_PORT = '18332'
-
-    beforeEach(function () {
-        connector = new BlockchainConnector(RPC_HOST, RPC_PORT, RPC_USER, RPC_PASS)
-        axiosPostStub = sinon.stub(axios, 'post')
-        sinon.stub(connector, 'sleep').resolves()
-        sinon.stub(console, 'error')
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'warn')
-    })
-
-    afterEach(function () {
-        sinon.restore()
-    })
-
-    function makeAxiosError(message) {
-        const err = new Error(message)
-        err.config = {
-            url: 'http://' + RPC_HOST + ':' + RPC_PORT,
-            auth: { username: RPC_USER, password: RPC_PASS },
-            data: '{"jsonrpc":"2.0","method":"sendtoaddress"}'
-        }
-        err.response = { status: 500, data: { error: { code: -1, message: 'Internal error' } } }
-        return err
-    }
-
-    // Helper to assert an error has no credential leaks
-    function assertCleanError(err, expectedMessage) {
-        // Error message should be a clean generic message
-        assert.strictEqual(err.message, expectedMessage)
-        // Error object must NOT carry axios config with credentials
-        assert.strictEqual(err.config, undefined, 'Error object carries .config (potential credential leak)')
-        assert.ok(!err.message.includes(RPC_PASS), 'Error message contains password')
-        assert.ok(!err.message.includes(RPC_USER), 'Error message contains username')
-        assert.ok(!err.message.includes(RPC_HOST), 'Error message contains host')
-    }
-
-    // Helper to assert no console output contains credentials
-    function assertConsoleClean() {
-        for (const call of [...console.error.getCalls(), ...console.log.getCalls(), ...console.warn.getCalls()]) {
-            for (const arg of call.args) {
-                const str = typeof arg === 'string' ? arg : (typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg))
-                assert.ok(!str.includes(RPC_PASS), 'Console output contains password')
-                assert.ok(!str.includes(RPC_USER), 'Console output contains username')
-            }
-        }
-    }
+    useConnectorFixtures()
 
     // ─── Per-method error sanitization tests ──────────────────────────
 
@@ -80,7 +80,6 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error getting network info')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.getNetworkInfo() } catch (e) {}
@@ -98,7 +97,6 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error getting blockchain info')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.getBlockchainInfo() } catch (e) {}
@@ -116,14 +114,16 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error getting block hash')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.getBlockHash(0) } catch (e) {}
             assertConsoleClean()
         })
     })
+})
 
+describe('Security: BlockchainConnector Error Sanitization', function () {
+    useConnectorFixtures()
     describe('getBlock', function () {
         it('throws clean error without credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
@@ -134,7 +134,6 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error getting block')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.getBlock('abc123') } catch (e) {}
@@ -152,7 +151,6 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error getting raw mempool')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.getRawMempool() } catch (e) {}
@@ -170,14 +168,16 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error getting mempool entry')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.getMempoolEntry('txid123') } catch (e) {}
             assertConsoleClean()
         })
     })
+})
 
+describe('Security: BlockchainConnector Error Sanitization', function () {
+    useConnectorFixtures()
     describe('getRawTransaction', function () {
         it('returns null on error without logging credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
@@ -197,7 +197,6 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error creating wallet')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.createWallet('test_wallet', 2) } catch (e) {}
@@ -215,14 +214,16 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error getting wallet info: max retries exceeded')
             }
         })
-
         it('does not log credentials during retries', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.getWalletInfo(2) } catch (e) {}
             assertConsoleClean()
         })
     })
+})
 
+describe('Security: BlockchainConnector Error Sanitization', function () {
+    useConnectorFixtures()
     describe('loadWallet', function () {
         it('throws clean error without credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
@@ -233,7 +234,6 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error loading wallet')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.loadWallet('test_wallet') } catch (e) {}
@@ -251,7 +251,6 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error getting new address')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.getNewAddress() } catch (e) {}
@@ -269,14 +268,16 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error generating to address')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.generateToAddress(1, 'bcrt1qtest') } catch (e) {}
             assertConsoleClean()
         })
     })
+})
 
+describe('Security: BlockchainConnector Error Sanitization', function () {
+    useConnectorFixtures()
     describe('getBalance', function () {
         it('throws clean error without credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
@@ -287,7 +288,6 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error getting balance')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.getBalance() } catch (e) {}
@@ -305,7 +305,6 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error sending funds to address')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.sendToAddress('bcrt1qtest', 1.0) } catch (e) {}
@@ -323,14 +322,16 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
                 assertCleanError(err, 'Error sending raw transaction')
             }
         })
-
         it('does not log credentials', async function () {
             axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
             try { await connector.sendRawTransaction('deadbeef') } catch (e) {}
             assertConsoleClean()
         })
     })
+})
 
+describe('Security: BlockchainConnector Error Sanitization', function () {
+    useConnectorFixtures()
     // ─── Blanket console output credential check ──────────────────────
 
     describe('no method ever logs credentials to console', function () {
@@ -357,7 +358,10 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
             })
         }
     })
+})
 
+describe('Security: BlockchainConnector Error Sanitization', function () {
+    useConnectorFixtures()
     // ─── Error object property checks ─────────────────────────────────
 
     describe('no method exposes .config on thrown errors', function () {
