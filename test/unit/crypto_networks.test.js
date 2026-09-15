@@ -55,7 +55,9 @@ describe('CryptoNetworks.getBitcoinJsNetwork', function () {
         assert.strictEqual(n.wif, 0xef)
         assert.strictEqual(n.bip32.public, 0x043587cf)
     })
+})
 
+describe('CryptoNetworks.getBitcoinJsNetwork', function () {
     it('returns litecoin-mainnet params with the ltc bech32 prefix', function () {
         const n = CryptoNetworks.getBitcoinJsNetwork('litecoin-mainnet')
         assert.strictEqual(n.bech32, 'ltc')
