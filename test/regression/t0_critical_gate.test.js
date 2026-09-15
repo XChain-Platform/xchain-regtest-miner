@@ -25,60 +25,46 @@ const assert = require('assert')
 const sinon = require('sinon')
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
-describe('T0 Regression: Critical Gate', function () {
-    let XChainRegtestMiner
-    let miner
-    let connectorStub
+let XChainRegtestMiner
+let miner
+let connectorStub
 
-    beforeEach(function () {
-        connectorStub = {
-            getWalletInfo: sinon.stub(),
-            loadWallet: sinon.stub(),
-            createWallet: sinon.stub(),
-            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-            getBalance: sinon.stub().resolves(50.0),
-            getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
-            generateToAddress: sinon.stub().resolves(['blockhash1']),
-            getRawMempool: sinon.stub().resolves([]),
-            sendToAddress: sinon.stub().resolves('txid_abc'),
-            setTxFee: sinon.stub().resolves(true),
-            setWalletName: sinon.stub(),
-            getRawTransaction: sinon.stub().resolves('0200000001...'),
-            sendRawTransaction: sinon.stub().resolves('txid_sent'),
-        }
-
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
-
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
-
-    // Helper to run the mining loop for a controlled number of iterations
-    async function runLoopIterations(iterations) {
-        let loopCount = 0
-        miner.sleep.callsFake(async () => {
-            loopCount++
-            if (loopCount >= iterations) {
-                miner._shutdown = true
-                throw new Error('__LOOP_BREAK__')
-            }
-        })
-        try {
-            await miner.start()
-        } catch (e) {
-            if (e.message !== '__LOOP_BREAK__') throw e
-        }
+function setUpMiner() {
+    connectorStub = {
+        getWalletInfo: sinon.stub(),
+        loadWallet: sinon.stub(),
+        createWallet: sinon.stub(),
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        getRawMempool: sinon.stub().resolves([]),
+        sendToAddress: sinon.stub().resolves('txid_abc'),
+        setTxFee: sinon.stub().resolves(true),
+        setWalletName: sinon.stub(),
+        getRawTransaction: sinon.stub().resolves('0200000001...'),
+        sendRawTransaction: sinon.stub().resolves('txid_sent'),
     }
+
+    sinon.stub(BlockchainConnector.prototype, 'constructor')
+
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
+
+    sinon.stub(miner, 'sleep').resolves()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+}
+
+function tearDownMiner() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
+describe('T0 Regression: Critical Gate', function () {
+    beforeEach(setUpMiner)
+    afterEach(tearDownMiner)
 
     // ═══════════════════════════════════════════════════════════════════
     // REG-T0-001: Constructor defaults
@@ -94,6 +80,11 @@ describe('T0 Regression: Critical Gate', function () {
             assert.ok(miner.connector)
         })
     })
+})
+
+describe('T0 Regression: Critical Gate', function () {
+    beforeEach(setUpMiner)
+    afterEach(tearDownMiner)
 
     // ═══════════════════════════════════════════════════════════════════
     // REG-T0-002: setMiningTime validation
@@ -143,6 +134,11 @@ describe('T0 Regression: Critical Gate', function () {
             assert.strictEqual(miner.addedTimeToMineTxs, 3600000)
         })
     })
+})
+
+describe('T0 Regression: Critical Gate', function () {
+    beforeEach(setUpMiner)
+    afterEach(tearDownMiner)
 
     // ═══════════════════════════════════════════════════════════════════
     // REG-T0-003: setDefaultMiningTime
@@ -157,6 +153,11 @@ describe('T0 Regression: Critical Gate', function () {
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
     })
+})
+
+describe('T0 Regression: Critical Gate', function () {
+    beforeEach(setUpMiner)
+    afterEach(tearDownMiner)
 
     // ═══════════════════════════════════════════════════════════════════
     // REG-T0-004: prepareWallet branching
@@ -195,7 +196,14 @@ describe('T0 Regression: Critical Gate', function () {
             connectorStub.createWallet.rejects(new Error('disk full'))
             await assert.rejects(() => miner.prepareWallet(), /Could not create wallet/)
         })
+    })
+})
 
+describe('T0 Regression: Critical Gate', function () {
+    beforeEach(setUpMiner)
+    afterEach(tearDownMiner)
+
+    describe('REG-T0-004: prepareWallet branching', function () {
         it('mines 101 blocks when balance is zero and height <= 100', async function () {
             connectorStub.getWalletInfo.resolves({ walletname: 'w' })
             connectorStub.getBalance.onFirstCall().resolves(0)
@@ -219,373 +227,11 @@ describe('T0 Regression: Critical Gate', function () {
             assert(connectorStub.generateToAddress.notCalled)
         })
     })
-
-    // ═══════════════════════════════════════════════════════════════════
-    // REG-T0-005: Mining loop core paths
-    // ═══════════════════════════════════════════════════════════════════
-
-    describe('REG-T0-005: Mining loop core paths', function () {
-        let clock
-
-        beforeEach(function () {
-            clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false })
-            sinon.stub(miner, 'prepareWallet').resolves()
-            miner.walletAddress = 'bcrt1qtest'
-        })
-
-        afterEach(function () {
-            clock.restore()
-        })
-
-        it('calls prepareWallet and sets keepMining on start', async function () {
-            connectorStub.getRawMempool.resolves([])
-            let wasMiningTrue = false
-            miner.sleep.callsFake(async () => {
-                if (miner.keepMining) wasMiningTrue = true
-                throw new Error('__LOOP_BREAK__')
-            })
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-            assert(miner.prepareWallet.calledOnce)
-            assert(wasMiningTrue)
-        })
-
-        it('detects new mempool transactions without mining immediately', async function () {
-            connectorStub.getRawMempool.resolves(['txid1'])
-            let iterCount = 0
-            miner.sleep.callsFake(async () => {
-                iterCount++
-                if (iterCount >= 2) throw new Error('__LOOP_BREAK__')
-            })
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-            assert(connectorStub.getRawMempool.callCount >= 1)
-            assert(connectorStub.generateToAddress.notCalled)
-        })
-
-        it('mines block after maxTimeToMineTxs elapses', async function () {
-            miner.maxTimeToMineTxs = 100
-            miner.addedTimeToMineTxs = 50000
-            connectorStub.getRawMempool.resolves(['txid1'])
-
-            let iterCount = 0
-            miner.sleep.callsFake(async () => {
-                iterCount++
-                if (iterCount === 1) clock.tick(150)
-                if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
-            })
-
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-            assert(connectorStub.generateToAddress.called)
-        })
-
-        it('mines block after addedTimeToMineTxs with no new txs', async function () {
-            miner.maxTimeToMineTxs = 50000
-            miner.addedTimeToMineTxs = 100
-            connectorStub.getRawMempool.resolves(['txid1'])
-
-            let iterCount = 0
-            miner.sleep.callsFake(async () => {
-                iterCount++
-                if (iterCount === 1) clock.tick(150)
-                if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
-            })
-
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-            assert(connectorStub.generateToAddress.called)
-        })
-
-        it('does not poll mempool when keepMining is false', async function () {
-            let iterCount = 0
-            connectorStub.getRawMempool.callsFake(async () => {
-                if (!miner.keepMining) throw new Error('polled while paused')
-                return []
-            })
-            miner.sleep.callsFake(async () => {
-                iterCount++
-                if (iterCount === 1) {
-                    miner.keepMining = false
-                    connectorStub.getRawMempool.resetHistory()
-                }
-                if (iterCount >= 4) throw new Error('__LOOP_BREAK__')
-            })
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-            assert.strictEqual(connectorStub.getRawMempool.callCount, 0)
-        })
-
-        it('resets timers when mempool empties', async function () {
-            connectorStub.getRawMempool.onCall(0).resolves(['txid1'])
-            connectorStub.getRawMempool.onCall(1).resolves([])
-            connectorStub.getRawMempool.onCall(2).resolves(['txid1'])
-
-            let iterCount = 0
-            miner.sleep.callsFake(async () => {
-                iterCount++
-                if (iterCount >= 4) throw new Error('__LOOP_BREAK__')
-            })
-
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-            assert(connectorStub.getRawMempool.callCount >= 3)
-        })
-
-        it('handles getRawMempool error gracefully and retries', async function () {
-            connectorStub.getRawMempool.onCall(0).rejects(new Error('connection lost'))
-            connectorStub.getRawMempool.onCall(1).resolves([])
-
-            let iterCount = 0
-            miner.sleep.callsFake(async () => {
-                iterCount++
-                if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
-            })
-
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-            assert(connectorStub.getRawMempool.callCount >= 2)
-        })
-
-        it('handles generateBlocks error gracefully and retries', async function () {
-            miner.maxTimeToMineTxs = 50
-            miner.addedTimeToMineTxs = 50
-            connectorStub.getRawMempool.resolves(['txid1'])
-
-            let genCallCount = 0
-            connectorStub.generateToAddress.callsFake(async () => {
-                genCallCount++
-                if (genCallCount === 1) throw new Error('block generation failed')
-                return ['hash']
-            })
-
-            let iterCount = 0
-            miner.sleep.callsFake(async () => {
-                iterCount++
-                clock.tick(60)
-                if (iterCount >= 5) throw new Error('__LOOP_BREAK__')
-            })
-
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
-            assert(genCallCount >= 2)
-        })
-    })
-
-    // ═══════════════════════════════════════════════════════════════════
-    // REG-T0-006: fillMempool mutex and keepMining restoration
-    // ═══════════════════════════════════════════════════════════════════
-
-    describe('REG-T0-006: fillMempool guards (W-3 bug prevention)', function () {
-        it('rejects concurrent fillMempool calls', async function () {
-            miner.fillMempoolRunning = true
-            await assert.rejects(() => miner.fillMempool(10), /already running/)
-        })
-
-        it('leaves mining paused after fillMempool (resume is continue_mining)', async function () {
-            miner.keepMining = true
-            try {
-                await miner.fillMempool(1)
-            } catch (e) {
-                // May fail on crypto ops; that's fine for this test
-            }
-            assert.strictEqual(miner.keepMining, false,
-                'fillMempool pauses mining so the stress txs stay in the mempool')
-            assert.strictEqual(miner.fillMempoolRunning, false,
-                'the fillMempool mutex must be released by the finally block')
-        })
-
-        it('rejects invalid txQuantity without changing keepMining', async function () {
-            miner.keepMining = true
-            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
-            assert.strictEqual(miner.keepMining, true)
-            await assert.rejects(() => miner.fillMempool(-1), /positive integer/)
-            assert.strictEqual(miner.keepMining, true)
-        })
-
-        it('rejects txQuantity exceeding maximum', async function () {
-            await assert.rejects(() => miner.fillMempool(50001), /maximum/)
-        })
-    })
-
-    // ═══════════════════════════════════════════════════════════════════
-    // REG-T0-007: sendFundsToAddress input validation
-    // ═══════════════════════════════════════════════════════════════════
-
-    describe('REG-T0-007: sendFundsToAddress input validation', function () {
-        it('rejects non-string address', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress(12345, 1.0), /Invalid address/)
-        })
-
-        it('rejects empty string address', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('', 1.0), /Invalid address/)
-        })
-
-        it('rejects non-number amount', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('addr', 'abc'), /Invalid amount/)
-        })
-
-        it('rejects zero amount', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('addr', 0), /Invalid amount/)
-        })
-
-        it('rejects negative amount', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('addr', -1), /Invalid amount/)
-        })
-
-        it('rejects Infinity amount', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('addr', Infinity), /Invalid amount/)
-        })
-
-        it('delegates valid inputs to connector', async function () {
-            connectorStub.sendToAddress.resolves('txid123')
-            const result = await miner.sendFundsToAddress('bcrt1qaddr', 1.5)
-            assert.strictEqual(result, 'txid123')
-            assert(connectorStub.sendToAddress.calledWith('bcrt1qaddr', 1.5))
-        })
-    })
-
-    // ═══════════════════════════════════════════════════════════════════
-    // REG-T0-008: JSON-RPC API controller health
-    // ═══════════════════════════════════════════════════════════════════
-
-    describe('REG-T0-008: JSON-RPC API controller', function () {
-        let controller, minerStub
-
-        beforeEach(function () {
-            minerStub = {
-                sendFundsToAddress: sinon.stub(),
-                fillMempool: sinon.stub(),
-                continueMining: sinon.stub(),
-                setMiningTime: sinon.stub(),
-                setDefaultMiningTime: sinon.stub(),
-            }
-
-            // Recreate controller logic matching api.js
-            controller = {
-                async ping() {
-                    return { status: 'success' }
-                },
-                async send_funds({ address, amount }) {
-                    let txid = null
-                    try {
-                        txid = await minerStub.sendFundsToAddress(address, amount)
-                    } catch (err) {
-                        return { error: 'There was a problem sending funds' }
-                    }
-                    return txid
-                },
-                async fill_mempool({ tx_quantity }) {
-                    try {
-                        await minerStub.fillMempool(tx_quantity)
-                    } catch (err) {
-                        return { error: 'There was a problem trying to fill the mempool' }
-                    }
-                    return { result: 'ok' }
-                },
-                async continue_mining({}) {
-                    try {
-                        await minerStub.continueMining()
-                    } catch (err) {
-                        return { error: 'There was a problem trying to continue the mining' }
-                    }
-                    return { result: 'ok' }
-                },
-                async set_mining_time({ max_time, tx_added_time }) {
-                    try {
-                        await minerStub.setMiningTime(max_time, tx_added_time)
-                    } catch (err) {
-                        return { error: 'There was a problem trying to set a new time to mine blocks' }
-                    }
-                    return { result: 'ok' }
-                },
-                async set_default_mining_time() {
-                    try {
-                        await minerStub.setDefaultMiningTime()
-                    } catch (err) {
-                        return { error: 'There was a problem trying to set a the default time to mine blocks' }
-                    }
-                    return { result: 'ok' }
-                },
-            }
-        })
-
-        it('ping returns success', async function () {
-            const result = await controller.ping()
-            assert.deepStrictEqual(result, { status: 'success' })
-        })
-
-        it('send_funds dispatches to miner', async function () {
-            minerStub.sendFundsToAddress.resolves('txid_abc')
-            const result = await controller.send_funds({ address: 'addr1', amount: 1.5 })
-            assert.strictEqual(result, 'txid_abc')
-            assert(minerStub.sendFundsToAddress.calledWith('addr1', 1.5))
-        })
-
-        it('fill_mempool dispatches to miner', async function () {
-            minerStub.fillMempool.resolves()
-            const result = await controller.fill_mempool({ tx_quantity: 100 })
-            assert.deepStrictEqual(result, { result: 'ok' })
-            assert(minerStub.fillMempool.calledWith(100))
-        })
-
-        it('continue_mining dispatches to miner', async function () {
-            minerStub.continueMining.resolves()
-            const result = await controller.continue_mining({})
-            assert.deepStrictEqual(result, { result: 'ok' })
-        })
-
-        it('set_mining_time dispatches to miner', async function () {
-            minerStub.setMiningTime.resolves()
-            const result = await controller.set_mining_time({ max_time: 10000, tx_added_time: 2000 })
-            assert.deepStrictEqual(result, { result: 'ok' })
-            assert(minerStub.setMiningTime.calledWith(10000, 2000))
-        })
-
-        it('set_default_mining_time dispatches to miner', async function () {
-            minerStub.setDefaultMiningTime.resolves()
-            const result = await controller.set_default_mining_time()
-            assert.deepStrictEqual(result, { result: 'ok' })
-        })
-
-        it('send_funds returns error on failure', async function () {
-            minerStub.sendFundsToAddress.rejects(new Error('no funds'))
-            const result = await controller.send_funds({ address: 'a', amount: 1 })
-            assert.ok(result.error)
-        })
-    })
-
-    // ═══════════════════════════════════════════════════════════════════
-    // REG-T0-009: BlockchainConnector construction
-    // ═══════════════════════════════════════════════════════════════════
-
-    describe('REG-T0-009: BlockchainConnector construction', function () {
-        it('builds correct URL and stores credentials', function () {
-            const connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass')
-            assert.strictEqual(connector.url, 'http://localhost:18332')
-            assert.strictEqual(connector.port, '18332')
-            assert.strictEqual(connector.rpcUser, 'rpcuser')
-            assert.strictEqual(connector.rpcPassword, 'rpcpass')
-        })
-    })
-
-    // ═══════════════════════════════════════════════════════════════════
-    // REG-T0-010: continueMining
-    // ═══════════════════════════════════════════════════════════════════
-
-    describe('REG-T0-010: continueMining sets keepMining flag', function () {
-        it('sets keepMining to true', async function () {
-            miner.keepMining = false
-            await miner.continueMining()
-            assert.strictEqual(miner.keepMining, true)
-        })
-    })
 })
+
+require('./t0_critical_gate.test/01_mining_loop_core_paths.test')
+require('./t0_critical_gate.test/02_fill_mempool_guards_w_3_bug_prevention.test')
+require('./t0_critical_gate.test/03_send_funds_to_address_input_validation.test')
+require('./t0_critical_gate.test/04_json_rpc_api_controller.test')
+require('./t0_critical_gate.test/05_blockchain_connector_construction.test')
+require('./t0_critical_gate.test/06_continue_mining_sets_keep_mining_flag.test')
