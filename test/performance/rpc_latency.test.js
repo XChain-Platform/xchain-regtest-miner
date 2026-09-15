@@ -24,89 +24,102 @@ const MockRpcServer = require('../integration/helpers/MockRpcServer')
 const PerformanceCollector = require('./helpers/PerformanceCollector')
 const { assertP95Under, assertMeanUnder, assertMaxUnder } = require('./helpers/perfAssert')
 
+let server, connector, collector
+
+async function startServer() {
+    server = new MockRpcServer()
+    await server.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+}
+
+async function stopServer() {
+    sinon.restore()
+    await server.stop()
+}
+
+function setupConnector() {
+    server.reset()
+    connector = new BlockchainConnector('127.0.0.1', server.port, 'user', 'pass')
+    collector = new PerformanceCollector('RPC')
+}
+
+function reportMetrics() {
+    const names = collector.getMetricNames()
+    if (names.length > 0) {
+        process.stdout.write(collector.summary())
+    }
+}
+
+function useRpcFixtures() {
+    before(startServer)
+    after(stopServer)
+    beforeEach(setupConnector)
+    afterEach(reportMetrics)
+}
+
+function rpcMethods() {
+    return [
+        {
+            name: 'getNetworkInfo',
+            setup: () => server.onMethod('getnetworkinfo').returns({ version: 250000 }),
+            call: () => connector.getNetworkInfo(),
+        },
+        {
+            name: 'getBlockchainInfo',
+            setup: () => server.onMethod('getblockchaininfo').returns({ chain: 'regtest', blocks: 100 }),
+            call: () => connector.getBlockchainInfo(),
+        },
+        {
+            name: 'getRawMempool',
+            setup: () => server.onMethod('getrawmempool').returns([]),
+            call: () => connector.getRawMempool(),
+        },
+        {
+            name: 'getBalance',
+            setup: () => server.onMethod('getbalance').returns(50.0),
+            call: () => connector.getBalance(),
+        },
+        {
+            name: 'generateToAddress',
+            setup: () => server.onMethod('generatetoaddress').returns(['hash1']),
+            call: () => connector.generateToAddress(1, 'bcrt1qtest'),
+        },
+        {
+            name: 'getNewAddress',
+            setup: () => server.onMethod('getnewaddress').returns('bcrt1qnewaddr'),
+            call: () => connector.getNewAddress(),
+        },
+        {
+            name: 'getBlockHash',
+            setup: () => server.onMethod('getblockhash').returns('0000aabbcc'),
+            call: () => connector.getBlockHash(1),
+        },
+        {
+            name: 'getBlock',
+            setup: () => server.onMethod('getblock').returns({ hash: '00aa', height: 1, tx: [] }),
+            call: () => connector.getBlock('00aa'),
+        },
+        {
+            name: 'sendRawTransaction',
+            setup: () => server.onMethod('sendrawtransaction').returns('txid123'),
+            call: () => connector.sendRawTransaction('0200000000'),
+        },
+        {
+            name: 'sendToAddress',
+            setup: () => server.onMethod('sendtoaddress').returns({ txid: 'txid456' }),
+            call: () => connector.sendToAddress('bcrt1qtest', 1.0),
+        },
+    ]
+}
+
 describe('Performance: RPC: RPC Method Latency', function () {
-    let server, connector, collector
-
-    before(async function () {
-        server = new MockRpcServer()
-        await server.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-
-    after(async function () {
-        sinon.restore()
-        await server.stop()
-    })
-
-    beforeEach(function () {
-        server.reset()
-        connector = new BlockchainConnector('127.0.0.1', server.port, 'user', 'pass')
-        collector = new PerformanceCollector('RPC')
-    })
-
-    afterEach(function () {
-        const names = collector.getMetricNames()
-        if (names.length > 0) {
-            process.stdout.write(collector.summary())
-        }
-    })
+    useRpcFixtures()
 
     // ─── RPC-001: Baseline latency for core RPC methods ──────────────
 
     it('RPC-001: baseline latency for core RPC methods (10 calls each)', async function () {
-        const methods = [
-            {
-                name: 'getNetworkInfo',
-                setup: () => server.onMethod('getnetworkinfo').returns({ version: 250000 }),
-                call: () => connector.getNetworkInfo(),
-            },
-            {
-                name: 'getBlockchainInfo',
-                setup: () => server.onMethod('getblockchaininfo').returns({ chain: 'regtest', blocks: 100 }),
-                call: () => connector.getBlockchainInfo(),
-            },
-            {
-                name: 'getRawMempool',
-                setup: () => server.onMethod('getrawmempool').returns([]),
-                call: () => connector.getRawMempool(),
-            },
-            {
-                name: 'getBalance',
-                setup: () => server.onMethod('getbalance').returns(50.0),
-                call: () => connector.getBalance(),
-            },
-            {
-                name: 'generateToAddress',
-                setup: () => server.onMethod('generatetoaddress').returns(['hash1']),
-                call: () => connector.generateToAddress(1, 'bcrt1qtest'),
-            },
-            {
-                name: 'getNewAddress',
-                setup: () => server.onMethod('getnewaddress').returns('bcrt1qnewaddr'),
-                call: () => connector.getNewAddress(),
-            },
-            {
-                name: 'getBlockHash',
-                setup: () => server.onMethod('getblockhash').returns('0000aabbcc'),
-                call: () => connector.getBlockHash(1),
-            },
-            {
-                name: 'getBlock',
-                setup: () => server.onMethod('getblock').returns({ hash: '00aa', height: 1, tx: [] }),
-                call: () => connector.getBlock('00aa'),
-            },
-            {
-                name: 'sendRawTransaction',
-                setup: () => server.onMethod('sendrawtransaction').returns('txid123'),
-                call: () => connector.sendRawTransaction('0200000000'),
-            },
-            {
-                name: 'sendToAddress',
-                setup: () => server.onMethod('sendtoaddress').returns({ txid: 'txid456' }),
-                call: () => connector.sendToAddress('bcrt1qtest', 1.0),
-            },
-        ]
+        const methods = rpcMethods()
 
         for (const { name, setup, call } of methods) {
             setup()
@@ -134,7 +147,10 @@ describe('Performance: RPC: RPC Method Latency', function () {
 
         assertP95Under(collector, 'getRawMempool:concurrent', 100)
     })
+})
 
+describe('Performance: RPC: RPC Method Latency', function () {
+    useRpcFixtures()
     // ─── RPC-003: Under simulated node load, 50ms artificial delay ───
 
     it('RPC-003: RPC latency with 50ms simulated node delay', async function () {
@@ -154,7 +170,10 @@ describe('Performance: RPC: RPC Method Latency', function () {
         assertP95Under(collector, 'getRawMempool:delayed', 150)
         assertP95Under(collector, 'generateToAddress:delayed', 150)
     })
+})
 
+describe('Performance: RPC: RPC Method Latency', function () {
+    useRpcFixtures()
     // ─── RPC-004: Connection reuse, 100 sequential calls ─────────────
 
     it('RPC-004: connection reuse: 100 sequential calls, no degradation', async function () {
@@ -183,7 +202,10 @@ describe('Performance: RPC: RPC Method Latency', function () {
 
         assertP95Under(collector, 'getRawMempool:100seq', 50)
     })
+})
 
+describe('Performance: RPC: RPC Method Latency', function () {
+    useRpcFixtures()
     // ─── RPC-005: Mixed concurrent methods ───────────────────────────
 
     it('RPC-005: mixed concurrent RPC calls (5 different methods)', async function () {
