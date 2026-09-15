@@ -13,11 +13,12 @@ const sinon = require('sinon')
 const fc = require('fast-check')
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
-describe('Fuzz: fillMempool input handling', function () {
-    let XChainRegtestMiner
-    let miner
-    let connectorStub
+const OUTPUTS_QUANTITY_PER_TX = 2500
+let XChainRegtestMiner
+let miner
+let connectorStub
 
+function useMiner() {
     beforeEach(function () {
         connectorStub = {
             getWalletInfo: sinon.stub().resolves({ walletname: 'test' }),
@@ -50,6 +51,64 @@ describe('Fuzz: fillMempool input handling', function () {
         sinon.restore()
         delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
     })
+}
+
+function checkTotalAmount() {
+    const AMOUNT_FOR_EACH_ADDRESS = 1000
+    const FEE = 1000
+
+    fc.assert(
+        fc.property(fc.integer({ min: 1, max: 50000 }), (txQuantity) => {
+            const txsChunksCount = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
+
+            for (let i = 0; i < txsChunksCount; i++) {
+                let txRemainder = OUTPUTS_QUANTITY_PER_TX
+                if (i === txsChunksCount - 1) {
+                    const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
+                    if (remainder > 0) {
+                        txRemainder = remainder
+                    }
+                }
+                const totalAmount =
+                    AMOUNT_FOR_EACH_ADDRESS * txRemainder +
+                    FEE * txRemainder +
+                    50 * txRemainder
+
+                assert.ok(Number.isFinite(totalAmount), `totalAmount must be finite`)
+                assert.ok(totalAmount > 0, `totalAmount must be positive`)
+                assert.ok(
+                    totalAmount <= Number.MAX_SAFE_INTEGER,
+                    `totalAmount must be within safe integer range`
+                )
+            }
+        }),
+        { numRuns: 500 }
+    )
+}
+
+function checkUtxoIndexes() {
+    fc.assert(
+        fc.property(fc.integer({ min: 1, max: 10000 }), (txQuantity) => {
+            const txsChunksCount = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
+
+            for (let nextAddressIndex = 0; nextAddressIndex < txQuantity; nextAddressIndex++) {
+                const utxoIndex = Math.floor(nextAddressIndex / OUTPUTS_QUANTITY_PER_TX)
+                const outputIndex = nextAddressIndex % OUTPUTS_QUANTITY_PER_TX
+
+                assert.ok(utxoIndex >= 0, 'utxoIndex must be >= 0')
+                assert.ok(utxoIndex < txsChunksCount,
+                    `utxoIndex ${utxoIndex} must be < txsChunksCount ${txsChunksCount}`)
+                assert.ok(outputIndex >= 0, 'outputIndex must be >= 0')
+                assert.ok(outputIndex < OUTPUTS_QUANTITY_PER_TX,
+                    'outputIndex must be < OUTPUTS_QUANTITY_PER_TX')
+            }
+        }),
+        { numRuns: 100 }
+    )
+}
+
+describe('Fuzz: fillMempool input handling', function () {
+    useMiner()
 
     // ─── txQuantity = 0 ─────────────────────────────────────────────
 
@@ -62,6 +121,10 @@ describe('Fuzz: fillMempool input handling', function () {
             assert.strictEqual(connectorStub.sendRawTransaction.callCount, 0)
         })
     })
+})
+
+describe('Fuzz: fillMempool input handling', function () {
+    useMiner()
 
     // ─── Invalid txQuantity values (all rejected by validation) ─────
 
@@ -93,12 +156,14 @@ describe('Fuzz: fillMempool input handling', function () {
             })
         }
     })
+})
+
+describe('Fuzz: fillMempool input handling', function () {
+    useMiner()
 
     // ─── Chunk math edge cases ──────────────────────────────────────
 
     describe('fillMempool chunk math boundaries', function () {
-        const OUTPUTS_QUANTITY_PER_TX = 2500
-
         it('txQuantity = 2500 (exact multiple) calculates 1 chunk', function () {
             const chunks = Math.ceil(2500 / OUTPUTS_QUANTITY_PER_TX)
             assert.strictEqual(chunks, 1)
@@ -125,61 +190,17 @@ describe('Fuzz: fillMempool input handling', function () {
                 { numRuns: 1000 }
             )
         })
-
-        it('totalAmount calculation never overflows for realistic txQuantity', function () {
-            const AMOUNT_FOR_EACH_ADDRESS = 1000
-            const FEE = 1000
-
-            fc.assert(
-                fc.property(fc.integer({ min: 1, max: 50000 }), (txQuantity) => {
-                    const txsChunksCount = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
-
-                    for (let i = 0; i < txsChunksCount; i++) {
-                        let txRemainder = OUTPUTS_QUANTITY_PER_TX
-                        if (i === txsChunksCount - 1) {
-                            const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
-                            if (remainder > 0) {
-                                txRemainder = remainder
-                            }
-                        }
-                        const totalAmount =
-                            AMOUNT_FOR_EACH_ADDRESS * txRemainder +
-                            FEE * txRemainder +
-                            50 * txRemainder
-
-                        assert.ok(Number.isFinite(totalAmount), `totalAmount must be finite`)
-                        assert.ok(totalAmount > 0, `totalAmount must be positive`)
-                        assert.ok(
-                            totalAmount <= Number.MAX_SAFE_INTEGER,
-                            `totalAmount must be within safe integer range`
-                        )
-                    }
-                }),
-                { numRuns: 500 }
-            )
-        })
-
-        it('UTXO index math stays within bounds', function () {
-            fc.assert(
-                fc.property(fc.integer({ min: 1, max: 10000 }), (txQuantity) => {
-                    const txsChunksCount = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
-
-                    for (let nextAddressIndex = 0; nextAddressIndex < txQuantity; nextAddressIndex++) {
-                        const utxoIndex = Math.floor(nextAddressIndex / OUTPUTS_QUANTITY_PER_TX)
-                        const outputIndex = nextAddressIndex % OUTPUTS_QUANTITY_PER_TX
-
-                        assert.ok(utxoIndex >= 0, 'utxoIndex must be >= 0')
-                        assert.ok(utxoIndex < txsChunksCount,
-                            `utxoIndex ${utxoIndex} must be < txsChunksCount ${txsChunksCount}`)
-                        assert.ok(outputIndex >= 0, 'outputIndex must be >= 0')
-                        assert.ok(outputIndex < OUTPUTS_QUANTITY_PER_TX,
-                            'outputIndex must be < OUTPUTS_QUANTITY_PER_TX')
-                    }
-                }),
-                { numRuns: 100 }
-            )
-        })
     })
+
+    describe('fillMempool chunk math boundaries', function () {
+        it('totalAmount calculation never overflows for realistic txQuantity', checkTotalAmount)
+
+        it('UTXO index math stays within bounds', checkUtxoIndexes)
+    })
+})
+
+describe('Fuzz: fillMempool input handling', function () {
+    useMiner()
 
     // ─── getRawTransaction null loop detection ──────────────────────
 
@@ -200,6 +221,10 @@ describe('Fuzz: fillMempool input handling', function () {
             assert.strictEqual(getRawTxCalls, 50)
         })
     })
+})
+
+describe('Fuzz: fillMempool input handling', function () {
+    useMiner()
 
     // ─── fillMempool does not change keepMining for invalid inputs ────
 
@@ -230,6 +255,10 @@ describe('Fuzz: fillMempool input handling', function () {
             )
         })
     })
+})
+
+describe('Fuzz: fillMempool input handling', function () {
+    useMiner()
 
     // ─── Resource exhaustion guard ──────────────────────────────────
 
