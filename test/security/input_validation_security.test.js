@@ -12,40 +12,48 @@ const assert = require('assert')
 const sinon = require('sinon')
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+function createMinerContext() {
+    const connectorStub = {
+        getWalletInfo: sinon.stub(),
+        loadWallet: sinon.stub(),
+        createWallet: sinon.stub(),
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        getRawMempool: sinon.stub().resolves([]),
+        sendToAddress: sinon.stub().resolves('txid_abc'),
+        setTxFee: sinon.stub().resolves(true),
+        setWalletName: sinon.stub(),
+        getRawTransaction: sinon.stub().resolves('0200000001...'),
+        sendRawTransaction: sinon.stub().resolves('txid_sent'),
+    }
+
+    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    const miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
+    sinon.stub(miner, 'sleep').resolves()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+    return { miner, connectorStub }
+}
+
+function restoreMinerContext() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
 describe('Security: Input Validation', function () {
-    let XChainRegtestMiner
     let miner
     let connectorStub
 
     beforeEach(function () {
-        connectorStub = {
-            getWalletInfo: sinon.stub(),
-            loadWallet: sinon.stub(),
-            createWallet: sinon.stub(),
-            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-            getBalance: sinon.stub().resolves(50.0),
-            getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
-            generateToAddress: sinon.stub().resolves(['blockhash1']),
-            getRawMempool: sinon.stub().resolves([]),
-            sendToAddress: sinon.stub().resolves('txid_abc'),
-            setTxFee: sinon.stub().resolves(true),
-            setWalletName: sinon.stub(),
-            getRawTransaction: sinon.stub().resolves('0200000001...'),
-            sendRawTransaction: sinon.stub().resolves('txid_sent'),
-        }
-
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
+        ({ miner, connectorStub } = createMinerContext())
     })
 
     afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+        restoreMinerContext()
     })
 
     // ─── sendFundsToAddress (SEC-003) ──────────────────────────────────
@@ -93,6 +101,22 @@ describe('Security: Input Validation', function () {
                 /Invalid address/
             )
         })
+    })
+})
+
+describe('Security: Input Validation', function () {
+    let miner
+    let connectorStub
+
+    beforeEach(function () {
+        ({ miner, connectorStub } = createMinerContext())
+    })
+
+    afterEach(function () {
+        restoreMinerContext()
+    })
+
+    describe('sendFundsToAddress input validation (SEC-003)', function () {
 
         it('rejects empty string address', async function () {
             await assert.rejects(
@@ -121,6 +145,22 @@ describe('Security: Input Validation', function () {
                 /Invalid amount/
             )
         })
+    })
+})
+
+describe('Security: Input Validation', function () {
+    let miner
+    let connectorStub
+
+    beforeEach(function () {
+        ({ miner, connectorStub } = createMinerContext())
+    })
+
+    afterEach(function () {
+        restoreMinerContext()
+    })
+
+    describe('sendFundsToAddress input validation (SEC-003)', function () {
 
         it('rejects NaN amount', async function () {
             await assert.rejects(
@@ -142,6 +182,22 @@ describe('Security: Input Validation', function () {
                 /Invalid amount/
             )
         })
+    })
+})
+
+describe('Security: Input Validation', function () {
+    let miner
+    let connectorStub
+
+    beforeEach(function () {
+        ({ miner, connectorStub } = createMinerContext())
+    })
+
+    afterEach(function () {
+        restoreMinerContext()
+    })
+
+    describe('sendFundsToAddress input validation (SEC-003)', function () {
 
         it('rejects null amount', async function () {
             await assert.rejects(
@@ -184,7 +240,18 @@ describe('Security: Input Validation', function () {
             assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
         })
     })
+})
 
+describe('Security: Input Validation', function () {
+    let miner
+
+    beforeEach(function () {
+        ({ miner } = createMinerContext())
+    })
+
+    afterEach(function () {
+        restoreMinerContext()
+    })
     // ─── setMiningTime (SEC-008, timer bounds) ──────────────────────────
 
     // setMiningTime now throws (rather than returning a sentinel {error}
@@ -233,6 +300,21 @@ describe('Security: Input Validation', function () {
             assert.strictEqual(miner.maxTimeToMineTxs, 3600000)
             assert.strictEqual(miner.addedTimeToMineTxs, 3600000)
         })
+    })
+})
+
+describe('Security: Input Validation', function () {
+    let miner
+
+    beforeEach(function () {
+        ({ miner } = createMinerContext())
+    })
+
+    afterEach(function () {
+        restoreMinerContext()
+    })
+
+    describe('setMiningTime timer bounds (SEC-008)', function () {
 
         it('throws for non-integer maxTime', async function () {
             await assert.rejects(() => miner.setMiningTime(10.5, 2000), /positive integers/)
@@ -257,6 +339,19 @@ describe('Security: Input Validation', function () {
         it('does not crash with non-printable values', async function () {
             await assert.rejects(() => miner.setMiningTime({toString: 0}, {toString: 0}))
         })
+    })
+})
+
+describe('Security: Input Validation', function () {
+    let miner
+    let connectorStub
+
+    beforeEach(function () {
+        ({ miner, connectorStub } = createMinerContext())
+    })
+
+    afterEach(function () {
+        restoreMinerContext()
     })
 
     // ─── fillMempool (SEC-002, quantity cap) ────────────────────────────
