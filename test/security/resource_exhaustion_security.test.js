@@ -12,40 +12,48 @@ const assert = require('assert')
 const sinon = require('sinon')
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+function createMinerContext() {
+    const connectorStub = {
+        getWalletInfo: sinon.stub(),
+        loadWallet: sinon.stub(),
+        createWallet: sinon.stub(),
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        getRawMempool: sinon.stub().resolves([]),
+        sendToAddress: sinon.stub().resolves('txid_abc'),
+        setTxFee: sinon.stub().resolves(true),
+        setWalletName: sinon.stub(),
+        getRawTransaction: sinon.stub().resolves('0200000001...'),
+        sendRawTransaction: sinon.stub().resolves('txid_sent'),
+    }
+
+    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    const miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
+    sinon.stub(miner, 'sleep').resolves()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+    return { XChainRegtestMiner, miner, connectorStub }
+}
+
+function restoreMinerContext() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
 describe('Security: Resource Exhaustion & DoS Prevention', function () {
-    let XChainRegtestMiner
     let miner
     let connectorStub
 
     beforeEach(function () {
-        connectorStub = {
-            getWalletInfo: sinon.stub(),
-            loadWallet: sinon.stub(),
-            createWallet: sinon.stub(),
-            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-            getBalance: sinon.stub().resolves(50.0),
-            getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
-            generateToAddress: sinon.stub().resolves(['blockhash1']),
-            getRawMempool: sinon.stub().resolves([]),
-            sendToAddress: sinon.stub().resolves('txid_abc'),
-            setTxFee: sinon.stub().resolves(true),
-            setWalletName: sinon.stub(),
-            getRawTransaction: sinon.stub().resolves('0200000001...'),
-            sendRawTransaction: sinon.stub().resolves('txid_sent'),
-        }
-
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
+        ({ miner, connectorStub } = createMinerContext())
     })
 
     afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+        restoreMinerContext()
     })
 
     // ─── SEC-001: sendFundsToAddress retry limit in fillMempool ────────
@@ -93,6 +101,22 @@ describe('Security: Resource Exhaustion & DoS Prevention', function () {
 
             assert.strictEqual(connectorStub.sendToAddress.callCount, 4)
         })
+    })
+})
+
+describe('Security: Resource Exhaustion & DoS Prevention', function () {
+    let miner
+    let connectorStub
+
+    beforeEach(function () {
+        ({ miner, connectorStub } = createMinerContext())
+    })
+
+    afterEach(function () {
+        restoreMinerContext()
+    })
+
+    describe('fillMempool sendFundsToAddress retry limit (SEC-001)', function () {
 
         it('does not hang indefinitely when RPC is permanently down', async function () {
             this.timeout(5000)
@@ -121,6 +145,19 @@ describe('Security: Resource Exhaustion & DoS Prevention', function () {
 
             assert.strictEqual(miner.fillMempoolRunning, false)
         })
+    })
+})
+
+describe('Security: Resource Exhaustion & DoS Prevention', function () {
+    let miner
+    let connectorStub
+
+    beforeEach(function () {
+        ({ miner, connectorStub } = createMinerContext())
+    })
+
+    afterEach(function () {
+        restoreMinerContext()
     })
 
     // ─── SEC-006: fillMempool mutex ────────────────────────────────────
@@ -159,6 +196,23 @@ describe('Security: Resource Exhaustion & DoS Prevention', function () {
 
             assert.strictEqual(wasRunning, true)
         })
+    })
+})
+
+describe('Security: Resource Exhaustion & DoS Prevention', function () {
+    let XChainRegtestMiner
+    let miner
+    let connectorStub
+
+    beforeEach(function () {
+        ({ XChainRegtestMiner, miner, connectorStub } = createMinerContext())
+    })
+
+    afterEach(function () {
+        restoreMinerContext()
+    })
+
+    describe('fillMempool concurrent access protection (SEC-006)', function () {
 
         it('resets fillMempoolRunning to false after success path', async function () {
             // We can't easily test a full success path without real crypto,
@@ -201,6 +255,19 @@ describe('Security: Resource Exhaustion & DoS Prevention', function () {
             const fresh = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
             assert.strictEqual(fresh.fillMempoolRunning, false)
         })
+    })
+})
+
+describe('Security: Resource Exhaustion & DoS Prevention', function () {
+    let miner
+    let connectorStub
+
+    beforeEach(function () {
+        ({ miner, connectorStub } = createMinerContext())
+    })
+
+    afterEach(function () {
+        restoreMinerContext()
     })
 
     // ─── SEC-002: Memory exhaustion via large txQuantity ───────────────
