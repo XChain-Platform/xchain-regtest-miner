@@ -27,96 +27,81 @@ const sinon = require('sinon')
 const TICK_MS = 100
 const REFRESH_MS = 5000
 
-describe('wallet balance freshness in the auto-mine loop', function () {
-    let XChainRegtestMiner
-    let miner
-    let connectorStub
-    let nowMs
+let XChainRegtestMiner
+let miner
+let connectorStub
+let nowMs
 
-    beforeEach(function () {
-        nowMs = 1_000_000
-        connectorStub = {
-            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-            getBalance: sinon.stub().resolves(50.0),
-            getRawMempool: sinon.stub().resolves([]),
-            generateToAddress: sinon.stub().resolves(['blockhash1']),
-            invalidateBlock: sinon.stub().resolves('invalidated'),
-            reconsiderBlock: sinon.stub().resolves('reconsidered')
-        }
+function setupMiner() {
+    nowMs = 1_000_000
+    connectorStub = {
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getRawMempool: sinon.stub().resolves([]),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        invalidateBlock: sinon.stub().resolves('invalidated'),
+        reconsiderBlock: sinon.stub().resolves('reconsidered')
+    }
 
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
 
-        sinon.stub(console, 'log')
-        // Virtual clock: the loop's own bottom sleep is what advances it, so one
-        // "tick" of wall time is exactly one loop iteration and the cadence guard is
-        // exercised against real iteration counts rather than a timer race.
-        sinon.stub(Date, 'now').callsFake(() => nowMs)
-        sinon.stub(miner, 'sleep').callsFake(async () => {
-            nowMs += TICK_MS
+    sinon.stub(console, 'log')
+    // Virtual clock: the loop's own bottom sleep is what advances it, so one
+    // "tick" of wall time is exactly one loop iteration and the cadence guard is
+    // exercised against real iteration counts rather than a timer race.
+    sinon.stub(Date, 'now').callsFake(() => nowMs)
+    sinon.stub(miner, 'sleep').callsFake(async () => {
+        nowMs += TICK_MS
+        await new Promise(resolve => setImmediate(resolve))
+    })
+    // Post-startup state, as prepareWallet leaves it. Deliberately once-only:
+    // start() calls prepareWallet, so a stub that re-read the balance on every
+    // start would refresh the status by itself and every assertion below would
+    // pass with the loop refresh removed. The CONTROL test is what proves it does
+    // not, so this stub must not do the loop's job for it.
+    miner.prepareWallet = async function () {
+        if (this.walletReady) return
+        this.walletAddress = 'bcrt1qtest'
+        this.balance = await this.connector.getBalance()
+        this._balanceReadAt = Date.now()
+        this.walletReady = true
+    }
+}
+
+function teardownMiner() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
+// Runs the real start() loop for `ticks` iterations, then shuts it down and
+// removes the signal handlers start() installs (they call process.exit).
+async function runLoop(ticks) {
+    const before = { SIGTERM: process.listeners('SIGTERM'), SIGINT: process.listeners('SIGINT') }
+    const deadline = nowMs + (ticks * TICK_MS)
+    miner._shutdown = false
+    const loop = miner.start()
+    try {
+        let spins = 0
+        while (nowMs < deadline && spins < ticks * 50) {
+            spins++
             await new Promise(resolve => setImmediate(resolve))
-        })
-        // Post-startup state, as prepareWallet leaves it. Deliberately once-only:
-        // start() calls prepareWallet, so a stub that re-read the balance on every
-        // start would refresh the status by itself and every assertion below would
-        // pass with the loop refresh removed. The CONTROL test is what proves it does
-        // not, so this stub must not do the loop's job for it.
-        miner.prepareWallet = async function () {
-            if (this.walletReady) return
-            this.walletAddress = 'bcrt1qtest'
-            this.balance = await this.connector.getBalance()
-            this._balanceReadAt = Date.now()
-            this.walletReady = true
         }
-    })
-
-    afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
-
-    // Runs the real start() loop for `ticks` iterations, then shuts it down and
-    // removes the signal handlers start() installs (they call process.exit).
-    async function runLoop(ticks) {
-        const before = { SIGTERM: process.listeners('SIGTERM'), SIGINT: process.listeners('SIGINT') }
-        const deadline = nowMs + (ticks * TICK_MS)
-        miner._shutdown = false
-        const loop = miner.start()
-        try {
-            let spins = 0
-            while (nowMs < deadline && spins < ticks * 50) {
-                spins++
-                await new Promise(resolve => setImmediate(resolve))
-            }
-        } finally {
-            miner._shutdown = true
-            await loop
-            for (const sig of ['SIGTERM', 'SIGINT']) {
-                for (const listener of process.listeners(sig)) {
-                    if (!before[sig].includes(listener)) process.removeListener(sig, listener)
-                }
+    } finally {
+        miner._shutdown = true
+        await loop
+        for (const sig of ['SIGTERM', 'SIGINT']) {
+            for (const listener of process.listeners(sig)) {
+                if (!before[sig].includes(listener)) process.removeListener(sig, listener)
             }
         }
     }
+}
 
-    describe('_walletRefreshDue (the cadence guard, load-bearing at a 100ms tick)', function () {
-        it('is due when no balance has ever been read', function () {
-            miner._balanceReadAt = null
-            assert.strictEqual(miner.walletRefreshDue(nowMs), true)
-        })
-
-        it('is not due before the interval elapses', function () {
-            miner._balanceReadAt = nowMs
-            assert.strictEqual(miner.walletRefreshDue(nowMs + TICK_MS), false)
-            assert.strictEqual(miner.walletRefreshDue(nowMs + REFRESH_MS - 1), false)
-        })
-
-        it('is due once the interval has elapsed', function () {
-            miner._balanceReadAt = nowMs
-            assert.strictEqual(miner.walletRefreshDue(nowMs + REFRESH_MS), true)
-        })
-    })
+describe('wallet balance freshness in the auto-mine loop', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     // CONTROL: the pre-fix loop, reproduced by disabling the cadence check. If this
     // does not report a drained wallet as funded, the guarded case below proves
@@ -147,6 +132,11 @@ describe('wallet balance freshness in the auto-mine loop', function () {
         assert.strictEqual(connectorStub.invalidateBlock.callCount, 0)
         assert.strictEqual(connectorStub.reconsiderBlock.callCount, 0)
     })
+})
+
+describe('wallet balance freshness in the auto-mine loop', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     it('keeps refreshing while mining is paused, which is when fill_mempool drains the wallet', async function () {
         await miner.prepareWallet()
@@ -182,6 +172,11 @@ describe('wallet balance freshness in the auto-mine loop', function () {
         assert.strictEqual(miner.getStatus().wallet_funded, false)
         assert.strictEqual(miner.getStatus().mempool_size, 0)
     })
+})
+
+describe('wallet balance freshness in the auto-mine loop', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     it('reads the balance about once per interval, not once per loop tick', async function () {
         await miner.prepareWallet()
@@ -211,6 +206,11 @@ describe('wallet balance freshness in the auto-mine loop', function () {
         assert.ok(second >= first, 'wallet_balance_at must never move backwards')
         assert.ok(second > first, 'the loop refresh must advance wallet_balance_at')
     })
+})
+
+describe('wallet balance freshness in the auto-mine loop', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
 
     it('stamps wallet_balance_at even when the read fails, so a wedged node is not re-polled every tick', async function () {
         await miner.prepareWallet()
@@ -222,5 +222,28 @@ describe('wallet balance freshness in the auto-mine loop', function () {
         assert.strictEqual(miner.getStatus().wallet_funded, false)
         assert.strictEqual(miner.getStatus().wallet_balance_at, nowMs)
         assert.strictEqual(miner.walletRefreshDue(nowMs), false)
+    })
+})
+
+describe('wallet balance freshness in the auto-mine loop', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
+
+    describe('_walletRefreshDue (the cadence guard, load-bearing at a 100ms tick)', function () {
+        it('is due when no balance has ever been read', function () {
+            miner._balanceReadAt = null
+            assert.strictEqual(miner.walletRefreshDue(nowMs), true)
+        })
+
+        it('is not due before the interval elapses', function () {
+            miner._balanceReadAt = nowMs
+            assert.strictEqual(miner.walletRefreshDue(nowMs + TICK_MS), false)
+            assert.strictEqual(miner.walletRefreshDue(nowMs + REFRESH_MS - 1), false)
+        })
+
+        it('is due once the interval has elapsed', function () {
+            miner._balanceReadAt = nowMs
+            assert.strictEqual(miner.walletRefreshDue(nowMs + REFRESH_MS), true)
+        })
     })
 })
