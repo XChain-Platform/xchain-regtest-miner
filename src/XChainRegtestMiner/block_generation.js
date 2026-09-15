@@ -80,6 +80,7 @@ async function runMineLoop(loop){
                 // reopen the window the idle-mine site below actually had.
                 if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
                 if (!(await mineLoopBlock.call(this, loop, "generating a new block"))) continue
+                clearErrorStreak.call(this, loop, true)
 
                 loop.initialStartToMine = 0
                 loop.extendedStartToMine = 0
@@ -88,6 +89,7 @@ async function runMineLoop(loop){
 
             const read = await readLoopMempool.call(this, loop)
             if (!read.ok) continue
+            clearErrorStreak.call(this, loop, false)
 
             // Mine-empty heartbeat (off unless IDLE_MINE_INTERVAL_MS /
             // set_idle_mine_interval turned it on). Only on the empty-mempool
@@ -104,6 +106,7 @@ async function runMineLoop(loop){
                 // mempool drills the barrier exists for.
                 if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
                 if (!(await mineLoopBlock.call(this, loop, "mining an idle block"))) continue
+                clearErrorStreak.call(this, loop, true)
             }
         }
         await this.sleep(CHECK_BLOCK_DELAY_MS)
@@ -128,11 +131,9 @@ function timerMineDue(loop){
 async function mineLoopBlock(loop, what){
     try {
         await this.generateBlocks(1)
-        loop.consecutiveErrors = 0
-        this._consecutiveErrors = 0
-        this._mineFailures = 0
         // blocks_mined / last_mine_at are updated in generateBlocksRaw
-        // (the chokepoint all mining paths flow through).
+        // (the chokepoint all mining paths flow through). The caller clears the
+        // error streak; see clearErrorStreak for why that is not done here.
         return true
     } catch (err){
         loop.consecutiveErrors++
@@ -151,8 +152,6 @@ async function readLoopMempool(loop){
     let rawMempool = null
     try {
         rawMempool = await this.connector.getRawMempool()
-        loop.consecutiveErrors = 0
-        this._consecutiveErrors = 0
     } catch (error){
         loop.consecutiveErrors++
         this._consecutiveErrors = loop.consecutiveErrors
@@ -162,6 +161,19 @@ async function readLoopMempool(loop){
         return { ok: false }
     }
     return { ok: true, rawMempool }
+}
+
+// Clears the error streak after a successful pass; a successful mine clears the
+// mine-failure count too. runMineLoop calls this synchronously right after the
+// helper's await resolves, so the reset shares one synchronous run with the
+// mempool bookkeeping and the next RPC that follow it. Done at the end of the
+// async helper instead, the reset would sit a turn apart from them, and a
+// concurrent flow could observe the counters cleared while the mempool size
+// still held the previous pass.
+function clearErrorStreak(loop, mined){
+    loop.consecutiveErrors = 0
+    this._consecutiveErrors = 0
+    if (mined) this._mineFailures = 0
 }
 
 // Updates the mempool timers and the exported size from one read. Returns true

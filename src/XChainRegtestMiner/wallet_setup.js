@@ -60,39 +60,53 @@ async function probeWalletAddress(){
     return probeAddress
 }
 
-// Mines to coinbase maturity and waits for a spendable balance, for a wallet that
-// prepareWallet found empty. Throws when the balance never arrives.
-async function mineToFundedBalance(){
-    logger.info("Mining blocks to get balance in the wallet")
-    // Always mine to coinbase-maturity depth regardless of current chain
-    // height: fewer blocks (e.g. a single one on an aged chain) would only
-    // add an immature coinbase (spendable after 100 confirmations), leaving
-    // the balance at 0 while walletReady is about to be set true. The
-    // bounded balance re-poll below is the real readiness guard.
-    // Private entry point: start() runs this warmup without awaiting while the API
-    // is already listening, so a fill_mempool arriving during it must not
-    // turn wallet preparation into a boot failure.
-    await this.generateBlocksQueued(101)
-
-    // Re-poll the balance in a bounded loop instead of trusting the
-    // mining call: ping/status export walletReady as the readiness
-    // oracle, so it must reflect an observed spendable balance, not
-    // just that a mining RPC was issued.
-    const BALANCE_POLL_MAX_ATTEMPTS = 10
-    const BALANCE_POLL_INTERVAL_MS = 1000
-    for (let attempt = 1; attempt <= BALANCE_POLL_MAX_ATTEMPTS; attempt++) {
-        this.balance = await this.connector.getBalance()
-        if (this.balance > 0){
-            break
-        }
-        if (attempt < BALANCE_POLL_MAX_ATTEMPTS) {
-            await this.sleep(BALANCE_POLL_INTERVAL_MS)
-        }
-    }
-
+// Settles the startup balance read. A wallet prepareWallet found empty is mined
+// to coinbase maturity and polled for a spendable balance, throwing when it never
+// arrives; then the read is stamped and the funding fee rate pinned. The mining,
+// the stamp and the pin share this one async body so the final balance check, the
+// stamp and the opening run of the pin stay one synchronous run: across two async
+// functions a turn would separate them, and a concurrent flow could land there.
+async function settleStartupBalance(){
     if (this.balance <= 0){
-        throw new Error("Wallet balance still 0 after mining to maturity; cannot mark wallet ready")
+        logger.info("Mining blocks to get balance in the wallet")
+        // Always mine to coinbase-maturity depth regardless of current chain
+        // height: fewer blocks (e.g. a single one on an aged chain) would only
+        // add an immature coinbase (spendable after 100 confirmations), leaving
+        // the balance at 0 while walletReady is about to be set true. The
+        // bounded balance re-poll below is the real readiness guard.
+        // Private entry point: start() runs this warmup without awaiting while the API
+        // is already listening, so a fill_mempool arriving during it must not
+        // turn wallet preparation into a boot failure.
+        await this.generateBlocksQueued(101)
+
+        // Re-poll the balance in a bounded loop instead of trusting the
+        // mining call: ping/status export walletReady as the readiness
+        // oracle, so it must reflect an observed spendable balance, not
+        // just that a mining RPC was issued.
+        const BALANCE_POLL_MAX_ATTEMPTS = 10
+        const BALANCE_POLL_INTERVAL_MS = 1000
+        for (let attempt = 1; attempt <= BALANCE_POLL_MAX_ATTEMPTS; attempt++) {
+            this.balance = await this.connector.getBalance()
+            if (this.balance > 0){
+                break
+            }
+            if (attempt < BALANCE_POLL_MAX_ATTEMPTS) {
+                await this.sleep(BALANCE_POLL_INTERVAL_MS)
+            }
+        }
+
+        if (this.balance <= 0){
+            throw new Error("Wallet balance still 0 after mining to maturity; cannot mark wallet ready")
+        }
     }
+
+    // Stamp the startup read so the auto-mine loop's cadence starts one full
+    // interval from here rather than firing a redundant getbalance on its very
+    // first tick, which would also null the balance just measured on any venue
+    // whose connector answers that call less reliably than this one just did.
+    this._balanceReadAt = Date.now()
+
+    await this.pinFundingFeeRate()
 }
 
 module.exports = {
@@ -239,17 +253,7 @@ module.exports = {
         logger.info("Checking wallet balance")
         this.balance = await this.connector.getBalance()
 
-        if (this.balance <= 0){
-            await mineToFundedBalance.call(this)
-        }
-
-        // Stamp the startup read so the auto-mine loop's cadence starts one full
-        // interval from here rather than firing a redundant getbalance on its very
-        // first tick, which would also null the balance just measured on any venue
-        // whose connector answers that call less reliably than this one just did.
-        this._balanceReadAt = Date.now()
-
-        await this.pinFundingFeeRate()
+        await settleStartupBalance.call(this)
 
         // Wallet is fully prepared (address assigned, coinbase matured): wallet-dependent
         // RPCs (generateToAddress) are safe from here. Callers gate on this via ping/status,
