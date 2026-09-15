@@ -12,74 +12,88 @@ const assert = require('assert')
 const sinon = require('sinon')
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+let XChainRegtestMiner
+let miner
+let connectorStub
+let controller
+
+function makeConnectorStub() {
+    return {
+        getWalletInfo: sinon.stub(),
+        loadWallet: sinon.stub(),
+        createWallet: sinon.stub(),
+        getNewAddress: sinon.stub().resolves('bcrt1qtest'),
+        getBalance: sinon.stub().resolves(50.0),
+        getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
+        generateToAddress: sinon.stub().resolves(['blockhash1']),
+        getRawMempool: sinon.stub().resolves([]),
+        sendToAddress: sinon.stub().resolves('txid_abc'),
+        setTxFee: sinon.stub().resolves(true),
+        setWalletName: sinon.stub(),
+        getRawTransaction: sinon.stub().resolves('0200000001...'),
+        sendRawTransaction: sinon.stub().resolves('txid_sent'),
+    }
+}
+
+function makeController() {
+    return {
+        async ping() {
+            return { status: 'success' }
+        },
+        async send_funds({ address, amount }) {
+            let txid = null
+            try {
+                txid = await miner.sendFundsToAddress(address, amount)
+            } catch (err) {
+                return { error: 'There was a problem sending funds' }
+            }
+            return txid
+        },
+        async fill_mempool({ tx_quantity }) {
+            try {
+                await miner.fillMempool(tx_quantity)
+            } catch (err) {
+                return { error: 'There was a problem trying to fill the mempool' }
+            }
+            return { result: 'ok' }
+        },
+        async set_mining_time({ max_time, tx_added_time }) {
+            try {
+                await miner.setMiningTime(max_time, tx_added_time)
+            } catch (err) {
+                return { error: 'There was a problem trying to set a new time to mine blocks' }
+            }
+            return { result: 'ok' }
+        },
+    }
+}
+
+function setupMiner() {
+    connectorStub = makeConnectorStub()
+    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+    miner.connector = connectorStub
+    sinon.stub(miner, 'sleep').resolves()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+
+    // Recreate controller logic matching api.js
+    controller = makeController()
+}
+
+function teardownMiner() {
+    sinon.restore()
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+}
+
+function useMinerFixtures() {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
+}
+
 describe('Security: API Hardening', function () {
-    let XChainRegtestMiner
-    let miner
-    let connectorStub
-    let controller
-
-    beforeEach(function () {
-        connectorStub = {
-            getWalletInfo: sinon.stub(),
-            loadWallet: sinon.stub(),
-            createWallet: sinon.stub(),
-            getNewAddress: sinon.stub().resolves('bcrt1qtest'),
-            getBalance: sinon.stub().resolves(50.0),
-            getBlockchainInfo: sinon.stub().resolves({ blocks: 200 }),
-            generateToAddress: sinon.stub().resolves(['blockhash1']),
-            getRawMempool: sinon.stub().resolves([]),
-            sendToAddress: sinon.stub().resolves('txid_abc'),
-            setTxFee: sinon.stub().resolves(true),
-            setWalletName: sinon.stub(),
-            getRawTransaction: sinon.stub().resolves('0200000001...'),
-            sendRawTransaction: sinon.stub().resolves('txid_sent'),
-        }
-
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-
-        // Recreate controller logic matching api.js
-        controller = {
-            async ping() {
-                return { status: 'success' }
-            },
-            async send_funds({ address, amount }) {
-                let txid = null
-                try {
-                    txid = await miner.sendFundsToAddress(address, amount)
-                } catch (err) {
-                    return { error: 'There was a problem sending funds' }
-                }
-                return txid
-            },
-            async fill_mempool({ tx_quantity }) {
-                try {
-                    await miner.fillMempool(tx_quantity)
-                } catch (err) {
-                    return { error: 'There was a problem trying to fill the mempool' }
-                }
-                return { result: 'ok' }
-            },
-            async set_mining_time({ max_time, tx_added_time }) {
-                try {
-                    await miner.setMiningTime(max_time, tx_added_time)
-                } catch (err) {
-                    return { error: 'There was a problem trying to set a new time to mine blocks' }
-                }
-                return { result: 'ok' }
-            },
-        }
-    })
-
-    afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+    useMinerFixtures()
 
     // ─── API error responses are generic ───────────────────────────────
 
@@ -125,7 +139,10 @@ describe('Security: API Hardening', function () {
             assert.strictEqual(result.error, 'There was a problem sending funds')
         })
     })
+})
 
+describe('Security: API Hardening', function () {
+    useMinerFixtures()
     describe('fill_mempool returns generic errors', function () {
         it('returns generic error on miner exception', async function () {
             sinon.stub(miner, 'fillMempool').rejects(new Error('internal details'))
@@ -166,7 +183,10 @@ describe('Security: API Hardening', function () {
             assert.ok(result)
         })
     })
+})
 
+describe('Security: API Hardening', function () {
+    useMinerFixtures()
     // ─── Prototype pollution defense ───────────────────────────────────
 
     describe('prototype pollution resistance', function () {
