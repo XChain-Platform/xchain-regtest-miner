@@ -95,7 +95,7 @@ describe('pauseMining barrier vs the auto-mine loop', function () {
     it('the shipped loop carries the guard at both auto-mine sites', function () {
         const fs = require('fs')
         const path = require('path')
-        const src = fs.readFileSync(path.join(__dirname, '../../src/XChainRegtestMiner.js'), 'utf8')
+        const src = fs.readFileSync(path.join(__dirname, '../../src/XChainRegtestMiner/block_generation.js'), 'utf8')
         const body = src.slice(src.indexOf('while (!this._shutdown)'))
         const guards = body.split('if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }').length - 1
         assert.strictEqual(guards, 2,
