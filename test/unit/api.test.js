@@ -12,6 +12,78 @@ const assert = require('assert')
 const sinon = require('sinon')
 const http = require('http')
 
+function createMinerStub() {
+    return {
+        sendFundsToAddress: sinon.stub(),
+        fillMempool: sinon.stub(),
+        continueMining: sinon.stub(),
+        setMiningTime: sinon.stub(),
+        setDefaultMiningTime: sinon.stub(),
+        setMockTime: sinon.stub(),
+        start: sinon.stub(),
+    }
+}
+
+function createController(miner) {
+    return {
+        async ping() {
+            return { status: 'success' }
+        },
+        async send_funds({ address, amount }) {
+            let txid = null
+            try {
+                txid = await miner.sendFundsToAddress(address, amount)
+            } catch (err) {
+                console.log(err)
+                return { error: 'There was a problem sending ' + amount + ' to ' + address }
+            }
+            return txid
+        },
+        async fill_mempool({ tx_quantity }) {
+            try {
+                await miner.fillMempool(tx_quantity)
+            } catch (err) {
+                console.log(err)
+                return { error: 'There was a problem trying to fill the mempool: ' + (err && err.message ? err.message : err) }
+            }
+            return { result: 'ok' }
+        },
+        async continue_mining({}) {
+            try {
+                await miner.continueMining()
+            } catch (err) {
+                console.log(err)
+                return { error: 'There was a problem trying to continue the mining' }
+            }
+            return { result: 'ok' }
+        },
+        async set_mining_time({ max_time, tx_added_time }) {
+            try {
+                await miner.setMiningTime(max_time, tx_added_time)
+            } catch (err) {
+                return { error: 'There was a problem trying to set a new time to mine blocks' }
+            }
+            return { result: 'ok' }
+        },
+        async set_default_mining_time() {
+            try {
+                await miner.setDefaultMiningTime()
+            } catch (err) {
+                return { error: 'There was a problem trying to set a the default time to mine blocks' }
+            }
+            return { result: 'ok' }
+        },
+        async set_mock_time({ timestamp }) {
+            try {
+                await miner.setMockTime(timestamp)
+                return 'ok'
+            } catch (err) {
+                return { error: 'There was a problem setting the mock time: ' + (err && err.message ? err.message : err) }
+            }
+        },
+    }
+}
+
 describe('api.js', function () {
     let app
     let server
@@ -25,76 +97,10 @@ describe('api.js', function () {
         let controller
 
         beforeEach(function () {
-            miner = {
-                sendFundsToAddress: sinon.stub(),
-                fillMempool: sinon.stub(),
-                continueMining: sinon.stub(),
-                setMiningTime: sinon.stub(),
-                setDefaultMiningTime: sinon.stub(),
-                setMockTime: sinon.stub(),
-                start: sinon.stub(),
-            }
-
+            miner = createMinerStub()
             sinon.stub(console, 'log')
-
             // Recreate the controller logic as defined in api.js
-            controller = {
-                async ping() {
-                    return { status: 'success' }
-                },
-                async send_funds({ address, amount }) {
-                    let txid = null
-                    try {
-                        txid = await miner.sendFundsToAddress(address, amount)
-                    } catch (err) {
-                        console.log(err)
-                        return { error: 'There was a problem sending ' + amount + ' to ' + address }
-                    }
-                    return txid
-                },
-                async fill_mempool({ tx_quantity }) {
-                    try {
-                        await miner.fillMempool(tx_quantity)
-                    } catch (err) {
-                        console.log(err)
-                        return { error: 'There was a problem trying to fill the mempool: ' + (err && err.message ? err.message : err) }
-                    }
-                    return { result: 'ok' }
-                },
-                async continue_mining({}) {
-                    try {
-                        await miner.continueMining()
-                    } catch (err) {
-                        console.log(err)
-                        return { error: 'There was a problem trying to continue the mining' }
-                    }
-                    return { result: 'ok' }
-                },
-                async set_mining_time({ max_time, tx_added_time }) {
-                    try {
-                        await miner.setMiningTime(max_time, tx_added_time)
-                    } catch (err) {
-                        return { error: 'There was a problem trying to set a new time to mine blocks' }
-                    }
-                    return { result: 'ok' }
-                },
-                async set_default_mining_time() {
-                    try {
-                        await miner.setDefaultMiningTime()
-                    } catch (err) {
-                        return { error: 'There was a problem trying to set a the default time to mine blocks' }
-                    }
-                    return { result: 'ok' }
-                },
-                async set_mock_time({ timestamp }) {
-                    try {
-                        await miner.setMockTime(timestamp)
-                        return 'ok'
-                    } catch (err) {
-                        return { error: 'There was a problem setting the mock time: ' + (err && err.message ? err.message : err) }
-                    }
-                },
-            }
+            controller = createController(miner)
         })
 
         afterEach(function () {
@@ -128,6 +134,24 @@ describe('api.js', function () {
                 })
             })
         })
+    })
+})
+
+describe('api.js', function () {
+    let miner
+
+    describe('JSON-RPC controller logic', function () {
+        let controller
+
+        beforeEach(function () {
+            miner = createMinerStub()
+            sinon.stub(console, 'log')
+            controller = createController(miner)
+        })
+
+        afterEach(function () {
+            sinon.restore()
+        })
 
         // ─── fill_mempool ───────────────────────────────────────────
 
@@ -156,6 +180,24 @@ describe('api.js', function () {
                 assert(result.error.includes('txQuantity must be a positive integer'))
             })
         })
+    })
+})
+
+describe('api.js', function () {
+    let miner
+
+    describe('JSON-RPC controller logic', function () {
+        let controller
+
+        beforeEach(function () {
+            miner = createMinerStub()
+            sinon.stub(console, 'log')
+            controller = createController(miner)
+        })
+
+        afterEach(function () {
+            sinon.restore()
+        })
 
         // ─── continue_mining ────────────────────────────────────────
 
@@ -172,6 +214,24 @@ describe('api.js', function () {
                 const result = await controller.continue_mining({})
                 assert(result.error.includes('continue the mining'))
             })
+        })
+    })
+})
+
+describe('api.js', function () {
+    let miner
+
+    describe('JSON-RPC controller logic', function () {
+        let controller
+
+        beforeEach(function () {
+            miner = createMinerStub()
+            sinon.stub(console, 'log')
+            controller = createController(miner)
+        })
+
+        afterEach(function () {
+            sinon.restore()
         })
 
         // ─── set_mining_time ────────────────────────────────────────
@@ -190,6 +250,24 @@ describe('api.js', function () {
                 assert(result.error.includes('set a new time'))
             })
         })
+    })
+})
+
+describe('api.js', function () {
+    let miner
+
+    describe('JSON-RPC controller logic', function () {
+        let controller
+
+        beforeEach(function () {
+            miner = createMinerStub()
+            sinon.stub(console, 'log')
+            controller = createController(miner)
+        })
+
+        afterEach(function () {
+            sinon.restore()
+        })
 
         // ─── set_default_mining_time ────────────────────────────────
 
@@ -206,6 +284,24 @@ describe('api.js', function () {
                 const result = await controller.set_default_mining_time()
                 assert(result.error.includes('default time'))
             })
+        })
+    })
+})
+
+describe('api.js', function () {
+    let miner
+
+    describe('JSON-RPC controller logic', function () {
+        let controller
+
+        beforeEach(function () {
+            miner = createMinerStub()
+            sinon.stub(console, 'log')
+            controller = createController(miner)
+        })
+
+        afterEach(function () {
+            sinon.restore()
         })
 
         // ─── set_mock_time ──────────────────────────────────────────
@@ -226,7 +322,9 @@ describe('api.js', function () {
             })
         })
     })
+})
 
+describe('api.js', function () {
     // ─── Environment variable parsing ───────────────────────────────────
 
     describe('environment variable parsing', function () {
