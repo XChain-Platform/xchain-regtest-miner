@@ -25,71 +25,80 @@ const PerformanceCollector = require('./helpers/PerformanceCollector')
 const MemorySampler = require('./helpers/MemorySampler')
 const { assertNoMemoryLeak, assertHeapDeltaUnder } = require('./helpers/perfAssert')
 
-describe('Performance: SL: Soak and Stability', function () {
-    let node, miner, collector
-    let startPromise
+let node, miner, collector
+let startPromise
 
-    before(async function () {
-        node = new LatencyMockNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+async function startNode() {
+    node = new LatencyMockNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+}
 
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
+async function stopNode() {
+    sinon.restore()
+    await node.stop()
+}
 
-    beforeEach(async function () {
-        node.reset()
-        node._rpc_createwallet(['xchain_regtest_wallet'])
-        node._rpc_generatetoaddress([110, 'bcrt1qseed'])
-        node.calls = []
+async function setupMiner() {
+    node.reset()
+    node._rpc_createwallet(['xchain_regtest_wallet'])
+    node._rpc_generatetoaddress([110, 'bcrt1qseed'])
+    node.calls = []
 
-        collector = new PerformanceCollector('SL')
-        miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+    collector = new PerformanceCollector('SL')
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
 
-        const originalSleep = miner.sleep.bind(miner)
-        miner.sleep = async (ms) => {
-            if (miner._shutdown) throw new Error('__E2E_SHUTDOWN__')
-            await originalSleep(10)
-        }
-    })
+    const originalSleep = miner.sleep.bind(miner)
+    miner.sleep = async (ms) => {
+        if (miner._shutdown) throw new Error('__E2E_SHUTDOWN__')
+        await originalSleep(10)
+    }
+}
 
-    afterEach(async function () {
-        miner._shutdown = true
-        if (startPromise) {
-            try { await startPromise } catch (e) {
-                if (e.message !== '__E2E_SHUTDOWN__') throw e
-            }
-        }
-        startPromise = null
-
-        const names = collector.getMetricNames()
-        if (names.length > 0) {
-            process.stdout.write(collector.summary())
-        }
-    })
-
-    function startMinerLoop() {
-        startPromise = miner.start().catch(e => {
+async function teardownMiner() {
+    miner._shutdown = true
+    if (startPromise) {
+        try { await startPromise } catch (e) {
             if (e.message !== '__E2E_SHUTDOWN__') throw e
-        })
-    }
-
-    async function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms))
-    }
-
-    async function waitFor(conditionFn, timeoutMs = 5000) {
-        const start = Date.now()
-        while (Date.now() - start < timeoutMs) {
-            if (conditionFn()) return true
-            await sleep(20)
         }
-        throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
     }
+    startPromise = null
+
+    const names = collector.getMetricNames()
+    if (names.length > 0) {
+        process.stdout.write(collector.summary())
+    }
+}
+
+function startMinerLoop() {
+    startPromise = miner.start().catch(e => {
+        if (e.message !== '__E2E_SHUTDOWN__') throw e
+    })
+}
+
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function waitFor(conditionFn, timeoutMs = 5000) {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+        if (conditionFn()) return true
+        await sleep(20)
+    }
+    throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
+}
+
+function useMinerFixtures() {
+    before(startNode)
+    after(stopNode)
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
+}
+
+describe('Performance: SL: Soak and Stability', function () {
+    useMinerFixtures()
 
     // ─── SL-001: Idle soak, empty mempool, check memory stability ────
 
@@ -119,7 +128,10 @@ describe('Performance: SL: Soak and Stability', function () {
         // Allow generous threshold: GC and JIT can cause growth in short tests
         assertNoMemoryLeak(sampler, 5 * 1024 * 1024) // < 5 MB/s growth (short soak)
     })
+})
 
+describe('Performance: SL: Soak and Stability', function () {
+    useMinerFixtures()
     // ─── SL-002: Active soak, txs injected and mined over 3 seconds ──
 
     it('SL-002: active soak: inject + mine cycles over 3 seconds', async function () {
@@ -167,7 +179,10 @@ describe('Performance: SL: Soak and Stability', function () {
         // Node 22 with zero growth across longer soaks.
         assertNoMemoryLeak(sampler, 5 * 1024 * 1024)
     })
+})
 
+describe('Performance: SL: Soak and Stability', function () {
+    useMinerFixtures()
     // ─── SL-003: Burst soak, repeated inject+mine cycles ─────────────
 
     it('SL-003: burst soak: 10 cycles of inject 20 txs + mine', async function () {
@@ -201,7 +216,10 @@ describe('Performance: SL: Soak and Stability', function () {
 
         assertHeapDeltaUnder(sampler, 10 * 1024 * 1024) // < 10MB total growth
     })
+})
 
+describe('Performance: SL: Soak and Stability', function () {
+    useMinerFixtures()
     // ─── SL-004: Error recovery, RPC failures then recovery ──────────
 
     it('SL-004: error recovery: intermittent RPC failures, then normal operation', async function () {
