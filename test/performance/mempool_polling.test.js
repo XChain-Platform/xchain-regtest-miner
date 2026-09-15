@@ -24,71 +24,80 @@ const LatencyMockNode = require('./helpers/LatencyMockNode')
 const PerformanceCollector = require('./helpers/PerformanceCollector')
 const { assertP95Under, assertMeanUnder, assertMaxUnder } = require('./helpers/perfAssert')
 
-describe('Performance: MP: Mempool Polling', function () {
-    let node, miner, collector
-    let startPromise
+let node, miner, collector
+let startPromise
 
-    before(async function () {
-        node = new LatencyMockNode()
-        await node.start()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+async function startNode() {
+    node = new LatencyMockNode()
+    await node.start()
+    sinon.stub(console, 'log')
+    sinon.stub(console, 'error')
+}
 
-    after(async function () {
-        sinon.restore()
-        await node.stop()
-    })
+async function stopNode() {
+    sinon.restore()
+    await node.stop()
+}
 
-    beforeEach(async function () {
-        node.reset()
-        node._rpc_createwallet(['xchain_regtest_wallet'])
-        node._rpc_generatetoaddress([110, 'bcrt1qseed'])
-        node.calls = []
+async function setupMiner() {
+    node.reset()
+    node._rpc_createwallet(['xchain_regtest_wallet'])
+    node._rpc_generatetoaddress([110, 'bcrt1qseed'])
+    node.calls = []
 
-        collector = new PerformanceCollector('MP')
-        miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+    collector = new PerformanceCollector('MP')
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
 
-        const originalSleep = miner.sleep.bind(miner)
-        miner.sleep = async (ms) => {
-            if (miner._shutdown) throw new Error('__E2E_SHUTDOWN__')
-            await originalSleep(10)
-        }
-    })
+    const originalSleep = miner.sleep.bind(miner)
+    miner.sleep = async (ms) => {
+        if (miner._shutdown) throw new Error('__E2E_SHUTDOWN__')
+        await originalSleep(10)
+    }
+}
 
-    afterEach(async function () {
-        miner._shutdown = true
-        if (startPromise) {
-            try { await startPromise } catch (e) {
-                if (e.message !== '__E2E_SHUTDOWN__') throw e
-            }
-        }
-        startPromise = null
-
-        const names = collector.getMetricNames()
-        if (names.length > 0) {
-            process.stdout.write(collector.summary())
-        }
-    })
-
-    function startMinerLoop() {
-        startPromise = miner.start().catch(e => {
+async function teardownMiner() {
+    miner._shutdown = true
+    if (startPromise) {
+        try { await startPromise } catch (e) {
             if (e.message !== '__E2E_SHUTDOWN__') throw e
-        })
-    }
-
-    async function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms))
-    }
-
-    async function waitFor(conditionFn, timeoutMs = 5000) {
-        const start = Date.now()
-        while (Date.now() - start < timeoutMs) {
-            if (conditionFn()) return true
-            await sleep(20)
         }
-        throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
     }
+    startPromise = null
+
+    const names = collector.getMetricNames()
+    if (names.length > 0) {
+        process.stdout.write(collector.summary())
+    }
+}
+
+function startMinerLoop() {
+    startPromise = miner.start().catch(e => {
+        if (e.message !== '__E2E_SHUTDOWN__') throw e
+    })
+}
+
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function waitFor(conditionFn, timeoutMs = 5000) {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+        if (conditionFn()) return true
+        await sleep(20)
+    }
+    throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
+}
+
+function useMinerFixtures() {
+    before(startNode)
+    after(stopNode)
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
+}
+
+describe('Performance: MP: Mempool Polling', function () {
+    useMinerFixtures()
 
     // ─── MP-001: Steady trickle, 1 tx every 100ms for 1 second ───────
 
@@ -139,7 +148,10 @@ describe('Performance: MP: Mempool Polling', function () {
         const lastBlock = node.blocks[node.blocks.length - 1]
         assert.ok(lastBlock.txids.length > 50, 'Expected most txs included in block')
     })
+})
 
+describe('Performance: MP: Mempool Polling', function () {
+    useMinerFixtures()
     // ─── MP-003: Continuous flood, 5 txs per poll for 2 seconds ──────
 
     it('MP-003: block generation under continuous flood (5 tx/poll, 2s)', async function () {
@@ -178,7 +190,10 @@ describe('Performance: MP: Mempool Polling', function () {
         // Should have mined at least 1 block in this period
         assert.ok(blocksMined >= 1, `Expected >= 1 block mined, got ${blocksMined}`)
     })
+})
 
+describe('Performance: MP: Mempool Polling', function () {
+    useMinerFixtures()
     // ─── MP-004: Timer boundary, tx arrives just before addedTime ────
 
     it('MP-004: timer extension when txs arrive near addedTimeToMineTxs boundary', async function () {
