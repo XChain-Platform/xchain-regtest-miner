@@ -13,11 +13,11 @@ const sinon = require('sinon')
 const fc = require('fast-check')
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
-describe('Fuzz: mining timer parameters', function () {
-    let XChainRegtestMiner
-    let miner
-    let connectorStub
+let XChainRegtestMiner
+let miner
+let connectorStub
 
+function useMiner() {
     beforeEach(function () {
         connectorStub = {
             getWalletInfo: sinon.stub().resolves({ walletname: 'test' }),
@@ -50,13 +50,16 @@ describe('Fuzz: mining timer parameters', function () {
         sinon.restore()
         delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
     })
+}
 
-    // ─── setMiningTime with arbitrary values ────────────────────────
+// ─── setMiningTime with arbitrary values ────────────────────────
 
-    // setMiningTime throws (rather than silently no-opping) on invalid input
-    // as of uuid:24c35056: a returned {error} sentinel let the api.js controller
-    // report "ok" on rejected input. These property tests assert the new
-    // throw-on-invalid / resolve-on-valid contract.
+// setMiningTime throws (rather than silently no-opping) on invalid input
+// as of uuid:24c35056: a returned {error} sentinel let the api.js controller
+// report "ok" on rejected input. These property tests assert the new
+// throw-on-invalid / resolve-on-valid contract.
+describe('Fuzz: mining timer parameters', function () {
+    useMiner()
     describe('setMiningTime with arbitrary values', function () {
         it('only accepts positive integers within bounds; rejects (throws) otherwise', async function () {
             const MIN = 1000
@@ -114,6 +117,10 @@ describe('Fuzz: mining timer parameters', function () {
             assert.strictEqual(miner.addedTimeToMineTxs, 5000)
         })
     })
+})
+
+describe('Fuzz: mining timer parameters', function () {
+    useMiner()
 
     // ─── Integer boundary values ────────────────────────────────────
 
@@ -157,6 +164,10 @@ describe('Fuzz: mining timer parameters', function () {
             })
         }
     })
+})
+
+describe('Fuzz: mining timer parameters', function () {
+    useMiner()
 
     // ─── Non-integer rejection ──────────────────────────────────────
 
@@ -188,6 +199,10 @@ describe('Fuzz: mining timer parameters', function () {
             })
         }
     })
+})
+
+describe('Fuzz: mining timer parameters', function () {
+    useMiner()
 
     // ─── setDefaultMiningTime always restores defaults ──────────────
 
@@ -215,6 +230,10 @@ describe('Fuzz: mining timer parameters', function () {
             )
         })
     })
+})
+
+describe('Fuzz: mining timer parameters', function () {
+    useMiner()
 
     // ─── Rapid sequential setMiningTime calls ───────────────────────
 
@@ -240,6 +259,10 @@ describe('Fuzz: mining timer parameters', function () {
             )
         })
     })
+})
+
+describe('Fuzz: mining timer parameters', function () {
+    useMiner()
 
     // ─── Zero/negative timers now rejected ──────────────────────────
 
