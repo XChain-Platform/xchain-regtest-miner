@@ -19,13 +19,13 @@
 
 const assert = require('assert')
 const sinon = require('sinon')
-const BlockchainConnector = require('../../src/BlockchainConnector')
+const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
 const StatefulMockNode = require('./helpers/StatefulMockNode')
 
-describe('E2E: Startup and Wallet Lifecycle', function () {
-    let node
+let node
 
+function useNode() {
     before(async function () {
         node = new StatefulMockNode()
         await node.start()
@@ -41,11 +41,15 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
     beforeEach(function () {
         node.reset()
     })
+}
 
-    function createMiner() {
-        const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
-        return miner
-    }
+function createMiner() {
+    const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+    return miner
+}
+
+describe('E2E: Startup and Wallet Lifecycle', function () {
+    useNode()
 
     // ─── A1: Fresh start: wallet creation and initial funding ──────
 
@@ -73,6 +77,10 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
         const balanceResult = await miner.connector.getBalance()
         assert.ok(balanceResult > 0)
     })
+})
+
+describe('E2E: Startup and Wallet Lifecycle', function () {
+    useNode()
 
     // ─── A2: Restart: wallet already loaded ────────────────────────
 
@@ -97,6 +105,10 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
         // Miner still got a new address
         assert.ok(miner.walletAddress)
     })
+})
+
+describe('E2E: Startup and Wallet Lifecycle', function () {
+    useNode()
 
     // ─── A3: Restart: wallet exists but unloaded ───────────────────
 
@@ -123,6 +135,10 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
 
         assert.ok(miner.walletAddress)
     })
+})
+
+describe('E2E: Startup and Wallet Lifecycle', function () {
+    useNode()
 
     // ─── A4: Empty balance at height > 100: still mines to maturity ─
 
@@ -144,6 +160,10 @@ describe('E2E: Startup and Wallet Lifecycle', function () {
         assert.strictEqual(node.callsFor('generatetoaddress').length, 1)
         assert.deepStrictEqual(node.callsFor('generatetoaddress')[0].params[0], 101)
     })
+})
+
+describe('E2E: Startup and Wallet Lifecycle', function () {
+    useNode()
 
     // ─── A5: All wallet methods fail: throws ───────────────────────
 

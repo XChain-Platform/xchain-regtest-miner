@@ -93,6 +93,11 @@ function evaluateMinerHealth({ status = {}, uptimeMs = 0,
                                errorThreshold = STALL_ERROR_THRESHOLD,
                                walletGraceMs = WALLET_GRACE_MS } = {}) {
     const consecutiveErrors = Number(status.consecutive_errors) || 0
+    // Failed mines get their own streak because consecutive_errors cannot carry
+    // them: the loop zeroes it on every successful getRawMempool(), which runs
+    // immediately before the idle-mine heartbeat, so a generateToAddress failing
+    // forever kept reporting 1 and this probe answered ok while height never moved.
+    const mineFailures      = Number(status.mine_failures) || 0
     // Cold-start grace: nothing is a stall yet. This also swallows an error streak
     // inside the window, which costs nothing, because Docker's --start-period (kept
     // at the same 60s in the Dockerfile) already discards failing checks there.
@@ -109,6 +114,10 @@ function evaluateMinerHealth({ status = {}, uptimeMs = 0,
     // every stack that pauses mining as part of a drill.
     if (status.mining_paused === true) return { healthy: true, reason: 'paused' }
     if (consecutiveErrors >= errorThreshold) return { healthy: false, reason: 'consecutive_errors' }
+    // Same threshold, second streak. Kept below the pause shortcut on purpose: a
+    // deliberate pause_mining / fill_mempool is never a stall whatever either
+    // counter reads.
+    if (mineFailures >= errorThreshold) return { healthy: false, reason: 'mine_failures' }
     return { healthy: true, reason: 'ok' }
 }
 
@@ -180,7 +189,7 @@ async function startApi(){
     // status, health) are exempt; bodyParser.json() (above) has already populated
     // req.body, so the method is readable here. Read the exempt set at its
     // definition rather than trusting this list, which drifted once already.
-    // Keyless operation is the regtest
+    // Platform-wide no-API-key posture: keyless operation is the regtest
     // default, but the open state is announced loudly at boot rather than implied.
     if (!MINER_API_KEY) {
         console.warn('WARNING: MINER_API_KEY is not set. Miner API authentication is DISABLED (open access). This is expected for local regtest stacks; set MINER_API_KEY on any shared deployment.')
@@ -227,6 +236,7 @@ async function startApi(){
                 reason: verdict.reason,
                 wallet_ready: !!status.wallet_ready,
                 consecutive_errors: status.consecutive_errors,
+                mine_failures: status.mine_failures,
                 mining_paused: !!status.mining_paused,
                 mining_started: !!status.mining_started
             }

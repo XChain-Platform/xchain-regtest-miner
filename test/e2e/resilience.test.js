@@ -22,9 +22,9 @@ const sinon = require('sinon')
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
 const StatefulMockNode = require('./helpers/StatefulMockNode')
 
-describe('E2E: Error Resilience', function () {
-    let node
+let node
 
+function useNode() {
     before(async function () {
         node = new StatefulMockNode()
         await node.start()
@@ -36,49 +36,71 @@ describe('E2E: Error Resilience', function () {
         sinon.restore()
         await node.stop()
     })
+}
 
-    async function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms))
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function startMiner() {
+    node.reset()
+    node._rpc_createwallet(['xchain_regtest_wallet'])
+    node._rpc_generatetoaddress([110, 'bcrt1qseed'])
+    node.calls = []
+
+    const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+
+    // Fast sleep
+    const originalSleep = miner.sleep.bind(miner)
+    miner.sleep = async (ms) => {
+        if (miner._shutdown) throw new Error('__E2E_SHUTDOWN__')
+        await originalSleep(10)
     }
+
+    // Start the loop
+    const startPromise = miner.start().catch(e => {
+        if (e.message !== '__E2E_SHUTDOWN__') throw e
+    })
+
+    // Wait for loop to start
+    const start = Date.now()
+    while (!miner.keepMining && Date.now() - start < 3000) await sleep(20)
+    return { miner, startPromise }
+}
+
+function injectRpcErrors(onError) {
+    const realHandler = node._rpc_getrawmempool.bind(node)
+    node._rpc_getrawmempool = function () {
+        const errorCount = onError()
+        if (errorCount <= 3) {
+            const err = new Error('Connection lost')
+            err.rpcCode = -1
+            throw err
+        }
+        return realHandler()
+    }
+    return realHandler
+}
+
+async function stopMiner(miner, startPromise) {
+    miner._shutdown = true
+    try { await startPromise } catch (e) {
+        if (e.message !== '__E2E_SHUTDOWN__') throw e
+    }
+    if (miner._sigTermHandler) process.removeListener('SIGTERM', miner._sigTermHandler)
+}
+
+describe('E2E: Error Resilience', function () {
+    useNode()
 
     // ─── E1: Mining loop recovers from RPC errors ───────────────────
 
     it('E1: mining loop continues after transient RPC errors', async function () {
-        node.reset()
-        node._rpc_createwallet(['xchain_regtest_wallet'])
-        node._rpc_generatetoaddress([110, 'bcrt1qseed'])
-        node.calls = []
-
-        const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
-
-        // Fast sleep
-        const originalSleep = miner.sleep.bind(miner)
-        miner.sleep = async (ms) => {
-            if (miner._shutdown) throw new Error('__E2E_SHUTDOWN__')
-            await originalSleep(10)
-        }
-
-        // Start the loop
-        const startPromise = miner.start().catch(e => {
-            if (e.message !== '__E2E_SHUTDOWN__') throw e
-        })
-
-        // Wait for loop to start
-        const start = Date.now()
-        while (!miner.keepMining && Date.now() - start < 3000) await sleep(20)
+        const { miner, startPromise } = await startMiner()
 
         // Inject RPC errors by temporarily replacing the handler
-        const realHandler = node._rpc_getrawmempool.bind(node)
         let errorCount = 0
-        node._rpc_getrawmempool = function () {
-            errorCount++
-            if (errorCount <= 3) {
-                const err = new Error('Connection lost')
-                err.rpcCode = -1
-                throw err
-            }
-            return realHandler()
-        }
+        const realHandler = injectRpcErrors(() => ++errorCount)
 
         // Wait for the injected errors to actually be encountered. errorCount is
         // the real post-condition: a fixed settle only assumed the loop had polled
@@ -100,12 +122,12 @@ describe('E2E: Error Resilience', function () {
 
         assert.ok(node.height > heightBefore, 'Miner did not recover from RPC errors')
 
-        miner._shutdown = true
-        try { await startPromise } catch (e) {
-            if (e.message !== '__E2E_SHUTDOWN__') throw e
-        }
-        if (miner._sigTermHandler) process.removeListener('SIGTERM', miner._sigTermHandler)
+        await stopMiner(miner, startPromise)
     })
+})
+
+describe('E2E: Error Resilience', function () {
+    useNode()
 
     // ─── E2: send_funds with insufficient balance ───────────────────
 
@@ -129,6 +151,10 @@ describe('E2E: Error Resilience', function () {
         // No transaction should be in the mempool
         assert.strictEqual(node.mempool.length, 0)
     })
+})
+
+describe('E2E: Error Resilience', function () {
+    useNode()
 
     // ─── E3: set_mining_time with invalid values ────────────────────
 

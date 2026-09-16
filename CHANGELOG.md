@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-09-16
+
+### Changed
+- The shared coin bundles are re-vendored for the bridge escrow roles.
+- Audited transitive packages move to their patched releases (lockfile only).
+- Restructured under the platform code-structure standard (feature directories, snake_case files, split test suites, restored comments).
+
 ## [0.18.0] - 2026-09-11
 
 ### Changed

@@ -1,0 +1,140 @@
+{
+  "note": "The declared test-file splits, read by bin/suite-title-map.js --split-map against bin/pins/at1-suite-titles.json. splits maps each pinned test file that became several files to the full list of files its tests now live in, keyed by the path the compare sees after the rename map is applied. For every npm test script that pinned the old file, the titles those files collect together must equal the old file's titles exactly: none lost, none added, none carried by two parts, and none moved into a file the list does not name. A part may keep the old path; a single destination is a rename and belongs in the rename map. This repository's rename map is flat paths only, so a split carries its titles unchanged: a title that differs across a split is a regression, not a restructure, and a title change lands on its own.",
+  "date": "2026-09-14",
+  "pin": "bin/pins/at1-suite-titles.json",
+  "pin_before_sha256": "511ab9db5a3760de1c440c54503e5093973d0ecdd3f461ce451f39bccb4bfebd",
+  "compare": "node bin/suite-title-map.js --compare bin/pins/at1-suite-titles.json --rename-map bin/pins/rename-map-m2.json --split-map bin/pins/suite-title-splits.json",
+  "example": {
+    "test/unit/big_suite.test.js": [
+      "test/unit/big_suite/reads.test.js",
+      "test/unit/big_suite/writes.test.js"
+    ]
+  },
+  "splits": {
+    "test/regression/t0_critical_gate.test.js": [
+      "test/regression/t0_critical_gate.test.js",
+      "test/regression/t0_critical_gate.test/01_mining_loop_core_paths.test.js",
+      "test/regression/t0_critical_gate.test/02_fill_mempool_guards_w_3_bug_prevention.test.js",
+      "test/regression/t0_critical_gate.test/03_send_funds_to_address_input_validation.test.js",
+      "test/regression/t0_critical_gate.test/04_json_rpc_api_controller.test.js",
+      "test/regression/t0_critical_gate.test/05_blockchain_connector_construction.test.js",
+      "test/regression/t0_critical_gate.test/06_continue_mining_sets_keep_mining_flag.test.js"
+    ],
+    "test/boundary/fill_mempool_boundary.test.js": [
+      "test/boundary/fill_mempool_boundary.test.js",
+      "test/boundary/fill_mempool_boundary.test/01_f_02_tx_quantity_1.test.js",
+      "test/boundary/fill_mempool_boundary.test/02_f_02b_split_tx_fee_scales_to_coin_dust_threshold.test.js",
+      "test/boundary/fill_mempool_boundary.test/03_f_03_tx_quantity_2499_one_below_chunk_size.test.js",
+      "test/boundary/fill_mempool_boundary.test/04_f_04_tx_quantity_2500_exactly_one_chunk.test.js",
+      "test/boundary/fill_mempool_boundary.test/05_f_05_tx_quantity_2501_one_above_chunk_size.test.js",
+      "test/boundary/fill_mempool_boundary.test/06_f_06_tx_quantity_5000_exactly_two_chunks.test.js",
+      "test/boundary/fill_mempool_boundary.test/07_f_07_tx_quantity_47500_19_chunks_below_mining_threshold.test.js",
+      "test/boundary/fill_mempool_boundary.test/08_f_08_tx_quantity_50000_20_chunks_exact_mining_threshold.test.js",
+      "test/boundary/fill_mempool_boundary.test/09_f_09_tx_quantity_50001_21_chunks_one_past_threshold.test.js",
+      "test/boundary/fill_mempool_boundary.test/10_f_10_negative_tx_quantity.test.js",
+      "test/boundary/fill_mempool_boundary.test/11_f_11_non_integer_tx_quantity_2_5.test.js",
+      "test/boundary/fill_mempool_boundary.test/12_f_12_very_large_tx_quantity.test.js",
+      "test/boundary/fill_mempool_boundary.test/13_chunk_mining_threshold_processed_chunk_count_20.test.js",
+      "test/boundary/fill_mempool_boundary.test/14_funding_amount_per_address_calculation.test.js",
+      "test/boundary/fill_mempool_boundary.test/15_bip32_derivation_index_boundaries.test.js",
+      "test/boundary/fill_mempool_boundary.test/16_psbt_output_distribution_per_chunk.test.js",
+      "test/boundary/fill_mempool_boundary.test/17_stress_transaction_output_index_calculation.test.js"
+    ],
+    "test/boundary/timer_boundary.test.js": [
+      "test/boundary/timer_boundary.test.js",
+      "test/boundary/timer_boundary.test/01_t_02_added_time_to_mine_txs_0.test.js",
+      "test/boundary/timer_boundary.test/02_t_03_both_timers_set_to_0.test.js",
+      "test/boundary/timer_boundary.test/03_t_04_max_time_to_mine_txs_1.test.js",
+      "test/boundary/timer_boundary.test/04_t_05_added_time_to_mine_txs_1.test.js",
+      "test/boundary/timer_boundary.test/05_t_06_max_time_to_mine_txs_number_max_safe_integer.test.js",
+      "test/boundary/timer_boundary.test/06_t_07_added_time_to_mine_txs_number_max_safe_integer.test.js",
+      "test/boundary/timer_boundary.test/07_t_08_both_timers_number_max_safe_integer.test.js",
+      "test/boundary/timer_boundary.test/08_t_09_max_time_to_mine_txs_equals_added_time_to_mine_txs.test.js",
+      "test/boundary/timer_boundary.test/09_t_10_max_time_to_mine_txs_added_time_to_mine_txs.test.js",
+      "test/boundary/timer_boundary.test/10_t_11_negative_timer_values_via_set_mining_time.test.js",
+      "test/boundary/timer_boundary.test/11_t_12_floating_point_timer_values.test.js",
+      "test/boundary/timer_boundary.test/12_t_13_non_numeric_timer_values.test.js",
+      "test/boundary/timer_boundary.test/13_t_20_mempool_transitions_from_0_to_1_tx.test.js",
+      "test/boundary/timer_boundary.test/14_t_21_mempool_grows_during_extension_window.test.js",
+      "test/boundary/timer_boundary.test/15_t_22_mempool_shrinks_between_polls.test.js",
+      "test/boundary/timer_boundary.test/16_t_23_mempool_empties_completely_between_polls.test.js",
+      "test/boundary/timer_boundary.test/17_t_24_mempool_burst_from_0_to_n_in_single_poll.test.js",
+      "test/boundary/timer_boundary.test/18_t_25_keep_mining_toggled_false_mid_timer.test.js",
+      "test/boundary/timer_boundary.test/19_t_26_keep_mining_re_enabled_with_stale_timer_values.test.js",
+      "test/boundary/timer_boundary.test/20_t_27_mempool_non_empty_after_generate_blocks.test.js"
+    ],
+    "test/fuzz/mining_loop.test.js": [
+      "test/fuzz/mining_loop.test.js",
+      "test/fuzz/mining_loop.test/01_timer_state_resets_after_block_generation.test.js",
+      "test/fuzz/mining_loop.test/02_loop_continuation_property.test.js"
+    ],
+    "test/fuzz/rpc_response.test.js": [
+      "test/fuzz/rpc_response.test.js",
+      "test/fuzz/rpc_response.test/01_wallet_setup_with_fuzzed_responses.test.js",
+      "test/fuzz/rpc_response.test/02_send_funds_to_address_with_arbitrary_inputs.test.js"
+    ],
+    "test/integration/fill_mempool_crypto.test.js": [
+      "test/integration/fill_mempool_crypto.test.js",
+      "test/integration/fill_mempool_crypto.test/01_utxo_identification_from_raw_transaction.test.js",
+      "test/integration/fill_mempool_crypto.test/02_distribution_psbt_main_address_to_child_addresses.test.js",
+      "test/integration/fill_mempool_crypto.test/03_stress_psbt_child_address_to_main_address.test.js",
+      "test/integration/fill_mempool_crypto.test/04_ecpair_network_parameter.test.js",
+      "test/integration/fill_mempool_crypto.test/05_fill_mempool_end_to_end_with_real_crypto.test.js"
+    ],
+    "test/integration/miner_connector.test.js": [
+      "test/integration/miner_connector.test.js",
+      "test/integration/miner_connector.test/01_mining_loop_sequences.test.js",
+      "test/integration/miner_connector.test/02_send_funds_to_address_delegation.test.js",
+      "test/integration/miner_connector.test/03_generate_blocks_delegation.test.js"
+    ],
+    "test/regression/t1_standard_regression.test.js": [
+      "test/regression/t1_standard_regression.test.js",
+      "test/regression/t1_standard_regression.test/01_miner_connector_integration_seams.test.js",
+      "test/regression/t1_standard_regression.test/02_boundary_conditions.test.js",
+      "test/regression/t1_standard_regression.test/03_security.test.js",
+      "test/regression/t1_standard_regression.test/04_error_recovery_and_backoff.test.js"
+    ],
+    "test/regression/t2_full_regression.test.js": [
+      "test/regression/t2_full_regression.test.js",
+      "test/regression/t2_full_regression.test/01_reg_t2_004_mining_loop_mempool_detection.test.js",
+      "test/regression/t2_full_regression.test/02_reg_t2_005_mining_loop_pause_and_resume.test.js",
+      "test/regression/t2_full_regression.test/03_reg_t2_006_mining_timer_override_via_set_mining_time.test.js",
+      "test/regression/t2_full_regression.test/04_reg_t2_007_send_funds_creates_a_real_transaction.test.js",
+      "test/regression/t2_full_regression.test/05_reg_t2_008_mining_loop_survives_transient_rpc_errors.test.js",
+      "test/regression/t2_full_regression.test/06_reg_t2_009_chain_state_progresses_correctly.test.js",
+      "test/regression/t2_full_regression.test/07_reg_t2_010_graceful_shutdown_via_shutdown_flag.test.js"
+    ],
+    "test/unit/blockchain_connector.test.js": [
+      "test/unit/blockchain_connector.test.js",
+      "test/unit/blockchain_connector.test/01_get_network_info.test.js",
+      "test/unit/blockchain_connector.test/02_get_blockchain_info.test.js",
+      "test/unit/blockchain_connector.test/03_get_block_hash.test.js",
+      "test/unit/blockchain_connector.test/04_get_block.test.js",
+      "test/unit/blockchain_connector.test/05_get_raw_mempool.test.js",
+      "test/unit/blockchain_connector.test/06_get_mempool_entry.test.js",
+      "test/unit/blockchain_connector.test/07_get_raw_transaction.test.js",
+      "test/unit/blockchain_connector.test/08_create_wallet.test.js",
+      "test/unit/blockchain_connector.test/09_get_wallet_info.test.js",
+      "test/unit/blockchain_connector.test/10_load_wallet.test.js",
+      "test/unit/blockchain_connector.test/11_get_new_address.test.js",
+      "test/unit/blockchain_connector.test/12_generate_to_address.test.js",
+      "test/unit/blockchain_connector.test/13_get_balance.test.js",
+      "test/unit/blockchain_connector.test/14_send_to_address.test.js",
+      "test/unit/blockchain_connector.test/15_set_tx_fee.test.js",
+      "test/unit/blockchain_connector.test/16_invalidate_block.test.js",
+      "test/unit/blockchain_connector.test/17_reconsider_block.test.js",
+      "test/unit/blockchain_connector.test/18_set_mock_time.test.js",
+      "test/unit/blockchain_connector.test/19_send_raw_transaction.test.js",
+      "test/unit/blockchain_connector.test/20_sleep.test.js"
+    ],
+    "test/unit/xchain_regtest_miner.test.js": [
+      "test/unit/xchain_regtest_miner.test.js",
+      "test/unit/xchain_regtest_miner.test/01_reconsider_block.test.js",
+      "test/unit/xchain_regtest_miner.test/02_set_mock_time.test.js",
+      "test/unit/xchain_regtest_miner.test/03_prepare_wallet.test.js",
+      "test/unit/xchain_regtest_miner.test/04_start_mining_loop.test.js",
+      "test/unit/xchain_regtest_miner.test/05_fill_mempool.test.js",
+      "test/unit/xchain_regtest_miner.test/06_sleep.test.js"
+    ]
+  }
+}

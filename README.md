@@ -4,8 +4,8 @@
 # XChain Platform Regtest Miner
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.18.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/tests-1%2C095%2B%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/version-0.19.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/tests-1%2C132%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
@@ -24,7 +24,7 @@ Auto-mining service for XChain Platform regtest environments. Polls the mempool 
 - **Optional mine-empty heartbeat:** mining is mempool-driven, so an idle chain never gains height; set `IDLE_MINE_INTERVAL_MS` (or call `set_idle_mine_interval`) to mine one empty block per idle interval and let height-gated states (stake activation, confirmation depth) advance on their own. Off by default.
 - **Deterministic reorg testing:** `invalidate_block`/`reconsider_block` roll a block back and re-evaluate chain selection without dropping to raw node RPC; auto-mining pauses automatically for the duration, and each re-reads the wallet balance so a reorg that strands the matured coinbase shows up as `wallet_funded: false`
 - **Mock clock control:** `set_mock_time` pins the node clock via `setmocktime` so time-based expiries land on a deterministic block; refused on mainnet
-- **Loop diagnostics:** `status` reports `wallet_ready`, `wallet_balance`, `wallet_funded`, `mempool_size`, `blocks_mined`, `last_mine_at`, `consecutive_errors`, `mining_paused`, and `mining_started` for operators and CI. `wallet_ready` means startup finished and is never re-evaluated; a reorg drill asking whether the wallet can still fund a send reads `wallet_funded` (`wallet_balance` is `null` when the last read failed, which is not funded either)
+- **Loop diagnostics:** `status` reports `wallet_ready`, `wallet_balance`, `wallet_funded`, `mempool_size`, `blocks_mined`, `last_mine_at`, `consecutive_errors`, `mine_failures`, `mining_paused`, and `mining_started` for operators and CI. `consecutive_errors` is the RPC/mempool-read streak and `mine_failures` the failed-block-generation streak; they are separate because a successful mempool read zeroes the first one on every loop cycle. `wallet_ready` means startup finished and is never re-evaluated; a reorg drill asking whether the wallet can still fund a send reads `wallet_funded` (`wallet_balance` is `null` when the last read failed, which is not funded either)
 - **Optional API key auth:** set `MINER_API_KEY` to require a matching `X-API-Key` header on every request (401 otherwise); the read-only `ping`/`status`/`health` methods always bypass the gate so Docker healthchecks keep working
 - **Mempool stress testing:** `fill_mempool` constructs and broadcasts thousands of raw Bitcoin transactions using BIP32/BIP39 key derivation and PSBT signing
 - **Exponential backoff:** automatic retry with capped exponential backoff (1s to 30s) on RPC connection failures
@@ -33,7 +33,7 @@ Auto-mining service for XChain Platform regtest environments. Polls the mempool 
 - **Input validation:** rejects invalid addresses, amounts, timer values, and transaction quantities before any RPC call
 - **Error sanitization:** RPC credentials never exposed in error messages or console output
 - **Concurrent call protection:** `fillMempool` mutex prevents overlapping stress test runs with automatic flag restoration
-- **Stall-aware container health:** the Docker HEALTHCHECK probes `health`, not `ping`. `ping` always answers 200, so a miner wedged on wallet preparation or a run of failed mining cycles read healthy forever; `health` answers 503 once the cold-start grace (`MINER_WALLET_GRACE_MS`, default 60000) has passed with no wallet, or after `MINER_STALL_ERROR_THRESHOLD` (default 5) consecutive failures. A deliberate `pause_mining` stays healthy.
+- **Stall-aware container health:** the Docker HEALTHCHECK probes `health`, not `ping`. `ping` always answers 200, so a miner wedged on wallet preparation or a run of failed mining cycles read healthy forever; `health` answers 503 once the cold-start grace (`MINER_WALLET_GRACE_MS`, default 60000) has passed with no wallet, or after `MINER_STALL_ERROR_THRESHOLD` (default 5) consecutive failures on either streak: RPC/mempool reads (`reason: consecutive_errors`) or block generations (`reason: mine_failures`). A deliberate `pause_mining` stays healthy.
 - **Docker-ready:** Alpine Node 22, non-root user, JSON-RPC healthcheck, Helmet security headers
 - **1003+ tests:** unit, integration, e2e, smoke, boundary, security, fuzz, chaos, performance, mutation, and regression testing
 
@@ -86,7 +86,7 @@ npm run api
 | `MINER_API_KEY` | No | Disabled | When set, requires a matching `X-API-Key` header on every request (401 otherwise); `ping`/`status`/`health` are always exempt |
 | `NODE_RPC_TIMEOUT` | No | `60000` | HTTP timeout in milliseconds for coin node JSON-RPC calls |
 | `MINER_WALLET_GRACE_MS` | No | `60000` | Cold-start grace before `health` calls a not-yet-ready wallet a stall; keep the Docker `--start-period` at least this long |
-| `MINER_STALL_ERROR_THRESHOLD` | No | `5` | Consecutive failed mining cycles before `health` answers 503 |
+| `MINER_STALL_ERROR_THRESHOLD` | No | `5` | Consecutive failures, on either streak (`consecutive_errors` RPC/mempool reads, `mine_failures` block generations), before `health` answers 503 |
 | `IDLE_MINE_INTERVAL_MS` | No | `0` (off) | Mine one empty block after the mempool has been idle this long, so height-gated states can advance with no transactions in flight; also settable at runtime via `set_idle_mine_interval` |
 
 ## Scripts
@@ -94,7 +94,7 @@ npm run api
 | Command | Description |
 |---|---|
 | `npm run api` | Start the miner and JSON-RPC API server |
-| `npm test` | All tests (~1,095 tests) |
+| `npm test` | All tests (~1,104 tests) |
 | `npm run test:smoke` | Smoke tests (12 tests) |
 | `npm run test:e2e` | End-to-end tests (26 tests) |
 | `npm run test:security` | Security tests (input validation, error sanitization, env validation, API hardening, 159 tests) |
@@ -104,16 +104,16 @@ npm run api
 | `npm run test:performance` | Performance tests (28 tests) |
 | `npm run test:mutation` | Mutation testing (Stryker Mutator) |
 | `npm run test:mutation:unit` | Unit-only mutation testing |
-| `npm run test:regression` | Regression tests: T1 standard gate (134 tests) |
+| `npm run test:regression` | Regression tests: T1 standard gate (83 tests) |
 | `npm run test:regression:t0` | Regression T0: critical gate (45 tests, < 15s) |
-| `npm run test:regression:t1` | Regression T1: standard (134 tests, < 2 min) |
+| `npm run test:regression:t1` | Regression T1: standard (83 tests, < 2 min) |
 | `npm run test:regression:t2` | Regression T2: full E2E (147 tests, < 10 min) |
 
 ## Test Suite
 
 | Type | Tests | Description |
 |---|---|---|
-| Unit | 216 | `XChainRegtestMiner.test.js`, `BlockchainConnector.test.js`, `api.test.js`, and 7 more: constructor, timers, wallet prep, mining loop, fillMempool chunking, RPC formatting, API dispatch |
+| Unit | 216 | `xchain_regtest_miner.test.js`, `blockchain_connector.test.js`, `api.test.js`, and 7 more: constructor, timers, wallet prep, mining loop, fillMempool chunking, RPC formatting, API dispatch |
 | Integration | 80 | 4 seam files: HTTP/JSON-RPC, Miner/Connector sequences, fillMempool/bitcoinjs-lib crypto, Connector/MockRpcServer |
 | E2E | 26 | StatefulMockNode: startup lifecycle, mempool detection, block generation, fill-mempool, API, chain state, resilience |
 | Smoke | 12 | Instantiation, wallet prep paths, mempool detection, timer expiry, pause/resume, API health |
