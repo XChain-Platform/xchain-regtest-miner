@@ -4,8 +4,8 @@
 # XChain Platform Regtest Miner
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.18.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/tests-1%2C095%2B%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/version-0.19.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/tests-1%2C132%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
@@ -94,7 +94,7 @@ npm run api
 | Command | Description |
 |---|---|
 | `npm run api` | Start the miner and JSON-RPC API server |
-| `npm test` | All tests (~1,095 tests) |
+| `npm test` | All tests (~1,104 tests) |
 | `npm run test:smoke` | Smoke tests (12 tests) |
 | `npm run test:e2e` | End-to-end tests (26 tests) |
 | `npm run test:security` | Security tests (input validation, error sanitization, env validation, API hardening, 159 tests) |
@@ -104,9 +104,9 @@ npm run api
 | `npm run test:performance` | Performance tests (28 tests) |
 | `npm run test:mutation` | Mutation testing (Stryker Mutator) |
 | `npm run test:mutation:unit` | Unit-only mutation testing |
-| `npm run test:regression` | Regression tests: T1 standard gate (134 tests) |
+| `npm run test:regression` | Regression tests: T1 standard gate (83 tests) |
 | `npm run test:regression:t0` | Regression T0: critical gate (45 tests, < 15s) |
-| `npm run test:regression:t1` | Regression T1: standard (134 tests, < 2 min) |
+| `npm run test:regression:t1` | Regression T1: standard (83 tests, < 2 min) |
 | `npm run test:regression:t2` | Regression T2: full E2E (147 tests, < 10 min) |
 
 ## Test Suite
