@@ -12,7 +12,7 @@
  *
  *********************************************************************/
 
-function createJsonRpcController(miner, { evaluateMinerHealth, uptime = process.uptime } = {}) {
+function createHealthMethods(miner, evaluateMinerHealth, uptime) {
     return {
         async ping() {
             return {status:"success", ready: !!miner.walletReady};
@@ -35,8 +35,12 @@ function createJsonRpcController(miner, { evaluateMinerHealth, uptime = process.
                 mining_paused: !!status.mining_paused,
                 mining_started: !!status.mining_started
             }
-        },
+        }
+    }
+}
 
+function createTransactionMethods(miner) {
+    return {
         async send_funds({address, amount}) {
             let txid = null
 
@@ -57,8 +61,12 @@ function createJsonRpcController(miner, { evaluateMinerHealth, uptime = process.
             }
 
             return "ok"
-        },
+        }
+    }
+}
 
+function createMiningControlMethods(miner) {
+    return {
         async pause_mining({} = {}) {
             try {
                 await miner.pauseMining()
@@ -97,8 +105,12 @@ function createJsonRpcController(miner, { evaluateMinerHealth, uptime = process.
             }
 
             return "ok"
-        },
+        }
+    }
+}
 
+function createClockMethods(miner) {
+    return {
         async set_mock_time({timestamp}){
             try {
                 await miner.setMockTime(timestamp)
@@ -115,8 +127,12 @@ function createJsonRpcController(miner, { evaluateMinerHealth, uptime = process.
             } catch (err){
                 return { "error": "There was a problem setting the idle mine interval: " + (err && err.message ? err.message : err) }
             }
-        },
+        }
+    }
+}
 
+function createBlockMethods(miner) {
+    return {
         async generate_blocks({count}){
             try {
                 const hashes = await miner.generateBlocks(count)
@@ -143,6 +159,16 @@ function createJsonRpcController(miner, { evaluateMinerHealth, uptime = process.
                 return { "error": "There was a problem reconsidering the block: " + (err && err.message ? err.message : err) }
             }
         }
+    }
+}
+
+function createJsonRpcController(miner, { evaluateMinerHealth, uptime = process.uptime } = {}) {
+    return {
+        ...createHealthMethods(miner, evaluateMinerHealth, uptime),
+        ...createTransactionMethods(miner),
+        ...createMiningControlMethods(miner),
+        ...createClockMethods(miner),
+        ...createBlockMethods(miner)
     }
 }
 
