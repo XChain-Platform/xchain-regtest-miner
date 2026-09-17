@@ -17,9 +17,15 @@
 const assert = require('assert');
 const fs     = require('fs');
 const path   = require('path');
-const { createJsonRpcController, evaluateMinerHealth, UNAUTHENTICATED_METHODS,
+const { createHealthController, evaluateMinerHealth, UNAUTHENTICATED_METHODS,
         STALL_ERROR_THRESHOLD, WALLET_GRACE_MS } = require('../../src/api');
+const { createRpcMethods } = require('../../src/api/rpc_methods');
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+
+function createJsonRpcController(miner, options) {
+    const healthController = createHealthController(miner, options);
+    return createRpcMethods(miner, healthController.health);
+}
 
 // Every field the real getStatus() emits for a running, healthy miner. mining_started
 // belongs here: a payload that omits it is one the real miner cannot produce, and

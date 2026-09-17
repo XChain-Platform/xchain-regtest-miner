@@ -9,7 +9,12 @@
 // contact legal@dankest.llc.
 
 const assert = require('assert')
-const { timingSafeStringEqual, ensureJsonRpcBody, normalizeJsonRpcParams } = require('../../src/api')
+const { timingSafeStringEqual } = require('../../src/api/auth')
+const { mountJsonRpc } = require('../../src/api')
+
+const middleware = []
+mountJsonRpc({ use: handler => middleware.push(handler) }, {})
+const [ensureJsonRpcBody, normalizeJsonRpcParams] = middleware
 
 describe('api.js', function () {
     describe('timingSafeStringEqual', function () {

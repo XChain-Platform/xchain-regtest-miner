@@ -10,7 +10,7 @@
 
 const assert = require('assert')
 const sinon = require('sinon')
-const { createJsonRpcController } = require('../../src/api')
+const { createRpcMethods: createJsonRpcController } = require('../../src/api/rpc_methods')
 
 function createMinerStub() {
     return {

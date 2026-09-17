@@ -110,4 +110,4 @@ function createStartApi({ config, environment, logger, createHealthController, m
     }
 }
 
-module.exports = { createApiApp, createMiner, createStartApi, listenApi, startMinerDetached, validateEnvVars }
+module.exports = { REQUIRED_ENV_VARS, createApiApp, createMiner, createStartApi, listenApi, startMinerDetached, validateEnvVars }

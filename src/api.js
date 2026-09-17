@@ -71,7 +71,7 @@ function warnWhenApiIsOpen() {
     }
 }
 
-function createHealthController(miner) {
+function createHealthController(miner, { uptime = process.uptime } = {}) {
     const jsonRpcController = {
         // Readiness probe: 503 when mining is genuinely stalled. `ping` reports
         // wallet readiness in its body but always answers 200, so credential drift
@@ -80,7 +80,7 @@ function createHealthController(miner) {
         // this method; `ping` is left alone as liveness for warmup bring-up.
         async health(params, {res}) {
             const status = miner.getStatus()
-            const verdict = evaluateMinerHealth({ status, uptimeMs: process.uptime() * 1000 })
+            const verdict = evaluateMinerHealth({ status, uptimeMs: uptime() * 1000 })
             if (!verdict.healthy) res.status(503)
             return formatMinerHealth(status, verdict)
         }
@@ -138,4 +138,13 @@ if (require.main === module) {
     startApi()
 }
 
-module.exports = { startApi, UNAUTHENTICATED_METHODS, evaluateMinerHealth, STALL_ERROR_THRESHOLD, WALLET_GRACE_MS }
+module.exports = {
+    startApi,
+    UNAUTHENTICATED_METHODS,
+    evaluateMinerHealth,
+    STALL_ERROR_THRESHOLD,
+    WALLET_GRACE_MS,
+    createHealthController,
+    mountJsonRpc,
+    warnWhenApiIsOpen
+}
