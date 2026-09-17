@@ -1,9 +1,108 @@
 {
-  "note": "wall time of each npm test* unit-tier script, recorded once at AT1 so a suite over about five minutes is known to need a longer-running tier of its own",
+  "timingMethod": "UTC ISO 8601 date stamps captured around each Mocha process",
   "scripts": {
+    "test": {
+      "notRun": "includes performance tests that require a controlled venue"
+    },
+    "test:boundary": {
+      "startedAt": "2026-09-17T15:43:55.867Z",
+      "finishedAt": "2026-09-17T15:43:56.604Z",
+      "wallTimeSeconds": 0.737,
+      "passCount": 189,
+      "pendingCount": 0
+    },
+    "test:chaos": {
+      "startedAt": "2026-09-17T15:43:56.608Z",
+      "finishedAt": "2026-09-17T15:44:19.413Z",
+      "wallTimeSeconds": 22.805,
+      "passCount": 22,
+      "pendingCount": 0
+    },
+    "test:e2e": {
+      "startedAt": "2026-09-17T15:44:19.413Z",
+      "finishedAt": "2026-09-17T15:44:49.174Z",
+      "wallTimeSeconds": 29.761,
+      "passCount": 26,
+      "pendingCount": 0
+    },
+    "test:fuzz": {
+      "startedAt": "2026-09-17T15:44:49.174Z",
+      "finishedAt": "2026-09-17T15:44:50.004Z",
+      "wallTimeSeconds": 0.83,
+      "passCount": 124,
+      "pendingCount": 0
+    },
+    "test:fuzz:quick": {
+      "startedAt": "2026-09-17T15:44:50.004Z",
+      "finishedAt": "2026-09-17T15:44:50.806Z",
+      "wallTimeSeconds": 0.802,
+      "passCount": 124,
+      "pendingCount": 0
+    },
+    "test:integration": {
+      "startedAt": "2026-09-17T15:44:50.807Z",
+      "finishedAt": "2026-09-17T15:44:53.705Z",
+      "wallTimeSeconds": 2.898,
+      "passCount": 80,
+      "pendingCount": 0
+    },
+    "test:mutation": {
+      "notRun": "uses Stryker and requires a mutation venue"
+    },
+    "test:mutation:unit": {
+      "notRun": "uses Stryker and requires a mutation venue"
+    },
+    "test:performance": {
+      "notRun": "requires a controlled performance venue"
+    },
+    "test:regression": {
+      "startedAt": "2026-09-17T15:44:53.706Z",
+      "finishedAt": "2026-09-17T15:44:54.101Z",
+      "wallTimeSeconds": 0.395,
+      "passCount": 83,
+      "pendingCount": 0
+    },
+    "test:regression:t0": {
+      "startedAt": "2026-09-17T15:44:54.101Z",
+      "finishedAt": "2026-09-17T15:44:54.587Z",
+      "wallTimeSeconds": 0.486,
+      "passCount": 45,
+      "pendingCount": 0
+    },
+    "test:regression:t1": {
+      "startedAt": "2026-09-17T15:44:54.587Z",
+      "finishedAt": "2026-09-17T15:44:54.929Z",
+      "wallTimeSeconds": 0.342,
+      "passCount": 83,
+      "pendingCount": 0
+    },
+    "test:regression:t2": {
+      "startedAt": "2026-09-17T15:44:54.930Z",
+      "finishedAt": "2026-09-17T15:45:27.765Z",
+      "wallTimeSeconds": 32.835,
+      "passCount": 147,
+      "pendingCount": 0
+    },
+    "test:security": {
+      "startedAt": "2026-09-17T15:45:27.766Z",
+      "finishedAt": "2026-09-17T15:45:32.207Z",
+      "wallTimeSeconds": 4.441,
+      "passCount": 159,
+      "pendingCount": 0
+    },
+    "test:smoke": {
+      "startedAt": "2026-09-17T15:45:32.207Z",
+      "finishedAt": "2026-09-17T15:45:32.412Z",
+      "wallTimeSeconds": 0.205,
+      "passCount": 12,
+      "pendingCount": 0
+    },
     "test:unit": {
-      "realSeconds": 2.15,
-      "measuredAt": "2026-09-13"
+      "startedAt": "2026-09-17T15:45:32.413Z",
+      "finishedAt": "2026-09-17T15:45:33.651Z",
+      "wallTimeSeconds": 1.238,
+      "passCount": 306,
+      "pendingCount": 11
     }
   }
 }
