@@ -266,4 +266,4 @@ if (require.main === module) {
     startApi()
 }
 
-module.exports = { startApi, createJsonRpcController, UNAUTHENTICATED_METHODS, evaluateMinerHealth, STALL_ERROR_THRESHOLD, WALLET_GRACE_MS, REQUIRED_ENV_VARS }
+module.exports = { startApi, createJsonRpcController, UNAUTHENTICATED_METHODS, evaluateMinerHealth, STALL_ERROR_THRESHOLD, WALLET_GRACE_MS, REQUIRED_ENV_VARS, timingSafeStringEqual, ensureJsonRpcBody, normalizeJsonRpcParams }
