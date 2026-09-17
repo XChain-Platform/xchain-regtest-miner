@@ -157,6 +157,10 @@ function validateEnvVars() {
     }
 }
 
+// The read-only health/observability methods (UNAUTHENTICATED_METHODS: ping,
+// status, health) are exempt; bodyParser.json() has already populated
+// req.body, so the method is readable here. Read the exempt set at its
+// definition rather than trusting this list, which drifted once already.
 function authenticateRequest(req, res, next) {
     if (UNAUTHENTICATED_METHODS.has(req.body && req.body.method)) {
         return next()
@@ -168,6 +172,12 @@ function authenticateRequest(req, res, next) {
     next()
 }
 
+// When MINER_API_KEY is set, enforce it via X-API-Key header. Requests without
+// the correct key receive 401 before reaching any RPC handler. When the env var
+// is absent the middleware is skipped entirely so unauthenticated callers
+// (e2e harness, docker-compose stacks) continue to work with no config change.
+// Platform-wide no-API-key posture: keyless operation is the regtest
+// default, but the open state is announced loudly at boot rather than implied.
 function configureApiAuthentication(app) {
     if (!MINER_API_KEY) {
         console.warn('WARNING: MINER_API_KEY is not set. Miner API authentication is DISABLED (open access). This is expected for local regtest stacks; set MINER_API_KEY on any shared deployment.')
@@ -178,11 +188,26 @@ function configureApiAuthentication(app) {
     }
 }
 
+// Express 5 / body-parser 2.x leaves req.body undefined when a request carries
+// no JSON body (a GET, or a POST without application/json), whereas body-parser
+// 1.x set it to {}. express-json-rpc-router requires req.body to be an object or
+// it throws ("req.body is required"). Restore the {} default so unmatched requests
+// that fall through to this root-mounted router get a normal JSON-RPC error
+// response instead of crashing the request.
 function ensureJsonRpcBody(req, res, next) {
     if (req.body === undefined) req.body = {}
     next()
 }
 
+// Coalesce an explicit "params": null to {} for the same reason, one layer up.
+// The router defaults only an ABSENT params (`params = {}` destructuring default,
+// which null does not trigger), so a body that spells params out as null reaches
+// a parameterized handler like send_funds({address, amount}) and throws during
+// argument binding, before the handler's own try/catch exists. Every one of these
+// handlers reports failure as a truthy `{error: "..."}` result; a binding throw
+// instead escapes to the router's top-level JSON-RPC error member, so one failure
+// class answers in two different shapes and leaks a raw JS destructuring message
+// to the client. Normalizing here covers every handler, including ones added later.
 function normalizeJsonRpcParams(req, res, next) {
     const normalize = (rpc) => { if (rpc && typeof rpc === 'object' && rpc.params === null) rpc.params = {} }
     if (Array.isArray(req.body)) req.body.forEach(normalize)
