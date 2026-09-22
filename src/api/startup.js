@@ -22,6 +22,17 @@ const { createRpcMethods } = require('./rpc_methods')
 
 const REQUIRED_ENV_VARS = ['NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER', 'NODE_PASSWORD', 'REGTEST_MINER_API_PORT']
 
+// Idle mine-empty heartbeat default when IDLE_MINE_INTERVAL_MS is unset. The
+// auto-mine loop is otherwise mempool-driven only, so a rail restart that
+// leaves the wallet already funded (prepareWallet mines nothing) and the
+// mempool empty never advances height again until an unrelated transaction
+// happens to land; a downstream tracker/encoder watching for a new block then
+// reads stalled indefinitely with no operator lever to unstick it beyond a
+// manual generate_blocks call. One minute keeps a rebooted rail self-healing
+// well inside a 5-minute sync budget. An operator who sets IDLE_MINE_INTERVAL_MS
+// explicitly, including "0", still gets exactly that value.
+const DEFAULT_STARTUP_IDLE_MINE_INTERVAL_MS = 60000
+
 function validateEnvVars(environment, network, logger) {
     const missing = REQUIRED_ENV_VARS.filter(name => !environment[name] || environment[name].trim() === '')
     if (missing.length > 0) {
@@ -86,16 +97,18 @@ function createStartApi({ config, environment, logger, createHealthController, m
 
         const miner = createMiner(config)
 
-        // Optional mine-empty heartbeat. Unset/0 keeps the historical behavior (mine
-        // only when the mempool is non-empty); set it on venues whose drills wait on
-        // BLOCK HEIGHT with no transactions in flight (stake activation delay,
-        // confirmation depth) so the chain advances without raw node RPC.
-        if (environment.IDLE_MINE_INTERVAL_MS){
-            try { await miner.setIdleMineInterval(parseInt(environment.IDLE_MINE_INTERVAL_MS, 10)) }
-            catch (err) {
-                logger.error('Invalid IDLE_MINE_INTERVAL_MS: ' + (err && err.message ? err.message : err))
-                process.exit(1)
-            }
+        // Mine-empty heartbeat. An explicit IDLE_MINE_INTERVAL_MS (including "0")
+        // is honored as-is; left unset, it defaults on so a rail that comes back
+        // from a reboot with a funded wallet and an empty mempool still advances
+        // height on its own instead of waiting on an unrelated transaction.
+        const idleMineIntervalEnv = environment.IDLE_MINE_INTERVAL_MS
+        const idleMineIntervalMs = (idleMineIntervalEnv === undefined || idleMineIntervalEnv === null || String(idleMineIntervalEnv).trim() === '')
+            ? DEFAULT_STARTUP_IDLE_MINE_INTERVAL_MS
+            : parseInt(idleMineIntervalEnv, 10)
+        try { await miner.setIdleMineInterval(idleMineIntervalMs) }
+        catch (err) {
+            logger.error('Invalid IDLE_MINE_INTERVAL_MS: ' + (err && err.message ? err.message : err))
+            process.exit(1)
         }
 
         startMinerDetached(miner, logger)
