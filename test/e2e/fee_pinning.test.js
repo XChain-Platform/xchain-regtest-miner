@@ -146,7 +146,7 @@ describe('E2E: StatefulMockNode wire contract', function () {
     it('rejects settxfee as method-not-found and reports 31.0.0 in core31 mode', async function () {
         await withNode('core31', async node => {
             const fee = await rpc(node, 'settxfee', [0.001])
-            assert.strictEqual(fee.result, null)
+            assert.ok(!('result' in fee), 'a JSON-RPC 2.0 error reply carries no result member')
             assert.strictEqual(fee.error.code, -32601)
 
             const info = await rpc(node, 'getnetworkinfo', [])
@@ -168,5 +168,85 @@ describe('E2E: StatefulMockNode wire contract', function () {
         assert.strictEqual(node.daemon, 'core31')
         assert.strictEqual(new StatefulMockNode().daemon, 'legacy')
         assert.throws(() => new StatefulMockNode({ daemon: 'core30' }), /Unknown daemon/)
+    })
+})
+
+const WALLET_URI = '/wallet/xchain_regtest_wallet'
+
+// POST one RPC and resolve the raw HTTP reply whatever its status.
+async function rawRpc(node, path, body) {
+    const res = await axios.post(`http://127.0.0.1:${node.port}${path}`, body, { validateStatus: () => true })
+    return { status: res.status, body: res.data }
+}
+
+// Prepare through the load path so sends target the pinned /wallet/<name> URI.
+async function preparedMiner(network, node) {
+    await fundedNode(node)
+    node.unloadWallet()
+    const miner = createMiner(network, node)
+    sinon.stub(miner, 'sleep').resolves()
+    await miner.prepareWallet()
+    node.calls = []
+    return miner
+}
+
+async function testLegacyErrorTransport() {
+    await withNode('legacy', async node => {
+        const lost = await rawRpc(node, WALLET_URI, { jsonrpc: '2.0', method: 'sendtoaddress', params: [DEST, 1], id: 7 })
+        assert.strictEqual(lost.status, 500)
+        assert.deepStrictEqual(lost.body, {
+            result: null, error: { code: -18, message: 'Requested wallet does not exist or is not loaded' }, id: 7,
+        })
+        const unknown = await rawRpc(node, '/', { jsonrpc: '2.0', method: 'nosuchmethod', params: [], id: 8 })
+        assert.strictEqual(unknown.status, 404)
+        assert.strictEqual(unknown.body.error.code, -32601)
+    })
+}
+
+async function testCore31ErrorTransport() {
+    await withNode('core31', async node => {
+        const declared = await rawRpc(node, WALLET_URI, { jsonrpc: '2.0', method: 'sendtoaddress', params: [DEST, 1], id: 7 })
+        assert.strictEqual(declared.status, 200)
+        assert.deepStrictEqual(declared.body, {
+            jsonrpc: '2.0', error: { code: -18, message: 'Requested wallet does not exist or is not loaded' }, id: 7,
+        })
+        // Core 28+ keeps the legacy transport for a request that does not declare 2.0.
+        const undeclared = await rawRpc(node, '/', { method: 'settxfee', params: [0.001], id: 8 })
+        assert.strictEqual(undeclared.status, 404)
+        assert.strictEqual(undeclared.body.result, null)
+    })
+}
+
+async function testRecoveryOverDaemonTransport(daemon, network, settxfeeCalls) {
+    await withNode(daemon, async node => {
+        const miner = await preparedMiner(network, node)
+        node.unloadWallet()
+
+        const txid = await miner.sendFundsToAddress(DEST, 1.0)
+        assert.strictEqual(typeof txid, 'string')
+        assert.ok(node.mempool.some(m => m.txid === txid))
+        assert.strictEqual(node.callsFor('sendtoaddress').length, 2)
+        assert.strictEqual(node.callsFor('loadwallet').length, 1)
+        assert.strictEqual(node.callsFor('settxfee').length, settxfeeCalls)
+    })
+}
+
+describe('E2E: RPC error transport per daemon', function () {
+    beforeEach(function () {
+        sinon.stub(console, 'log')
+        sinon.stub(console, 'error')
+    })
+
+    afterEach(function () {
+        sinon.restore()
+    })
+
+    it('answers RPC errors with HTTP 500 and method-not-found with 404 in legacy mode', testLegacyErrorTransport)
+    it('answers a declared JSON-RPC 2.0 error with HTTP 200 in core31 mode', testCore31ErrorTransport)
+    it('reloads a wallet lost to a restart when the daemon reports it with HTTP 500', async function () {
+        await testRecoveryOverDaemonTransport('legacy', 'litecoin-regtest', 1)
+    })
+    it('reloads a wallet lost to a restart when the daemon reports it with HTTP 200', async function () {
+        await testRecoveryOverDaemonTransport('core31', 'bitcoin-regtest', 0)
     })
 })

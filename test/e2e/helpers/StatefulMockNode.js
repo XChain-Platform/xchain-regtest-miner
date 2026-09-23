@@ -20,23 +20,24 @@
  * The `daemon` option selects which daemon's RPC surface it answers with:
  * 'legacy' (the default) keeps settxfee as LTC v0.21 and DOGE v1.14 do, and
  * 'core31' answers settxfee with method-not-found as Bitcoin Core 31 does.
+ * It also picks the HTTP transport of every RPC error reply (HTTP 500/404 on
+ * legacy, HTTP 200 on core31); see test/helpers/rpcErrorReply.js.
  */
 
 const express = require('express')
 const crypto = require('crypto')
 const bitcoin = require('bitcoinjs-lib')
+const { assertDaemon, sendRpcError } = require('../../helpers/rpcErrorReply')
 
 const network = bitcoin.networks.regtest
 
-const DAEMONS = ['legacy', 'core31']
+// Wallet RPCs a /wallet/<name> URI refuses while that wallet is not loaded.
+const WALLET_METHODS = ['getwalletinfo', 'getnewaddress', 'getbalance', 'settxfee', 'sendtoaddress']
 
 class StatefulMockNode {
     constructor({ daemon = 'legacy' } = {}) {
-        if (!DAEMONS.includes(daemon)) {
-            throw new Error(`Unknown daemon "${daemon}"; expected one of ${DAEMONS.join(', ')}`)
-        }
         // Survives reset(): the daemon is the venue, not per-test state.
-        this.daemon = daemon
+        this.daemon = assertDaemon(daemon)
         this.app = express()
         this.app.use(express.json())
         this.server = null
@@ -62,23 +63,21 @@ class StatefulMockNode {
         this.app.post(['/', '/wallet/:walletName'], (req, res) => {
             const { method, params, id } = req.body
             this.calls.push({ method, params, id })
+            const fail = error => sendRpcError(res, { daemon: this.daemon, request: req.body, error })
 
             const handler = this['_rpc_' + method]
             if (!handler) {
-                return res.json({
-                    jsonrpc: '2.0', result: null,
-                    error: { code: -32601, message: `Method "${method}" not found` }, id,
-                })
+                return fail({ code: -32601, message: `Method "${method}" not found` })
+            }
+            if (req.params.walletName && WALLET_METHODS.includes(method) && !this.hasLoadedWallet(req.params.walletName)) {
+                return fail({ code: -18, message: 'Requested wallet does not exist or is not loaded' })
             }
 
             try {
                 const result = handler.call(this, params)
                 res.json({ jsonrpc: '2.0', result, error: null, id })
             } catch (err) {
-                res.json({
-                    jsonrpc: '2.0', result: null,
-                    error: { code: err.rpcCode || -1, message: err.message }, id,
-                })
+                fail({ code: err.rpcCode || -1, message: err.message })
             }
         })
     }
@@ -124,6 +123,11 @@ class StatefulMockNode {
         return this.calls.filter(c => c.method === method)
     }
 
+    /** Drop the loaded wallet, as a daemon restart does; the wallet file stays. */
+    unloadWallet() {
+        this.wallet.loaded = false
+    }
+
     /** Inject a transaction into the mempool externally (for test setup). */
     injectMempoolTx(txid, hex) {
         this.mempool.push({ txid, hex: hex || '0200000000' })
@@ -131,6 +135,11 @@ class StatefulMockNode {
     }
 
     // ── Helpers ─────────────────────────────────────────────────────
+
+    // True when `name` is the wallet currently loaded.
+    hasLoadedWallet(name) {
+        return this.wallet.loaded && this.wallet.name === name
+    }
 
     _generateHash() {
         return crypto.randomBytes(32).toString('hex')

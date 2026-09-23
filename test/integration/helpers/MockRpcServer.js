@@ -9,13 +9,17 @@
 // contact legal@dankest.llc.
 
 const express = require('express')
+const { assertDaemon, sendRpcError } = require('../../helpers/rpcErrorReply')
 
 /**
  * Lightweight Express server that mimics Bitcoin Core's JSON-RPC interface.
  * Supports programmable per-method responses, error injection, and call recording.
+ * The `daemon` option ('legacy' by default, or 'core31') picks the HTTP
+ * transport every RPC error reply uses; see test/helpers/rpcErrorReply.js.
  */
 class MockRpcServer {
-    constructor() {
+    constructor({ daemon = 'legacy' } = {}) {
+        this.daemon = assertDaemon(daemon)
         this.app = express()
         this.app.use(express.json())
         this.handlers = {}
@@ -34,11 +38,9 @@ class MockRpcServer {
 
             const handler = this.handlers[method]
             if (!handler) {
-                return res.json({
-                    jsonrpc: '2.0',
-                    result: null,
+                return sendRpcError(res, {
+                    daemon: this.daemon, request: req.body,
                     error: { code: -32601, message: `Method "${method}" not found` },
-                    id,
                 })
             }
 
@@ -52,20 +54,10 @@ class MockRpcServer {
                     // Don't respond; let the client timeout
                     return
                 }
-                // Answer the RPC error with HTTP 500, as pre-JSON-RPC-2.0 daemons do
-                if (handler.failMode === 'rpc500') {
-                    return res.status(500).json({
-                        result: null,
-                        error: handler.errorObj,
-                        id,
-                    })
-                }
-                // Default: RPC-level error
-                return res.json({
-                    jsonrpc: '2.0',
-                    result: null,
+                // Default: RPC-level error in this daemon's transport shape
+                return sendRpcError(res, {
+                    daemon: this.daemon, request: req.body,
                     error: handler.errorObj || { code: -1, message: 'Injected error' },
-                    id,
                 })
             }
 

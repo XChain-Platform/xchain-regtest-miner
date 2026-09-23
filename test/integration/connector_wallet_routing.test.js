@@ -15,8 +15,9 @@
  *
  * Once setWalletName pins a wallet, wallet RPCs go to /wallet/<name> while
  * chain RPCs stay on the base URL; a regression there is the -19 "Wallet
- * file not specified" break on a multi-wallet node. Also drives the HTTP 500
- * error replies of daemons that predate JSON-RPC 2.0 over real HTTP.
+ * file not specified" break on a multi-wallet node. Also drives a lost wallet
+ * over real HTTP in each daemon's error transport: HTTP 500 on the daemons
+ * that predate JSON-RPC 2.0, HTTP 200 on Bitcoin Core 28+.
  */
 
 const assert = require('assert')
@@ -55,17 +56,25 @@ async function testWalletPinnedSendAndFee() {
     assert.strictEqual(server.callsFor('sendtoaddress')[0].walletName, WALLET)
 }
 
-async function testLostWalletOverHttp500() {
-    server.onMethod('sendtoaddress')
-        .failTimes(1, 'rpc500', { code: -18, message: 'Requested wallet does not exist or is not loaded' })
-        .thenReturn('txid-after')
-    connector.setWalletName(WALLET)
+// Report a lost wallet from a server answering in `daemon`'s error transport.
+async function assertLostWalletFlagged(daemon) {
+    const node = new MockRpcServer({ daemon })
+    await node.start()
+    try {
+        node.onMethod('sendtoaddress')
+            .failTimes(1, 'rpc', { code: -18, message: 'Requested wallet does not exist or is not loaded' })
+            .thenReturn('txid-after')
+        const client = new BlockchainConnector('127.0.0.1', String(node.port), 'rpcuser', 'rpcpass')
+        client.setWalletName(WALLET)
 
-    let threw = null
-    try { await connector.sendToAddress('bcrt1qdest', 1) } catch (e) { threw = e }
-    assert.strictEqual(threw && threw.message, 'Error sending funds to address')
-    assert.strictEqual(threw.walletMissing, true)
-    assert.ok(!threw.message.includes(String(server.port)), 'thrown message must not leak the RPC port')
+        let threw = null
+        try { await client.sendToAddress('bcrt1qdest', 1) } catch (e) { threw = e }
+        assert.strictEqual(threw && threw.message, 'Error sending funds to address')
+        assert.strictEqual(threw.walletMissing, true)
+        assert.ok(!threw.message.includes(String(node.port)), 'thrown message must not leak the RPC port')
+    } finally {
+        await node.stop()
+    }
 }
 
 describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
@@ -93,6 +102,11 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
     describe('wallet-context routing', function () {
         it('wallet RPCs target the /wallet/<name> URI once a wallet is pinned', testWalletRpcsTargetWalletUri)
         it('settxfee and sendtoaddress reach the pinned wallet', testWalletPinnedSendAndFee)
-        it('flags a lost wallet that the daemon reports with HTTP 500', testLostWalletOverHttp500)
+        it('flags a lost wallet that a legacy daemon reports with HTTP 500', () => assertLostWalletFlagged('legacy'))
+        it('flags a lost wallet that Core 28+ reports with HTTP 200', () => assertLostWalletFlagged('core31'))
+        it('refuses a daemon no double models', function () {
+            assert.throws(() => new MockRpcServer({ daemon: 'core30' }), /Unknown daemon/)
+            assert.strictEqual(new MockRpcServer().daemon, 'legacy')
+        })
     })
 })
