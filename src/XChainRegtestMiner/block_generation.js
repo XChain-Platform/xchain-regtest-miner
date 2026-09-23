@@ -91,10 +91,10 @@ async function runMineLoop(loop){
             if (!read.ok) continue
             clearErrorStreak.call(this, loop, false)
 
-            // Mine-empty heartbeat (off unless IDLE_MINE_INTERVAL_MS /
-            // set_idle_mine_interval turned it on). Only on the empty-mempool
-            // branch: a pending transaction has its own timer above, and
-            // racing it would mine the block early.
+            // Mine-empty heartbeat (60000 ms under the API service unless
+            // IDLE_MINE_INTERVAL_MS / set_idle_mine_interval set 0). Only on
+            // the empty-mempool branch: a pending transaction has its own
+            // timer above, and racing it would mine the block early.
             if (trackMempool.call(this, loop, read.rawMempool) && this.idleMineDue(Date.now(), loop.watchingSince)){
                 // The real window this guard closes. The loop's keepMining check
                 // sits above the `await this.connector.getRawMempool()` in readLoopMempool,

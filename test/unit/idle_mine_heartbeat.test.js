@@ -9,9 +9,9 @@
 // The mining loop is mempool-driven, so an idle chain never gains
 // height and every height-gated wait (stake ACTIVATION_DELAY_BLOCKS,
 // confirmation depth) stalls with nothing in flight to unstick it. Drills had
-// to drop to raw node `generatetoaddress`. These pin the opt-in mine-empty
-// heartbeat: OFF by default, validated bounds, and only ever firing on an
-// empty mempool.
+// to drop to raw node `generatetoaddress`. These pin the class-level mine-empty
+// heartbeat: OFF by default on a bare instance (the API service boots it at
+// 60000), validated bounds, and only ever firing on an empty mempool.
 
 const assert = require('assert')
 const sinon = require('sinon')

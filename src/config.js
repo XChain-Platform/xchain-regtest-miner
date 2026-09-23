@@ -20,9 +20,14 @@
 
 // codemod:env-entries
 
-// The node RPC client's request timeout, in milliseconds. Coerced here
-// (not left to the read site) because the value crosses into axios as a
-// number: a bad or missing env value falls back to 60s rather than NaN.
-const NODE_RPC_TIMEOUT_MS = parseInt(process.env.NODE_RPC_TIMEOUT ?? '60000', 10);
+// The node RPC client's request timeout in ms, coerced here because it crosses
+// into axios as a number: anything but a plain non-negative integer falls back to
+// 60s (axios reads NaN as no timeout, a negative throws in the socket, and
+// parseInt would read "60s" as 60ms). 0 stays 0, axios's own "no timeout".
+const DEFAULT_NODE_RPC_TIMEOUT_MS = 60000;
+const rawNodeRpcTimeout = String(process.env.NODE_RPC_TIMEOUT ?? '').trim();
+const NODE_RPC_TIMEOUT_MS = /^\d+$/.test(rawNodeRpcTimeout)
+    ? parseInt(rawNodeRpcTimeout, 10)
+    : DEFAULT_NODE_RPC_TIMEOUT_MS;
 
 module.exports = { NODE_RPC_TIMEOUT_MS };

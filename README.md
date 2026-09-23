@@ -14,20 +14,20 @@
   <img src="https://img.shields.io/badge/coverage-unit%20%7C%20integration%20%7C%20e2e%20%7C%20smoke%20%7C%20boundary%20%7C%20security%20%7C%20fuzz%20%7C%20chaos%20%7C%20performance%20%7C%20mutation%20%7C%20regression-brightgreen" alt="Coverage">
 </p>
 
-Auto-mining service for XChain Platform regtest environments. Polls the mempool every second, batches transactions using an adaptive dual-timer system (30s max / 5s extension), and mines blocks via `generatetoaddress`. Exposes a JSON-RPC API for test orchestration including fund transfers, mempool stress testing, and runtime timer configuration.
+Auto-mining service for XChain Platform regtest environments. Polls the mempool every 100 ms, batches transactions using an adaptive dual-timer system (30s max / 5s extension), and mines blocks via `generatetoaddress`. Exposes a JSON-RPC API for test orchestration including fund transfers, mempool stress testing, and runtime timer configuration.
 
 ## Features
 
 - **Adaptive dual-timer mining:** 30-second max timer with 5-second extension on each new transaction, configurable at runtime via JSON-RPC
 - **Automatic wallet management:** creates, loads, and funds a regtest wallet on startup; mines 101 bootstrap blocks on a fresh chain for coinbase maturity
 - **JSON-RPC control API:** 14 endpoints (`ping`, `status`, `health`, `send_funds`, `fill_mempool`, `pause_mining`, `continue_mining`, `set_mining_time`, `set_default_mining_time`, `set_mock_time`, `set_idle_mine_interval`, `generate_blocks`, `invalidate_block`, `reconsider_block`) for test orchestration
-- **Optional mine-empty heartbeat:** mining is mempool-driven, so an idle chain never gains height; set `IDLE_MINE_INTERVAL_MS` (or call `set_idle_mine_interval`) to mine one empty block per idle interval and let height-gated states (stake activation, confirmation depth) advance on their own. Off by default.
+- **Mine-empty heartbeat:** mining is mempool-driven, so without it an idle chain never gains height; the service mines one empty block per idle interval so height-gated states (stake activation, confirmation depth) advance on their own. On by default at one block per 60s of empty mempool; set `IDLE_MINE_INTERVAL_MS=0` (or call `set_idle_mine_interval` with `0`) on a venue whose tests count blocks.
 - **Deterministic reorg testing:** `invalidate_block`/`reconsider_block` roll a block back and re-evaluate chain selection without dropping to raw node RPC; auto-mining pauses automatically for the duration, and each re-reads the wallet balance so a reorg that strands the matured coinbase shows up as `wallet_funded: false`
 - **Mock clock control:** `set_mock_time` pins the node clock via `setmocktime` so time-based expiries land on a deterministic block; refused on mainnet
 - **Loop diagnostics:** `status` reports `wallet_ready`, `wallet_balance`, `wallet_funded`, `mempool_size`, `blocks_mined`, `last_mine_at`, `consecutive_errors`, `mine_failures`, `mining_paused`, and `mining_started` for operators and CI. `consecutive_errors` is the RPC/mempool-read streak and `mine_failures` the failed-block-generation streak; they are separate because a successful mempool read zeroes the first one on every loop cycle. `wallet_ready` means startup finished and is never re-evaluated; a reorg drill asking whether the wallet can still fund a send reads `wallet_funded` (`wallet_balance` is `null` when the last read failed, which is not funded either)
 - **Optional API key auth:** set `MINER_API_KEY` to require a matching `X-API-Key` header on every request (401 otherwise); the read-only `ping`/`status`/`health` methods always bypass the gate so Docker healthchecks keep working
 - **Mempool stress testing:** `fill_mempool` constructs and broadcasts thousands of raw Bitcoin transactions using BIP32/BIP39 key derivation and PSBT signing
-- **Exponential backoff:** automatic retry with capped exponential backoff (1s to 30s) on RPC connection failures
+- **Exponential backoff:** automatic retry with capped exponential backoff (200 ms to 30s) on RPC connection failures
 - **Pinned wallet fee rate:** `settxfee` pins a fixed funding fee on startup so an inflated `estimatesmartfee` on a matured regtest chain can't fail `send_funds`/`fill_mempool`; falls back to the fee estimate if the daemon rejects `settxfee`
 - **Graceful shutdown:** SIGTERM handler allows the current mining loop iteration to complete before exiting
 - **Input validation:** rejects invalid addresses, amounts, timer values, and transaction quantities before any RPC call
@@ -84,10 +84,10 @@ npm run api
 | `NODE_PASSWORD` | Yes | (none) | RPC password |
 | `REGTEST_MINER_API_PORT` | Yes | (none) | Miner JSON-RPC API listening port (1-65535) |
 | `MINER_API_KEY` | No | Disabled | When set, requires a matching `X-API-Key` header on every request (401 otherwise); `ping`/`status`/`health` are always exempt |
-| `NODE_RPC_TIMEOUT` | No | `60000` | HTTP timeout in milliseconds for coin node JSON-RPC calls |
+| `NODE_RPC_TIMEOUT` | No | `60000` | HTTP timeout in milliseconds for coin node JSON-RPC calls; a value that is not a plain non-negative integer falls back to `60000`, and `0` disables the timeout |
 | `MINER_WALLET_GRACE_MS` | No | `60000` | Cold-start grace before `health` calls a not-yet-ready wallet a stall; keep the Docker `--start-period` at least this long |
 | `MINER_STALL_ERROR_THRESHOLD` | No | `5` | Consecutive failures, on either streak (`consecutive_errors` RPC/mempool reads, `mine_failures` block generations), before `health` answers 503 |
-| `IDLE_MINE_INTERVAL_MS` | No | `0` (off) | Mine one empty block after the mempool has been idle this long, so height-gated states can advance with no transactions in flight; also settable at runtime via `set_idle_mine_interval` |
+| `IDLE_MINE_INTERVAL_MS` | No | `60000` (on) | Mine one empty block after the mempool has been idle this long, so height-gated states can advance with no transactions in flight; `0` disables it (set that on a venue whose tests count blocks); also settable at runtime via `set_idle_mine_interval` |
 
 ## Scripts
 
