@@ -11,11 +11,15 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Stateful mock Bitcoin Core regtest node.
+ * Stateful mock bitcoind-family regtest node.
  *
  * Unlike MockRpcServer (which returns pre-programmed static responses),
  * this server maintains internal wallet, mempool, and chain state that
  * evolves as RPC methods are called, simulating a real bitcoind lifecycle.
+ *
+ * The `daemon` option selects which daemon's RPC surface it answers with:
+ * 'legacy' (the default) keeps settxfee as LTC v0.21 and DOGE v1.14 do, and
+ * 'core31' answers settxfee with method-not-found as Bitcoin Core 31 does.
  */
 
 const express = require('express')
@@ -24,8 +28,15 @@ const bitcoin = require('bitcoinjs-lib')
 
 const network = bitcoin.networks.regtest
 
+const DAEMONS = ['legacy', 'core31']
+
 class StatefulMockNode {
-    constructor() {
+    constructor({ daemon = 'legacy' } = {}) {
+        if (!DAEMONS.includes(daemon)) {
+            throw new Error(`Unknown daemon "${daemon}"; expected one of ${DAEMONS.join(', ')}`)
+        }
+        // Survives reset(): the daemon is the venue, not per-test state.
+        this.daemon = daemon
         this.app = express()
         this.app.use(express.json())
         this.server = null
@@ -156,6 +167,9 @@ class StatefulMockNode {
     // ── RPC method handlers ─────────────────────────────────────────
 
     _rpc_getnetworkinfo() {
+        if (this.daemon === 'core31') {
+            return { version: 310000, subversion: '/Satoshi:31.0.0/', protocolversion: 70016 }
+        }
         return { version: 250000, subversion: '/Satoshi:25.0.0/', protocolversion: 70016 }
     }
 
@@ -216,7 +230,12 @@ class StatefulMockNode {
     }
 
     _rpc_settxfee() {
-        // Fee pinning is best-effort in the miner; honor it like Bitcoin Core.
+        // Bitcoin Core 31 deleted settxfee; the legacy daemons still honor it.
+        if (this.daemon === 'core31') {
+            const err = new Error('Method not found')
+            err.rpcCode = -32601
+            throw err
+        }
         return true
     }
 
@@ -259,9 +278,10 @@ class StatefulMockNode {
     }
 
     _rpc_sendtoaddress(params) {
-        // Named params: {address, amount, verbose}
+        // Positional [address, amount] or named {address, amount, fee_rate, verbose}
         const address = params.address || (Array.isArray(params) ? params[0] : null)
         const amount = params.amount || (Array.isArray(params) ? params[1] : 0)
+        const verbose = !Array.isArray(params) && params.verbose === true
 
         const amountSats = Math.round(amount * 100000000)
 
@@ -278,7 +298,8 @@ class StatefulMockNode {
         this.mempool.push({ txid, hex })
         this.transactions[txid] = hex
 
-        return { txid }
+        // Real daemons answer with a bare txid string unless verbose is asked for.
+        return verbose ? { txid } : txid
     }
 
     _rpc_sendrawtransaction(params) {
