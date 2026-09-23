@@ -101,9 +101,9 @@ Match the existing log style: a concise subject line, then a short body explaini
 
 ## Pull requests
 
-CI is the smoke + unit gate. Before opening a PR:
+`npm run ci` (or `bin/ci-full.sh` for the complete local mirror of GitHub CI) is the pre-PR gate: it collects the hermetic tiers `npm run test:smoke`, `npm run test:fuzz:quick`, `npm run test:chaos`, and `npm run test:regression:t1` into the same local run, alongside `npm run test:security`. Before opening a PR:
 
-1. Run the no-external-services tiers (`npm run ci`, `npm run test:security`) and confirm they pass.
+1. Run the pre-PR gate above and confirm every command passes.
 2. Update `CHANGELOG.md` with a terse entry for your change.
 3. Make sure `git status` is clean apart from intended changes (no `node_modules/`, no editor leftovers, no `.env`).
 4. Open the PR with a clear title and a description of what changed and why.
