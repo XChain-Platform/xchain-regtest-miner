@@ -70,7 +70,7 @@ module.exports = {
         // that operator had just been told was serialized. Scoping that condition
         // to "nothing bumped the generation" instead was worse: a second
         // reconsider_block bumps it too, and then NEITHER call restored and the
-        // miner stalled for good. _enterReorgPause/_exitReorgPause share one
+        // miner stalled for good. enterReorgPause/exitReorgPause share one
         // refcounted pause between concurrent reconsiders so only a foreign
         // mutation cancels the restore.
         this.enterReorgPause()
@@ -79,7 +79,7 @@ module.exports = {
         const mineHold = this.enterReorgMineHold()
         // Dropped as soon as the node call returns rather than in the finally, so
         // the balance re-read below does not keep mines waiting; the finally still
-        // covers every early exit. _exitReorgMineHold is a no-op on a second call.
+        // covers every early exit. exitReorgMineHold is a no-op on a second call.
         const dropMineHold = () => this.exitReorgMineHold(mineHold)
         try {
             // Same barrier pauseMining takes, drained inside the try so a rejected

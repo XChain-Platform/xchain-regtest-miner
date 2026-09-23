@@ -45,7 +45,7 @@ const MAX_GENERATE_BLOCKS = 10000 //max blocks a single generateBlocks call may 
 // numbers are the SAME rate: 0.001 coins/kB is 100000 sat per 1000 vB, i.e.
 // 100 sat/vB. Well above every supported chain's relayfee floor (BTC/LTC
 // 0.00001/kB, DOGE 0.001/kB) so funding txs still relay, and valueless on
-// regtest. See _pinFundingFeeRate for why there are two mechanisms.
+// regtest. See pinFundingFeeRate (wallet_setup.js) for why there are two mechanisms.
 const FUNDING_FEE_RATE_COINS_PER_KB = 0.001
 const FUNDING_FEE_RATE_SAT_PER_VB = 100
 

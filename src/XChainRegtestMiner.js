@@ -120,7 +120,7 @@ class XChainRegtestMiner {
       this.network = network
       this.connector = new BlockchainConnector(nodeUrl, nodePort, nodeUser, nodePassword)
       this.walletNameParam = "xchain_regtest_wallet"
-      // Per-call funding fee ceiling in sat/vB, chosen by _pinFundingFeeRate at
+      // Per-call funding fee ceiling in sat/vB, chosen by pinFundingFeeRate at
       // wallet preparation. Null means the ceiling is wallet-wide (settxfee) or
       // absent, and funding sends go out positionally as they always have.
       this.fundingFeeRateSatPerVb = null

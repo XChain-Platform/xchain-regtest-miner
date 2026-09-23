@@ -14,6 +14,7 @@
 
 const axios = require('axios');
 const { logger } = require('./constants');
+const { rejectedRpcErrorMessage } = require('./rpc_error');
 
 function buildSendToAddressData(address, amount, feeRateSatPerVb) {
     // Use POSITIONAL params for sendtoaddress, not named. Named-parameter
@@ -217,8 +218,9 @@ module.exports = {
     // would silently drop back to the estimate path, losing the ceiling that is
     // the whole point of the pin. LTC v0.21 and DOGE v1.14 still honour it, so
     // this path stays for them; BTC uses the per-call fee_rate argument instead
-    // (see setFundingFeeRate below). A daemon that rejects settxfee is tolerated
-    // so callers can fall back rather than fail wallet preparation.
+    // (sendToAddress below, rate chosen by pinFundingFeeRate in
+    // XChainRegtestMiner/wallet_setup.js). A daemon that rejects settxfee is
+    // tolerated so callers can fall back rather than fail wallet preparation.
     async setTxFee(feePerKb){
         try {
             const data = { jsonrpc: '2.0', method: 'settxfee', params: [feePerKb], id: 1 }
@@ -274,7 +276,12 @@ module.exports = {
             throw this.sendError(nodeErr)
         } catch (error) {
             if (error && error.walletMissing) throw error
-            throw new Error('Error sending funds to address')
+            // Read the node's error off a non-2xx reply too, so a lost wallet is
+            // still flagged on daemons that answer RPC errors with HTTP 500.
+            const nodeErr = rejectedRpcErrorMessage(error)
+            if (nodeErr === null) throw new Error('Error sending funds to address')
+            logger.error('sendtoaddress returned no txid: ' + nodeErr)
+            throw this.sendError(nodeErr)
         }
     },
 

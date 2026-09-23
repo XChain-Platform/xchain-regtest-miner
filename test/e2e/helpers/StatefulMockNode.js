@@ -47,12 +47,14 @@ class StatefulMockNode {
         this.wallet = { exists: false, loaded: false, name: null }
         this.addresses = []
         this.height = 0
-        this.blocks = []          // [{hash, height, txids, previousHash}]
+        this.blocks = []          // [{hash, height, txids, previousHash, time}]
         this.mempool = []         // [{txid, hex}]
         this.transactions = {}    // txid → hex
         this.matureBalance = 0    // spendable balance (coinbases older than 100 blocks)
         this.pendingRewards = []  // [{height, amount}] (immature coinbase rewards)
         this.addressCounter = 0
+        this.invalidatedBranches = [] // [[block, ...]] detached by invalidateblock
+        this.mockTime = 0         // setmocktime clock in unix seconds; 0 = system time
 
         // ── RPC dispatch ────────────────────────────────────────────
         // Registered on both the base URL and the /wallet/<name> URI that the
@@ -114,6 +116,8 @@ class StatefulMockNode {
         this.matureBalance = 0
         this.pendingRewards = []
         this.addressCounter = 0
+        this.invalidatedBranches = []
+        this.mockTime = 0
     }
 
     callsFor(method) {
@@ -147,6 +151,34 @@ class StatefulMockNode {
             this.matureBalance += r.amount
         }
         this.pendingRewards = this.pendingRewards.filter(r => r.height > maturityThreshold)
+    }
+
+    // The node clock in unix seconds, honouring setmocktime.
+    _now() {
+        return this.mockTime > 0 ? this.mockTime : Math.floor(Date.now() / 1000)
+    }
+
+    // Detach the active chain from `index` up and take back each detached block's
+    // coinbase, whether it is still immature or already counted as spendable.
+    _detachFrom(index) {
+        const detached = this.blocks.splice(index)
+        for (const block of detached) {
+            const pending = this.pendingRewards.findIndex(r => r.height === block.height)
+            if (pending >= 0) this.pendingRewards.splice(pending, 1)
+            else this.matureBalance = Math.max(0, this.matureBalance - 5000000000)
+        }
+        this.height = this.blocks.length > 0 ? this.blocks[this.blocks.length - 1].height : 0
+        return detached
+    }
+
+    // Re-attach a detached branch on top of the tip it forked from.
+    _attach(branch) {
+        for (const block of branch) {
+            this.blocks.push(block)
+            this.pendingRewards.push({ height: block.height, amount: 5000000000 })
+        }
+        this.height = branch[branch.length - 1].height
+        this._matureCoinbases()
     }
 
     /**
@@ -259,7 +291,7 @@ class StatefulMockNode {
             // Collect mempool txids into this block
             const txids = ['coinbase_' + this.height, ...this.mempool.map(m => m.txid)]
 
-            this.blocks.push({ hash, height: this.height, txids, previousHash })
+            this.blocks.push({ hash, height: this.height, txids, previousHash, time: this._now() })
             hashes.push(hash)
 
             // Add coinbase reward (immature until 100 blocks later)
@@ -364,8 +396,51 @@ class StatefulMockNode {
             previousblockhash: block.previousHash,
             tx: block.txids,
             nTx: block.txids.length,
-            time: Math.floor(Date.now() / 1000),
+            time: block.time,
         }
+    }
+
+    // Answer result:null on success, as bitcoind does for all three RPCs below.
+    _rpc_invalidateblock(params) {
+        const hash = Array.isArray(params) ? params[0] : null
+        const index = this.blocks.findIndex(b => b.hash === hash)
+        if (index < 0) {
+            const err = new Error('Block not found')
+            err.rpcCode = -5
+            throw err
+        }
+        this.invalidatedBranches.push(this._detachFrom(index))
+        return null
+    }
+
+    // Re-activate a parked branch when it outworks the chain mined since the
+    // fork; a hash that was never invalidated is a no-op success.
+    _rpc_reconsiderblock(params) {
+        const hash = Array.isArray(params) ? params[0] : null
+        const slot = this.invalidatedBranches.findIndex(branch => branch.some(b => b.hash === hash))
+        if (slot < 0) return null
+        const branch = this.invalidatedBranches[slot]
+        const forkHeight = branch[0].height - 1
+        const forkBlock = forkHeight > 0 ? this.blocks[forkHeight - 1] : null
+        // Leave the branch parked while its parent is itself off the active chain.
+        if (forkHeight > 0 && (!forkBlock || forkBlock.hash !== branch[0].previousHash)) return null
+        this.invalidatedBranches.splice(slot, 1)
+        if (branch.length > this.height - forkHeight) {
+            if (this.height > forkHeight) this._detachFrom(forkHeight)
+            this._attach(branch)
+        }
+        return null
+    }
+
+    _rpc_setmocktime(params) {
+        const timestamp = Array.isArray(params) ? params[0] : params
+        if (!Number.isInteger(timestamp) || timestamp < 0) {
+            const err = new Error('Mocktime must be a non-negative integer')
+            err.rpcCode = -8
+            throw err
+        }
+        this.mockTime = timestamp
+        return null
     }
 }
 

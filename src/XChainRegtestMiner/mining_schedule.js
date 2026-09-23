@@ -123,7 +123,7 @@ module.exports = {
     // intervened. The claim is taken synchronously with the flag write, before the
     // barrier below, because the barrier is itself an await another RPC can land
     // inside. Every current caller ignores the value; reconsiderBlock does its own
-    // claim through _enterReorgPause because a plain generation snapshot cannot
+    // claim through enterReorgPause because a plain generation snapshot cannot
     // tell a second reconsider apart from an operator pause.
     async pauseMining(){
         const generation = this.claimPause()

@@ -357,7 +357,7 @@ module.exports = {
     },
 
     // True when the auto-mine loop owes a balance refresh. Split out as a
-    // predicate (same shape as _idleMineDue) because the interval guard is the
+    // predicate (same shape as idleMineDue) because the interval guard is the
     // load-bearing part: the loop wakes every CHECK_BLOCK_DELAY_MS, so a guard
     // that mis-answers turns one RPC per 5s into ten per second.
     walletRefreshDue(now) {

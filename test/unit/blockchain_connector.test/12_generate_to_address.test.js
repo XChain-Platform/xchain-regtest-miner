@@ -103,3 +103,22 @@ describe('BlockchainConnector', function () {
         })
     })
 })
+
+describe('BlockchainConnector', function () {
+    beforeEach(setup)
+    afterEach(teardown)
+
+    describe('generateToAddress', function () {
+        // Pre-JSON-RPC-2.0 daemons (LTC v0.21, DOGE v1.14) carry the error on HTTP 500.
+        it('logs the node RPC error from an HTTP 500 reply but throws a static message', async function () {
+            const err = new Error('Request failed with status code 500')
+            err.response = { status: 500, data: { result: null, error: { code: -25, message: 'bad-txns-vin-empty' }, id: 1 } }
+            axiosPostStub.rejects(err)
+            let threw = null
+            try { await connector.generateToAddress(1, 'addr') } catch (e) { threw = e }
+            assert.strictEqual(threw && threw.message, 'Error generating to address')
+            const logged = console.error.getCalls().map(c => c.args.join(' ')).join('\n')
+            assert.match(logged, /generatetoaddress returned no result: bad-txns-vin-empty/)
+        })
+    })
+})

@@ -14,6 +14,13 @@
 
 const axios = require('axios');
 const { logger } = require('./constants');
+const { rejectedRpcErrorMessage } = require('./rpc_error');
+
+// Log the node's own error from a non-2xx reply; the thrown message stays static.
+function logRejectedRpcError(error, prefix) {
+    const nodeErr = rejectedRpcErrorMessage(error)
+    if (nodeErr !== null) logger.error(prefix + nodeErr)
+}
 
 module.exports = {
     async generateToAddress(count, address){
@@ -50,6 +57,7 @@ module.exports = {
             logger.error('generatetoaddress returned no result: ' + nodeErr)
             throw new Error('Error generating to address')
         } catch (error) {
+            logRejectedRpcError(error, 'generatetoaddress returned no result: ')
             throw new Error('Error generating to address')
         }
     },
@@ -88,6 +96,7 @@ module.exports = {
             }
             return true
         } catch (error) {
+            logRejectedRpcError(error, 'invalidateblock RPC error: ')
             // Static message: a transport axios error.message leaks the RPC host:port.
             throw new Error('Error invalidating block')
         }
@@ -126,6 +135,7 @@ module.exports = {
             }
             return true
         } catch (error) {
+            logRejectedRpcError(error, 'reconsiderblock RPC error: ')
             // Static message: a transport axios error.message leaks the RPC host:port.
             throw new Error('Error reconsidering block')
         }
@@ -169,6 +179,7 @@ module.exports = {
             }
             return true
         } catch (error) {
+            logRejectedRpcError(error, 'setmocktime RPC error: ')
             // Static message: a transport axios error.message leaks the RPC host:port.
             throw new Error('Error setting mock time')
         }

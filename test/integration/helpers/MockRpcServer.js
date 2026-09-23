@@ -23,11 +23,14 @@ class MockRpcServer {
         this.server = null
         this.port = null
 
-        this.app.post('/', async (req, res) => {
+        // Serve the base URL and the /wallet/<name> URI the connector switches
+        // wallet RPCs to after setWalletName, recording which wallet each call named.
+        this.app.post(['/', '/wallet/:walletName'], async (req, res) => {
             const { method, params, id } = req.body
             const authHeader = req.headers.authorization || null
+            const walletName = req.params.walletName || null
 
-            this.calls.push({ method, params, id, auth: authHeader })
+            this.calls.push({ method, params, id, auth: authHeader, walletName })
 
             const handler = this.handlers[method]
             if (!handler) {
@@ -48,6 +51,14 @@ class MockRpcServer {
                 if (handler.failMode === 'timeout') {
                     // Don't respond; let the client timeout
                     return
+                }
+                // Answer the RPC error with HTTP 500, as pre-JSON-RPC-2.0 daemons do
+                if (handler.failMode === 'rpc500') {
+                    return res.status(500).json({
+                        result: null,
+                        error: handler.errorObj,
+                        id,
+                    })
                 }
                 // Default: RPC-level error
                 return res.json({
