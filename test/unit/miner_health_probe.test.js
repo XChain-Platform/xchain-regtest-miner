@@ -17,9 +17,15 @@
 const assert = require('assert');
 const fs     = require('fs');
 const path   = require('path');
-const { evaluateMinerHealth, UNAUTHENTICATED_METHODS,
+const { createHealthController, evaluateMinerHealth, UNAUTHENTICATED_METHODS,
         STALL_ERROR_THRESHOLD, WALLET_GRACE_MS } = require('../../src/api');
+const { createRpcMethods } = require('../../src/api/rpc_methods');
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+
+function createJsonRpcController(miner, options) {
+    const healthController = createHealthController(miner, options);
+    return createRpcMethods(miner, healthController.health);
+}
 
 // Every field the real getStatus() emits for a running, healthy miner. mining_started
 // belongs here: a payload that omits it is one the real miner cannot produce, and
@@ -253,15 +259,17 @@ describe('miner health probe verdict', function () {
             'health must bypass the API-key gate or the Docker healthcheck 401s forever');
     });
 
-    // Wiring guards: the handler is built inside startApi()'s closure and the probe
-    // lives in the Dockerfile, so neither is reachable from a require. A verdict
-    // nothing probes is the exact defect this item is about.
-    it('registers health on the JSON-RPC controller and 503s on the verdict', function () {
-        const src = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
-        const controller = src.slice(src.indexOf('const jsonRpcController = {'));
-        assert.ok(/^\s+async health\(params, \{res\}\)\s*\{/m.test(controller), 'health method not registered');
-        assert.ok(/evaluateMinerHealth\(/.test(controller), 'health does not consult the verdict');
-        assert.ok(/if \(!verdict\.healthy\) res\.status\(503\)/.test(controller), 'health never sets 503');
+    it('registers health on the JSON-RPC controller and 503s on the verdict', async function () {
+        const miner = {
+            getStatus: () => ({ wallet_ready: false, mining_paused: true, mining_started: false })
+        };
+        const controller = createJsonRpcController(miner, { uptime: () => 10 * 60 });
+        let responseStatus = 200;
+        const result = await controller.health({}, { res: { status: code => { responseStatus = code; } } });
+
+        assert.strictEqual(typeof controller.health, 'function', 'health method not registered');
+        assert.strictEqual(result.reason, 'wallet_not_ready', 'health does not consult the verdict');
+        assert.strictEqual(responseStatus, 503, 'health never sets 503');
     });
 });
 
@@ -278,16 +286,11 @@ describe('miner health probe verdict', function () {
         const app = express();
         app.use(bodyParser.json());
         app.use((req, res, next) => { if (req.body === undefined) req.body = {}; next(); });
-        app.use(jsonRouter({ methods: {
-            async health (params, { res }) {
-                const verdict = evaluateMinerHealth({
-                    status:   { wallet_ready: false, mining_paused: true, mining_started: false },
-                    uptimeMs: 10 * 60000
-                });
-                if (!verdict.healthy) res.status(503);
-                return { status: verdict.healthy ? 'success' : 'degraded', reason: verdict.reason };
-            }
-        } }));
+        const miner = {
+            getStatus: () => ({ wallet_ready: false, mining_paused: true, mining_started: false })
+        };
+        const controller = createJsonRpcController(miner, { uptime: () => 10 * 60 });
+        app.use(jsonRouter({ methods: controller }));
 
         const server = app.listen(0);
         try {

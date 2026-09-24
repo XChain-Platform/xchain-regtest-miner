@@ -10,7 +10,8 @@
 
 const assert = require('assert')
 const sinon = require('sinon')
-const http = require('http')
+const { createRpcMethods: createJsonRpcController } = require('../../src/api/rpc_methods')
+const { REQUIRED_ENV_VARS } = require('../../src/api/startup')
 
 function createMinerStub() {
     return {
@@ -20,87 +21,25 @@ function createMinerStub() {
         setMiningTime: sinon.stub(),
         setDefaultMiningTime: sinon.stub(),
         setMockTime: sinon.stub(),
+        pauseMining: sinon.stub(),
+        setIdleMineInterval: sinon.stub(),
+        generateBlocks: sinon.stub(),
+        invalidateBlock: sinon.stub(),
+        reconsiderBlock: sinon.stub(),
+        getStatus: sinon.stub(),
         start: sinon.stub(),
     }
 }
 
-function createController(miner) {
-    return {
-        async ping() {
-            return { status: 'success' }
-        },
-        async send_funds({ address, amount }) {
-            let txid = null
-            try {
-                txid = await miner.sendFundsToAddress(address, amount)
-            } catch (err) {
-                console.log(err)
-                return { error: 'There was a problem sending ' + amount + ' to ' + address }
-            }
-            return txid
-        },
-        async fill_mempool({ tx_quantity }) {
-            try {
-                await miner.fillMempool(tx_quantity)
-            } catch (err) {
-                console.log(err)
-                return { error: 'There was a problem trying to fill the mempool: ' + (err && err.message ? err.message : err) }
-            }
-            return { result: 'ok' }
-        },
-        async continue_mining({}) {
-            try {
-                await miner.continueMining()
-            } catch (err) {
-                console.log(err)
-                return { error: 'There was a problem trying to continue the mining' }
-            }
-            return { result: 'ok' }
-        },
-        async set_mining_time({ max_time, tx_added_time }) {
-            try {
-                await miner.setMiningTime(max_time, tx_added_time)
-            } catch (err) {
-                return { error: 'There was a problem trying to set a new time to mine blocks' }
-            }
-            return { result: 'ok' }
-        },
-        async set_default_mining_time() {
-            try {
-                await miner.setDefaultMiningTime()
-            } catch (err) {
-                return { error: 'There was a problem trying to set a the default time to mine blocks' }
-            }
-            return { result: 'ok' }
-        },
-        async set_mock_time({ timestamp }) {
-            try {
-                await miner.setMockTime(timestamp)
-                return 'ok'
-            } catch (err) {
-                return { error: 'There was a problem setting the mock time: ' + (err && err.message ? err.message : err) }
-            }
-        },
-    }
-}
-
 describe('api.js', function () {
-    let app
-    let server
     let miner
-
-    // We need to mock dependencies before requiring api.js
-    // Since api.js calls startApi() on require, we test the JSON-RPC controller logic directly
-    // by constructing what the controller does
 
     describe('JSON-RPC controller logic', function () {
         let controller
 
         beforeEach(function () {
             miner = createMinerStub()
-            sinon.stub(console, 'log')
-            // Recreate the controller logic as defined in api.js
-            controller = createController(miner)
+            controller = createJsonRpcController(miner)
         })
 
         afterEach(function () {
@@ -112,7 +51,17 @@ describe('api.js', function () {
         describe('ping', function () {
             it('returns success status', async function () {
                 const result = await controller.ping()
-                assert.deepStrictEqual(result, { status: 'success' })
+                assert.deepStrictEqual(result, { status: 'success', ready: false })
+            })
+
+            it('uses the complete production controller surface', function () {
+                assert.deepStrictEqual(Object.keys(controller), [
+                    'ping', 'status', 'health', 'send_funds', 'fill_mempool',
+                    'pause_mining', 'continue_mining', 'set_mining_time',
+                    'set_default_mining_time', 'set_mock_time',
+                    'set_idle_mine_interval', 'generate_blocks',
+                    'invalidate_block', 'reconsider_block'
+                ])
             })
         })
 
@@ -130,7 +79,7 @@ describe('api.js', function () {
                 miner.sendFundsToAddress.rejects(new Error('no funds'))
                 const result = await controller.send_funds({ address: 'addr1', amount: 99 })
                 assert.deepStrictEqual(result, {
-                    error: 'There was a problem sending 99 to addr1',
+                    error: 'There was a problem sending funds: no funds',
                 })
             })
         })
@@ -145,8 +94,7 @@ describe('api.js', function () {
 
         beforeEach(function () {
             miner = createMinerStub()
-            sinon.stub(console, 'log')
-            controller = createController(miner)
+            controller = createJsonRpcController(miner)
         })
 
         afterEach(function () {
@@ -159,7 +107,7 @@ describe('api.js', function () {
             it('returns ok on success', async function () {
                 miner.fillMempool.resolves()
                 const result = await controller.fill_mempool({ tx_quantity: 100 })
-                assert.deepStrictEqual(result, { result: 'ok' })
+                assert.strictEqual(result, 'ok')
                 assert(miner.fillMempool.calledWith(100))
             })
 
@@ -175,7 +123,7 @@ describe('api.js', function () {
                 // error response, never a silent { result: 'ok' } with an empty mempool.
                 miner.fillMempool.rejects(new Error('txQuantity must be a positive integer'))
                 const result = await controller.fill_mempool({ tx_quantity: 50.5 })
-                assert.notDeepStrictEqual(result, { result: 'ok' })
+                assert.notStrictEqual(result, 'ok')
                 assert(result.error)
                 assert(result.error.includes('txQuantity must be a positive integer'))
             })
@@ -191,8 +139,7 @@ describe('api.js', function () {
 
         beforeEach(function () {
             miner = createMinerStub()
-            sinon.stub(console, 'log')
-            controller = createController(miner)
+            controller = createJsonRpcController(miner)
         })
 
         afterEach(function () {
@@ -205,7 +152,7 @@ describe('api.js', function () {
             it('returns ok on success', async function () {
                 miner.continueMining.resolves()
                 const result = await controller.continue_mining({})
-                assert.deepStrictEqual(result, { result: 'ok' })
+                assert.strictEqual(result, 'ok')
                 assert(miner.continueMining.calledOnce)
             })
 
@@ -226,8 +173,7 @@ describe('api.js', function () {
 
         beforeEach(function () {
             miner = createMinerStub()
-            sinon.stub(console, 'log')
-            controller = createController(miner)
+            controller = createJsonRpcController(miner)
         })
 
         afterEach(function () {
@@ -240,14 +186,14 @@ describe('api.js', function () {
             it('delegates parameters to miner and returns ok', async function () {
                 miner.setMiningTime.resolves()
                 const result = await controller.set_mining_time({ max_time: 10000, tx_added_time: 2000 })
-                assert.deepStrictEqual(result, { result: 'ok' })
+                assert.strictEqual(result, 'ok')
                 assert(miner.setMiningTime.calledWith(10000, 2000))
             })
 
             it('returns error object on failure', async function () {
                 miner.setMiningTime.rejects(new Error('fail'))
                 const result = await controller.set_mining_time({ max_time: -1, tx_added_time: -1 })
-                assert(result.error.includes('set a new time'))
+                assert.deepStrictEqual(result, { error: 'fail' })
             })
         })
     })
@@ -261,8 +207,7 @@ describe('api.js', function () {
 
         beforeEach(function () {
             miner = createMinerStub()
-            sinon.stub(console, 'log')
-            controller = createController(miner)
+            controller = createJsonRpcController(miner)
         })
 
         afterEach(function () {
@@ -275,7 +220,7 @@ describe('api.js', function () {
             it('delegates to miner and returns ok', async function () {
                 miner.setDefaultMiningTime.resolves()
                 const result = await controller.set_default_mining_time()
-                assert.deepStrictEqual(result, { result: 'ok' })
+                assert.strictEqual(result, 'ok')
                 assert(miner.setDefaultMiningTime.calledOnce)
             })
 
@@ -296,8 +241,7 @@ describe('api.js', function () {
 
         beforeEach(function () {
             miner = createMinerStub()
-            sinon.stub(console, 'log')
-            controller = createController(miner)
+            controller = createJsonRpcController(miner)
         })
 
         afterEach(function () {
@@ -329,12 +273,10 @@ describe('api.js', function () {
 
     describe('environment variable parsing', function () {
         it('reads required env vars', function () {
-            // Verify the expected env var names are used
-            const envVars = ['NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER', 'NODE_PASSWORD', 'REGTEST_MINER_API_PORT']
-            for (const v of envVars) {
-                // These should be defined in api.js as process.env lookups
-                assert.strictEqual(typeof v, 'string')
-            }
+            assert.deepStrictEqual(REQUIRED_ENV_VARS, [
+                'NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER',
+                'NODE_PASSWORD', 'REGTEST_MINER_API_PORT'
+            ])
         })
     })
 })

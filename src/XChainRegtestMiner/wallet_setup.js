@@ -162,6 +162,9 @@ module.exports = {
             if (!err || !err.walletMissing) throw err
             logger.info('Wallet is no longer loaded on the node (restarted?); reloading and retrying once')
             await this.ensureWalletLoaded()
+            // Re-pin after the reload: settxfee is in-memory wallet state, so the
+            // reloaded wallet on LTC/DOGE comes back without its fee ceiling.
+            await this.pinFundingFeeRate()
             return await this.connector.sendToAddress(address, amount, this.fundingFeeRateSatPerVb)
         }
     },

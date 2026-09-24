@@ -29,17 +29,17 @@ const reorgControl = require('./XChainRegtestMiner/reorg_control.js')
 const walletSetup = require('./XChainRegtestMiner/wallet_setup.js')
 const blockGeneration = require('./XChainRegtestMiner/block_generation.js')
 
-// Idle mine-empty heartbeat, OFF by default (0). The auto-mine loop only ever
-// mines when the mempool is non-empty, so a quiet chain never advances a block.
-// Anything gated on HEIGHT rather than on transactions therefore stalls forever
-// with nothing in flight to unstick it: capability-stake activation
-// (ACTIVATION_DELAY_BLOCKS), confirmation depth, time-locked expiries. Drills hit
-// this and had to drop to raw node `generatetoaddress`.
-// With this set, the loop mines ONE empty block whenever the mempool has been
-// empty for this long, so height advances on its own. Default stays 0 so no
-// existing venue changes behavior: an empty block is still a real block that a
-// reorg/depth test may be counting.
-const DEFAULT_IDLE_MINE_INTERVAL_MS = 0 //0 = disabled; the auto-mine loop stays mempool-driven only
+// Idle mine-empty heartbeat. The auto-mine loop only ever mines when the mempool
+// is non-empty, so a quiet chain never advances a block. Anything gated on HEIGHT
+// rather than on transactions therefore stalls forever with nothing in flight to
+// unstick it: capability-stake activation (ACTIVATION_DELAY_BLOCKS), confirmation
+// depth, time-locked expiries. With an interval set, the loop mines ONE empty
+// block whenever the mempool has been empty for this long.
+// This 0 is only the class fallback for direct or embedded use. The API service
+// (src/api/startup.js) always sets the interval at boot and defaults it ON
+// (60000) when IDLE_MINE_INTERVAL_MS is unset, so a venue whose tests count
+// blocks (reorg, confirmation depth) must set IDLE_MINE_INTERVAL_MS=0 itself.
+const DEFAULT_IDLE_MINE_INTERVAL_MS = 0 //0 = disabled; class fallback only, the API service boots with 60000
 
 // Mining-state generation, the shared reorg pause and the mine-vs-reorg holds:
 // the fields reconsiderBlock, pauseMining and generateBlocks coordinate through.
@@ -120,7 +120,7 @@ class XChainRegtestMiner {
       this.network = network
       this.connector = new BlockchainConnector(nodeUrl, nodePort, nodeUser, nodePassword)
       this.walletNameParam = "xchain_regtest_wallet"
-      // Per-call funding fee ceiling in sat/vB, chosen by _pinFundingFeeRate at
+      // Per-call funding fee ceiling in sat/vB, chosen by pinFundingFeeRate at
       // wallet preparation. Null means the ceiling is wallet-wide (settxfee) or
       // absent, and funding sends go out positionally as they always have.
       this.fundingFeeRateSatPerVb = null

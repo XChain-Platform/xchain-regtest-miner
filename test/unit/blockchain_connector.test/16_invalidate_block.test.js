@@ -78,5 +78,15 @@ describe('BlockchainConnector', function () {
             axiosPostStub.resolves({ data: { id: 1 } })
             await assert.rejects(() => connector.invalidateBlock('abc123'), /Error invalidating block/)
         })
+
+        // Pre-JSON-RPC-2.0 daemons (LTC v0.21, DOGE v1.14) carry the error on HTTP 500.
+        it('logs the node RPC error from an HTTP 500 reply but throws a static message', async function () {
+            const err = new Error('Request failed with status code 500')
+            err.response = { status: 500, data: { result: null, error: { code: -5, message: 'Block not found' }, id: 1 } }
+            axiosPostStub.rejects(err)
+            await assert.rejects(() => connector.invalidateBlock('badhash'), /^Error: Error invalidating block$/)
+            const logged = console.error.getCalls().map(c => c.args.join(' ')).join('\n')
+            assert.match(logged, /invalidateblock RPC error: Block not found/)
+        })
     })
 })

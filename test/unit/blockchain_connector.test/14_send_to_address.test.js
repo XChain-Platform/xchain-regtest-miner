@@ -32,6 +32,23 @@ function rpcSuccess(result) {
     return { data: { result, error: null, id: 1 } }
 }
 
+// Build an axios rejection the way a pre-JSON-RPC-2.0 daemon produces one: the
+// RPC error body rides on a non-2xx response.
+function rpcRejection(status, data) {
+    const err = new Error('Request failed with status code ' + status)
+    err.response = { status, data }
+    return err
+}
+
+async function sendFailure(...args) {
+    try { await connector.sendToAddress(...args) } catch (e) { return e }
+    return null
+}
+
+function loggedErrors() {
+    return console.error.getCalls().map(c => c.args.join(' ')).join('\n')
+}
+
 describe('BlockchainConnector', function () {
     beforeEach(setup)
     afterEach(teardown)
@@ -103,6 +120,44 @@ describe('BlockchainConnector', function () {
             try { await connector.sendToAddress('a', 1) } catch (e) { threw = e }
             assert.strictEqual(threw && threw.message, 'Error sending funds to address')
             assert.ok(!threw.message.includes('18332'), 'thrown message must not leak the RPC host:port')
+        })
+    })
+})
+
+describe('BlockchainConnector', function () {
+    beforeEach(setup)
+    afterEach(teardown)
+
+    describe('sendToAddress', function () {
+        // Daemons that predate JSON-RPC 2.0 answer an RPC error with HTTP 500,
+        // so the error body arrives on the axios rejection.
+        it('flags a lost wallet reported over HTTP 500, as LTC v0.21 and DOGE v1.14 report it', async function () {
+            axiosPostStub.rejects(rpcRejection(500, {
+                result: null,
+                error: { code: -18, message: 'Requested wallet does not exist or is not loaded' },
+                id: 1,
+            }))
+            const threw = await sendFailure('a', 1)
+            assert.strictEqual(threw && threw.message, 'Error sending funds to address')
+            assert.strictEqual(threw.walletMissing, true)
+        })
+
+        it('logs an ordinary HTTP 500 send failure without flagging a lost wallet', async function () {
+            axiosPostStub.rejects(rpcRejection(500, {
+                result: null, error: { code: -6, message: 'Insufficient funds' }, id: 1,
+            }))
+            const threw = await sendFailure('a', 1)
+            assert.strictEqual(threw && threw.message, 'Error sending funds to address')
+            assert.ok(!threw.walletMissing, 'insufficient funds must not trigger a wallet reload')
+            assert.match(loggedErrors(), /Insufficient funds/)
+        })
+
+        it('keeps the static message when a rejection carries a non-JSON body', async function () {
+            axiosPostStub.rejects(rpcRejection(401, '<html>401 Unauthorized</html>'))
+            const threw = await sendFailure('a', 1)
+            assert.strictEqual(threw && threw.message, 'Error sending funds to address')
+            assert.ok(!threw.walletMissing)
+            assert.doesNotMatch(loggedErrors(), /sendtoaddress returned no txid/)
         })
     })
 })

@@ -1,5 +1,23 @@
 {
   "titleSets": {
+    "0059376758ba4d8b": [
+      "T2 Regression: Full E2E Pipeline REG-T2-009: Chain state progresses correctly blockchain height and balance increase after mining"
+    ],
+    "0265235264a967fc": [
+      "XChainRegtestMiner reconsiderBlock calls connector.reconsiderBlock with the hash",
+      "XChainRegtestMiner reconsiderBlock leaves mining paused when it was already paused (invalidate \u2192 mine \u2192 reconsider)",
+      "XChainRegtestMiner reconsiderBlock rejects when blockHash is not a string",
+      "XChainRegtestMiner reconsiderBlock restores auto-mining when it was running (reorg sequence ends here)",
+      "XChainRegtestMiner reconsiderBlock restores mining state even when the node RPC throws",
+      "XChainRegtestMiner reconsiderBlock takes the mine-barrier before reaching the node"
+    ],
+    "03b767b82ad0110e": [
+      "BlockchainConnector getMempoolEntry sends txid as param and returns entry",
+      "BlockchainConnector getMempoolEntry throws when result is falsy"
+    ],
+    "03ed940e766ba274": [
+      "Boundary: fillMempool Chunking and Calculations F-06: tx_quantity = 5000 (exactly two chunks) creates 2 full chunks with no remainder"
+    ],
     "071ce9df115b49d3": [
       "miner health probe verdict against a real XChainRegtestMiner accumulates mine_failures when only generatetoaddress fails, and stalls",
       "miner health probe verdict against a real XChainRegtestMiner reports a started loop healthy, and an operator pause healthy too",
@@ -21,6 +39,30 @@
       "miner health probe verdict tolerates a short failure streak below the threshold",
       "miner health probe verdict treats a deliberate pause as healthy even with a failing MINE streak",
       "miner health probe verdict treats a deliberate pause as healthy even with a failing streak"
+    ],
+    "073ff31bc214849d": [
+      "Boundary: fillMempool Chunking and Calculations F-10: negative tx_quantity Math.ceil of negative produces 0 or negative chunks",
+      "Boundary: fillMempool Chunking and Calculations F-10: negative tx_quantity address array loop with negative count creates no addresses"
+    ],
+    "09017d9bcfe5cdc8": [
+      "BlockchainConnector setTxFee calls settxfee with the fee rate and returns true on success",
+      "BlockchainConnector setTxFee returns false (tolerated) when the daemon rejects settxfee",
+      "BlockchainConnector setTxFee returns false on a network error rather than throwing"
+    ],
+    "0b25bc4bf4dd2797": [
+      "BlockchainConnector getNewAddress returns address string",
+      "BlockchainConnector getNewAddress throws when result is falsy"
+    ],
+    "0c35eb34f3d791ca": [
+      "E2E: Mempool Monitoring and Block Generation B1: detects a mempool transaction and mines a block",
+      "E2E: Mempool Monitoring and Block Generation B2: batches multiple transactions into one block",
+      "E2E: Mempool Monitoring and Block Generation B3: max timer forces block generation despite continuous new txs",
+      "E2E: Mempool Monitoring and Block Generation B4: does not mine when mempool is empty",
+      "E2E: Mempool Monitoring and Block Generation B5: mines correctly after an idle period",
+      "E2E: Mempool Monitoring and Block Generation B6: handles multiple mining cycles with state resets"
+    ],
+    "0eed39d9df2c3ddb": [
+      "Boundary: Adaptive Mining Timer Logic T-09: maxTimeToMineTxs equals addedTimeToMineTxs produces exactly one generateBlocks call when both expire simultaneously"
     ],
     "0f2abe37f99c5a17": [
       "Security: remediated dependency advisories @regression @tier4 ADV-1: package.json pins axios at or above 1.18.0",
@@ -47,6 +89,91 @@
       "Security: remediated dependency advisories @regression @tier4 ADV-4: brace-expansion survives the CVE-2026-14257 unbounded-length input",
       "Security: remediated dependency advisories @regression @tier4 ADV-5: the installed axios reports a patched runtime version"
     ],
+    "120562cb6c17ba52": [
+      "Chaos: Process Lifecycle (CE-08) CE-08: W-4 fixed; SIGTERM handler registered by start(), not constructor",
+      "Chaos: Process Lifecycle (CE-08) CE-08a: miner re-initializes cleanly after simulated crash and restart"
+    ],
+    "12766211aaa6a3e4": [
+      "Boundary: fillMempool Chunking and Calculations F-11: non-integer tx_quantity (2.5) Math.ceil handles float: 2.5/2500 rounds up to 1 chunk",
+      "Boundary: fillMempool Chunking and Calculations F-11: non-integer tx_quantity (2.5) address loop runs fractional times (effectively 2 iterations)"
+    ],
+    "12e6d8186843b0b9": [
+      "Fuzz: mining loop state machine fillMempool and continueMining interaction fillMempool pauses mining during execution, finally restores it",
+      "Fuzz: mining loop state machine fillMempool and continueMining interaction rapid alternation does not corrupt state",
+      "Fuzz: mining loop state machine generateBlocks with fuzzed counts delegates positive counts to connector; throws (uncalled) for non-positive counts",
+      "Fuzz: mining loop state machine generateBlocks with fuzzed counts propagates connector errors",
+      "Fuzz: mining loop state machine keepMining flag toggling handles rapid keepMining toggling",
+      "Fuzz: mining loop state machine keepMining flag toggling respects keepMining=false (skips mempool check and mining)",
+      "Fuzz: mining loop state machine mining loop resilience to interleaved errors survives alternating success and failure from generateToAddress",
+      "Fuzz: mining loop state machine mining loop resilience to interleaved errors survives alternating success and failure from getRawMempool",
+      "Fuzz: mining loop state machine mining timer state transitions with fuzzed mempool sequences extends mining wait when new txs arrive",
+      "Fuzz: mining loop state machine mining timer state transitions with fuzzed mempool sequences mines block when addedTimeToMineTxs elapses without new txs",
+      "Fuzz: mining loop state machine mining timer state transitions with fuzzed mempool sequences mines block when maxTimeToMineTxs elapses with constant mempool"
+    ],
+    "171e36155ca4a255": [
+      "Boundary: Adaptive Mining Timer Logic T-24: mempool burst from 0 to N in single poll sets timers once regardless of burst size"
+    ],
+    "1943d7ab6dc94933": [
+      "Fuzz: RPC response handling wallet setup with fuzzed responses handles probe failing and loadWallet throwing",
+      "Fuzz: RPC response handling wallet setup with fuzzed responses handles probe failing then loadWallet succeeding",
+      "Fuzz: RPC response handling wallet setup with fuzzed responses handles probe returning no usable address"
+    ],
+    "1b6f025ebc780ed1": [
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A01: getNetworkInfo returns result and sends correct RPC call",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A01: getNetworkInfo throws clean error on network error",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A01: getNetworkInfo throws on falsy result",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A02: getBlockchainInfo returns blockchain info",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A02: getBlockchainInfo throws on falsy result",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A03: getRawMempool returns array of txids",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A03: getRawMempool throws on falsy result",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A03: getRawMempool throws on network error",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A04: generateToAddress inherits the connector-wide default timeout (no per-call override)",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A04: generateToAddress returns block hashes and sends correct params",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A04: generateToAddress throws on falsy result",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A05: getBalance returns numeric balance",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A05: getBalance returns zero balance",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A05: getBalance throws when result is NaN",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A06: sendToAddress throws on falsy result",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A06: sendToAddress throws on network error",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A06: sendToAddress uses positional params (DOGE v1.14 compatible) and returns txid",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A07: getRawTransaction returns null on RPC error",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A07: getRawTransaction returns null on network error",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A07: getRawTransaction returns raw tx hex on success",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A08: sendRawTransaction sends hex and returns txid",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A08: sendRawTransaction throws on falsy result",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A09: createWallet retry logic retries on failure then succeeds",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A09: createWallet retry logic returns on first success",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A09: createWallet retry logic sends correct RPC method",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A09: createWallet retry logic throws after exhausting retries",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A10: getWalletInfo retry logic retries on failure then returns",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A10: getWalletInfo retry logic returns on first success",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A10: getWalletInfo retry logic throws after exhausting max retries",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A10: getWalletInfo retry logic throws when response has no result",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A11: loadWallet returns wallet info on success",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A11: loadWallet throws on falsy result",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A12: getNewAddress returns address string",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A12: getNewAddress throws on falsy result",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A13: Remaining RPC methods getBlock sends JSON format when hexFormat=false",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A13: Remaining RPC methods getBlock sends hash with hex format by default",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A13: Remaining RPC methods getBlockHash sends blockindex and returns hash",
+      "T1 Regression: BlockchainConnector RPC Methods REG-T1-A13: Remaining RPC methods getMempoolEntry returns entry for txid"
+    ],
+    "1e98d82f0526428b": [
+      "T2 Regression: Full E2E Pipeline REG-T2-005: Mining loop, pause and resume pauses mining and resumes with continueMining"
+    ],
+    "1ea3ecec22eb8b8a": [
+      "mine loop and wallet preparation keep their shared-state runs free of turns CONTROL: the prober lands inside a span that contains an await",
+      "mine loop and wallet preparation keep their shared-state runs free of turns keeps the final balance check and the balance stamp in one run",
+      "mine loop and wallet preparation keep their shared-state runs free of turns keeps the reset after a mempool read in one run with the mempool size write",
+      "mine loop and wallet preparation keep their shared-state runs free of turns keeps the reset after a mine in one run with the next RPC or sleep",
+      "mine loop and wallet preparation keep their shared-state runs free of turns never issues a mine between a resolved pause and its continue"
+    ],
+    "207c46f298f2fc1f": [
+      "BlockchainConnector getRawTransaction returns null on RPC error instead of throwing",
+      "BlockchainConnector getRawTransaction returns null on network error instead of throwing",
+      "BlockchainConnector getRawTransaction returns raw tx hex on success",
+      "BlockchainConnector getRawTransaction throws when result is falsy (caught internally, returns null)"
+    ],
     "2442df610ebb6911": [
       "coin-registry conformance (vendored copy) @regression byte-identity to canonical xchain-hub/src/coins BTC.js is byte-identical to the canonical xchain-hub copy",
       "coin-registry conformance (vendored copy) @regression byte-identity to canonical xchain-hub/src/coins DOGE.js is byte-identical to the canonical xchain-hub copy",
@@ -61,85 +188,6 @@
       "coin-registry conformance (vendored copy) @regression pin == consensusHash over the vendored files LTC/testnet vendored pin matches the vendored consensusHash",
       "coin-registry conformance (vendored copy) @regression pin == consensusHash over the vendored files verifyConsensusPin passes for every network on the vendored bundle"
     ],
-    "25132dbe1770a61b": [
-      "XChainRegtestMiner constructor creates a BlockchainConnector instance",
-      "XChainRegtestMiner constructor initializes with correct defaults",
-      "XChainRegtestMiner continueMining sets keepMining to true",
-      "XChainRegtestMiner createWallet delegates to connector.createWallet and returns true",
-      "XChainRegtestMiner createWallet throws on connector error",
-      "XChainRegtestMiner fillMempool calculates correct funding amount per chunk",
-      "XChainRegtestMiner fillMempool calculates correct number of chunks for exact multiple",
-      "XChainRegtestMiner fillMempool calculates correct number of chunks for large quantity",
-      "XChainRegtestMiner fillMempool calculates correct number of chunks for quantities within one chunk",
-      "XChainRegtestMiner fillMempool calculates correct number of chunks for quantity exceeding one chunk",
-      "XChainRegtestMiner fillMempool calculates correct remainder for last chunk",
-      "XChainRegtestMiner fillMempool calculates correct remainder when evenly divisible",
-      "XChainRegtestMiner fillMempool rejects a truly concurrent second call, not just one pre-flagged by the caller",
-      "XChainRegtestMiner fillMempool sets keepMining to false only after validation passes",
-      "XChainRegtestMiner fillMempool throws (rather than silently returning) on invalid txQuantity",
-      "XChainRegtestMiner funding fee ceiling does not invent a fee_rate for a coin that has no such argument",
-      "XChainRegtestMiner funding fee ceiling falls back to the per-call rate when a daemon has dropped settxfee",
-      "XChainRegtestMiner funding fee ceiling keeps the wallet-wide settxfee pin for LTC and DOGE",
-      "XChainRegtestMiner funding fee ceiling leaves a working settxfee daemon on the wallet-wide pin",
-      "XChainRegtestMiner funding fee ceiling pins BTC per call, because settxfee no longer exists there",
-      "XChainRegtestMiner generateBlocks accepts the maximum count and does not poison the queue after an over-cap throw",
-      "XChainRegtestMiner generateBlocks calls generateToAddress with count and wallet address",
-      "XChainRegtestMiner generateBlocks logs plural message for multiple blocks",
-      "XChainRegtestMiner generateBlocks logs singular message for one block",
-      "XChainRegtestMiner generateBlocks throws for a count above the maximum instead of driving the node",
-      "XChainRegtestMiner generateBlocks throws for an absurd count (Number.MAX_SAFE_INTEGER)",
-      "XChainRegtestMiner generateBlocks throws for zero blocks and does not log a generation message",
-      "XChainRegtestMiner invalidateBlock pauses mining and calls connector.invalidateBlock",
-      "XChainRegtestMiner invalidateBlock rejects when blockHash is not a string",
-      "XChainRegtestMiner prepareWallet creates the wallet when the probe fails and loadWallet fails",
-      "XChainRegtestMiner prepareWallet does not mine when balance is positive",
-      "XChainRegtestMiner prepareWallet gets a new address after wallet is ready",
-      "XChainRegtestMiner prepareWallet loads the named wallet when the getNewAddress probe never succeeds",
-      "XChainRegtestMiner prepareWallet mines 101 blocks at exactly height 100",
-      "XChainRegtestMiner prepareWallet mines 101 blocks at height 101 (coinbase maturity)",
-      "XChainRegtestMiner prepareWallet mines 101 blocks when balance is zero and height <= 100",
-      "XChainRegtestMiner prepareWallet mines 101 blocks when balance is zero and height > 100 (coinbase maturity)",
-      "XChainRegtestMiner prepareWallet retries the getNewAddress probe while a legacy daemon's wallet is still loading",
-      "XChainRegtestMiner prepareWallet skips load/create when wallet is already loaded",
-      "XChainRegtestMiner prepareWallet throws when the probe fails and both load and create fail",
-      "XChainRegtestMiner prepareWallet treats a never-succeeding probe as no wallet loaded (falls through to loadWallet)",
-      "XChainRegtestMiner reconsiderBlock calls connector.reconsiderBlock with the hash",
-      "XChainRegtestMiner reconsiderBlock leaves mining paused when it was already paused (invalidate \u2192 mine \u2192 reconsider)",
-      "XChainRegtestMiner reconsiderBlock rejects when blockHash is not a string",
-      "XChainRegtestMiner reconsiderBlock restores auto-mining when it was running (reorg sequence ends here)",
-      "XChainRegtestMiner reconsiderBlock restores mining state even when the node RPC throws",
-      "XChainRegtestMiner reconsiderBlock takes the mine-barrier before reaching the node",
-      "XChainRegtestMiner sendFundsToAddress delegates to connector.sendToAddress and returns txid",
-      "XChainRegtestMiner sendFundsToAddress does NOT retry a send that failed for any other reason",
-      "XChainRegtestMiner sendFundsToAddress gives up after ONE reload, rather than looping on a node that stays broken",
-      "XChainRegtestMiner sendFundsToAddress propagates errors",
-      "XChainRegtestMiner sendFundsToAddress reloads the wallet and retries once when the node lost it",
-      "XChainRegtestMiner setDefaultMiningTime resets timing to defaults",
-      "XChainRegtestMiner setMiningTime does not update with non-integer maxTime",
-      "XChainRegtestMiner setMiningTime does not update with non-integer txAddedTime",
-      "XChainRegtestMiner setMiningTime is isolated per instance",
-      "XChainRegtestMiner setMiningTime rejects negative integers",
-      "XChainRegtestMiner setMiningTime rejects zero values",
-      "XChainRegtestMiner setMiningTime updates both timing values with valid integers",
-      "XChainRegtestMiner setMockTime accepts 0 (release the mock clock)",
-      "XChainRegtestMiner setMockTime delegates a valid timestamp to connector.setMockTime",
-      "XChainRegtestMiner setMockTime refuses on mainnet without forwarding to the node",
-      "XChainRegtestMiner setMockTime rejects a negative or non-numeric timestamp without calling the node",
-      "XChainRegtestMiner sleep resolves after the specified delay",
-      "XChainRegtestMiner start (mining loop) calls prepareWallet on start",
-      "XChainRegtestMiner start (mining loop) does not poll mempool when keepMining is false",
-      "XChainRegtestMiner start (mining loop) extends timer when new txs arrive",
-      "XChainRegtestMiner start (mining loop) handles generateBlocks error gracefully",
-      "XChainRegtestMiner start (mining loop) handles getRawMempool error gracefully",
-      "XChainRegtestMiner start (mining loop) mines block after addedTimeToMineTxs with no new txs",
-      "XChainRegtestMiner start (mining loop) mines block after maxTimeToMineTxs elapses",
-      "XChainRegtestMiner start (mining loop) polls mempool when keepMining is true",
-      "XChainRegtestMiner start (mining loop) resets mempool length tracking when mempool empties",
-      "XChainRegtestMiner start (mining loop) resets timers after mining a block",
-      "XChainRegtestMiner start (mining loop) sets keepMining to true",
-      "XChainRegtestMiner start (mining loop) starts initial timer when first tx appears in mempool",
-      "XChainRegtestMiner start (mining loop) tracks lastRawMempoolLength correctly (bug fix verification)"
-    ],
     "26d6ee08948e6531": [
       "reorg wallet-funds refresh leaves wallet_ready true across the invalidate (the health probe reads it as startup-completion)",
       "reorg wallet-funds refresh reports the wallet funded again once reconsider re-settles the chain",
@@ -147,6 +195,36 @@
       "reorg wallet-funds refresh reports unfunded before prepareWallet has ever read a balance",
       "reorg wallet-funds refresh restores prior auto-mining state after reconsider, refresh included",
       "reorg wallet-funds refresh still resolves the reorg RPC when the balance re-read throws"
+    ],
+    "290463c72104a20c": [
+      "Boundary: fillMempool Chunking and Calculations F-07: tx_quantity = 47500 (19 chunks, below mining threshold) does not trigger intermediate block mining (threshold is 20)"
+    ],
+    "2e20a614bd0a6433": [
+      "Boundary: Combined Parameter Interactions C-01: maxTimeToMineTxs=0 with 10000 txs in mempool mines immediately on first poll regardless of mempool size",
+      "Boundary: Combined Parameter Interactions C-02: addedTimeToMineTxs=0 with transactions arriving every poll mines on every poll that detects mempool change",
+      "Boundary: Combined Parameter Interactions C-03: fillMempool with invalid input does not change keepMining keepMining is unchanged for invalid txQuantity (validation rejects early)",
+      "Boundary: Combined Parameter Interactions C-05: prepareWallet with balance=0 at height boundary mines 101 blocks at height 99, which might timeout",
+      "Boundary: Combined Parameter Interactions C-05: prepareWallet with balance=0 at height boundary propagates error when generateToAddress fails during bootstrap",
+      "Boundary: Combined Parameter Interactions C-06: timer threshold changes mid-countdown changing maxTimeToMineTxs higher mid-countdown delays mining",
+      "Boundary: Combined Parameter Interactions C-06: timer threshold changes mid-countdown changing maxTimeToMineTxs lower mid-countdown triggers immediate mining",
+      "Boundary: Combined Parameter Interactions C-07: race between continueMining and fillMempool continueMining sets keepMining=true regardless of fillMempool state",
+      "Boundary: Combined Parameter Interactions C-08: mempool cleared by mining but next poll read stale data handles mempool that empties after mining",
+      "Boundary: Combined Parameter Interactions C-09: both getRawMempool and generateBlocks fail in sequence recovers from alternating error types",
+      "Boundary: Combined Parameter Interactions C-10: wallet creation failure cascade throws when the probe, loadWallet, and createWallet all fail"
+    ],
+    "2f5f62c0490d67ca": [
+      "Seam A: HTTP \u2194 JSON-RPC controller CORS includes Access-Control-Allow-Origin on POST",
+      "Seam A: HTTP \u2194 JSON-RPC controller CORS responds to OPTIONS preflight",
+      "Seam A: HTTP \u2194 JSON-RPC controller Helmet security headers includes X-Content-Type-Options header",
+      "Seam A: HTTP \u2194 JSON-RPC controller Helmet security headers includes X-Frame-Options header",
+      "Seam A: HTTP \u2194 JSON-RPC controller continue_mining returns ok on success",
+      "Seam A: HTTP \u2194 JSON-RPC controller fill_mempool returns error object on failure",
+      "Seam A: HTTP \u2194 JSON-RPC controller fill_mempool returns ok and delegates tx_quantity",
+      "Seam A: HTTP \u2194 JSON-RPC controller ping returns success status",
+      "Seam A: HTTP \u2194 JSON-RPC controller send_funds returns error object on miner failure",
+      "Seam A: HTTP \u2194 JSON-RPC controller send_funds returns txid on success",
+      "Seam A: HTTP \u2194 JSON-RPC controller set_default_mining_time delegates to miner and returns ok",
+      "Seam A: HTTP \u2194 JSON-RPC controller set_mining_time delegates parameters to miner"
     ],
     "33a2c9ffc8ebdb64": [
       "api.js JSON-RPC controller logic continue_mining returns error object on failure",
@@ -165,10 +243,173 @@
       "api.js JSON-RPC controller logic set_mock_time returns an error envelope when the miner refuses (e.g. mainnet)",
       "api.js environment variable parsing reads required env vars"
     ],
+    "34982ab520e9895b": [
+      "T1 Regression: Error Recovery & Backoff REG-T1-E01: Backoff on consecutive mempool errors logs backoff messages with increasing delays",
+      "T1 Regression: Error Recovery & Backoff REG-T1-E02: Backoff resets after success consecutive error counter resets on successful operation"
+    ],
+    "397f170e984ec728": [
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline stress PSBT (child address \u2192 main address) constructs, signs, and finalizes with a child key"
+    ],
+    "3aac6b841d274930": [
+      "XChainRegtestMiner setMockTime accepts 0 (release the mock clock)",
+      "XChainRegtestMiner setMockTime delegates a valid timestamp to connector.setMockTime",
+      "XChainRegtestMiner setMockTime refuses on mainnet without forwarding to the node",
+      "XChainRegtestMiner setMockTime rejects a negative or non-numeric timestamp without calling the node"
+    ],
+    "3c4ccdb0229f8c81": [
+      "Boundary: fillMempool Chunking and Calculations F-03: tx_quantity = 2499 (one below chunk size) creates 1 chunk with 2499 outputs"
+    ],
+    "3c97a1ee3d28ebdd": [
+      "E2E: Chain State Consistency F1: each mined block references the previous block hash",
+      "E2E: Chain State Consistency F2: wallet balance reflects mining rewards after maturity",
+      "E2E: Chain State Consistency F3: mempool transactions appear in mined blocks",
+      "E2E: Chain State Consistency F4: sendFundsToAddress reduces wallet balance",
+      "E2E: Chain State Consistency F5: sequential block generation maintains ascending heights"
+    ],
+    "42340a17642bb547": [
+      "BlockchainConnector createWallet defaults to 50 retries",
+      "BlockchainConnector createWallet exhausts retries and throws",
+      "BlockchainConnector createWallet retries on failure and succeeds",
+      "BlockchainConnector createWallet retries on falsy result and succeeds",
+      "BlockchainConnector createWallet returns wallet info on first success",
+      "BlockchainConnector createWallet sends correct RPC method and params",
+      "BlockchainConnector createWallet sleeps between retries"
+    ],
     "4405034a199528ec": [
       "coverage ratchet floors enforces every declared floor, at the declared value",
       "coverage ratchet floors fails the job on a shortfall rather than only reporting it",
       "coverage ratchet floors ships the coverage:check script the CI coverage job invokes"
+    ],
+    "4597fa934b7af55d": [
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B01: prepareWallet call sequences existing wallet: probe fails\u2192loadWallet\u2192getNewAddress\u2192getBalance",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B01: prepareWallet call sequences fresh node: probe fails\u2192loadWallet\u2192createWallet\u2192getNewAddress\u2192getBalance\u2192generateToAddress(101)\u2192getBalance",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B01: prepareWallet call sequences loaded + funded: getNewAddress\u2192getBalance (minimal calls)",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B01: prepareWallet call sequences loaded, empty balance, aged chain \u2192 still mines to maturity depth (101)",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B01: prepareWallet call sequences stores wallet address and balance",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B02: Mining loop integration sequences mines when mempool has transactions and timer expires",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B02: Mining loop integration sequences no mining with empty mempool",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B02: Mining loop integration sequences recovers from generateToAddress errors",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B02: Mining loop integration sequences recovers from getRawMempool errors",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B03: sendFundsToAddress delegation passes through to connector.sendToAddress",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B04: generateBlocks delegation logs plural message for multiple blocks",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B04: generateBlocks delegation logs singular message for one block",
+      "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B04: generateBlocks delegation passes count and wallet address to connector"
+    ],
+    "461fb74fe5da7ce2": [
+      "E2E: Error Resilience E1: mining loop continues after transient RPC errors",
+      "E2E: Error Resilience E2: send_funds handles insufficient balance gracefully",
+      "E2E: Error Resilience E3: set_mining_time throws on non-integer values and leaves state unchanged"
+    ],
+    "46a7ade14e0c8964": [
+      "BlockchainConnector sleep resolves after the specified delay"
+    ],
+    "4729331c168dff3d": [
+      "Boundary: Adaptive Mining Timer Logic T-06: maxTimeToMineTxs = Number.MAX_SAFE_INTEGER never triggers initial timer; relies on addedTimeToMineTxs"
+    ],
+    "48b7a987053b1f3d": [
+      "Boundary: fillMempool Chunking and Calculations Funding amount per-address calculation amount breakdown: 1000 (amount) + 1000 (fee) + 50 (buffer) = 2050 sat",
+      "Boundary: fillMempool Chunking and Calculations Funding amount per-address calculation converts correctly to BTC",
+      "Boundary: fillMempool Chunking and Calculations Funding amount per-address calculation full chunk funding amount"
+    ],
+    "491dcf628d743c23": [
+      "E2E: Startup and Wallet Lifecycle A1: creates wallet and mines 101 blocks on fresh node",
+      "E2E: Startup and Wallet Lifecycle A2: skips creation when wallet is already loaded",
+      "E2E: Startup and Wallet Lifecycle A3: loads wallet when it exists but is not loaded",
+      "E2E: Startup and Wallet Lifecycle A4: mines 101 blocks when balance is zero even at height > 100",
+      "E2E: Startup and Wallet Lifecycle A5: throws when wallet cannot be created"
+    ],
+    "4dc9be5ab1ba17be": [
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences sendFundsToAddress delegation passes through to connector.sendToAddress"
+    ],
+    "506263d0668be715": [
+      "Fuzz: RPC response handling generateToAddress returns unexpected values survives generateToAddress throwing for various errors",
+      "Fuzz: RPC response handling getBalance returns edge-case values during prepareWallet handles getBalance returning exactly zero",
+      "Fuzz: RPC response handling getBalance returns edge-case values during prepareWallet handles getBalance returning negative",
+      "Fuzz: RPC response handling getBalance returns edge-case values during prepareWallet handles getBalance returning very large",
+      "Fuzz: RPC response handling getBalance returns edge-case values during prepareWallet handles getBalance returning very small positive",
+      "Fuzz: RPC response handling getBlockchainInfo returns unexpected values during prepareWallet handles blocks field as various types",
+      "Fuzz: RPC response handling getBlockchainInfo returns unexpected values during prepareWallet handles missing blocks field",
+      "Fuzz: RPC response handling getRawMempool fluctuating sizes handles mempool growing then shrinking",
+      "Fuzz: RPC response handling getRawMempool fluctuating sizes handles random mempool sizes",
+      "Fuzz: RPC response handling getRawMempool fluctuating sizes handles rapid empty/full alternation",
+      "Fuzz: RPC response handling getRawMempool returns unexpected types survives getRawMempool returning boolean false",
+      "Fuzz: RPC response handling getRawMempool returns unexpected types survives getRawMempool returning boolean true",
+      "Fuzz: RPC response handling getRawMempool returns unexpected types survives getRawMempool returning empty object",
+      "Fuzz: RPC response handling getRawMempool returns unexpected types survives getRawMempool returning empty string",
+      "Fuzz: RPC response handling getRawMempool returns unexpected types survives getRawMempool returning nested array",
+      "Fuzz: RPC response handling getRawMempool returns unexpected types survives getRawMempool returning null",
+      "Fuzz: RPC response handling getRawMempool returns unexpected types survives getRawMempool returning number",
+      "Fuzz: RPC response handling getRawMempool returns unexpected types survives getRawMempool returning number zero",
+      "Fuzz: RPC response handling getRawMempool returns unexpected types survives getRawMempool returning random values",
+      "Fuzz: RPC response handling getRawMempool returns unexpected types survives getRawMempool returning string array-like",
+      "Fuzz: RPC response handling getRawMempool returns unexpected types survives getRawMempool returning undefined",
+      "Fuzz: RPC response handling getRawMempool throws errors survives non-Error throws",
+      "Fuzz: RPC response handling getRawMempool throws errors survives random error messages",
+      "Fuzz: RPC response handling getRawMempool with invalid txid entries handles arrays with non-string elements",
+      "Fuzz: RPC response handling getRawMempool with invalid txid entries handles extremely large mempool arrays"
+    ],
+    "50eee7e50e0f3e01": [
+      "Boundary: fillMempool Chunking and Calculations F-04: tx_quantity = 2500 (exactly one chunk) creates exactly 1 chunk with no remainder",
+      "Boundary: fillMempool Chunking and Calculations F-04: tx_quantity = 2500 (exactly one chunk) last chunk uses full OUTPUTS_QUANTITY_PER_TX when evenly divisible"
+    ],
+    "5235278c7e6f0773": [
+      "Chaos: Stress Testing CE-07: Large Mempool (10,000+ entries) CE-07: miner handles 10,000+ mempool entries without memory issues",
+      "Chaos: Stress Testing CE-09: Concurrent API Abuse CE-09a: 10 concurrent fill_mempool calls; exactly 1 accepted, rest rejected by guard",
+      "Chaos: Stress Testing CE-09: Concurrent API Abuse CE-09b: 50 concurrent send_funds calls complete without crashing",
+      "Chaos: Stress Testing CE-09: Concurrent API Abuse CE-09c: 20 concurrent set_mining_time calls produce valid final state"
+    ],
+    "52722d0530e0365c": [
+      "Boundary: RPC Retry and Response Shapes Constructor URL boundaries builds URL with IPv6 address",
+      "Boundary: RPC Retry and Response Shapes Constructor URL boundaries builds URL with empty host",
+      "Boundary: RPC Retry and Response Shapes Constructor URL boundaries builds URL with empty port",
+      "Boundary: RPC Retry and Response Shapes Constructor URL boundaries stores credentials as-is (no encoding)",
+      "Boundary: RPC Retry and Response Shapes R-04: createWallet fails on exactly attempt 10 of 10 throws after exhausting all 10 retries",
+      "Boundary: RPC Retry and Response Shapes R-05: createWallet succeeds on exactly attempt 10 of 10 returns success on final retry",
+      "Boundary: RPC Retry and Response Shapes R-06: createWallet fails once then succeeds returns success after 2 attempts",
+      "Boundary: RPC Retry and Response Shapes R-07: getWalletInfo fails many times then succeeds succeeds after N failures (bounded by maxRetries)",
+      "Boundary: RPC Retry and Response Shapes R-10: RPC returns result: null getBlockchainInfo throws on null result",
+      "Boundary: RPC Retry and Response Shapes R-10: RPC returns result: null getNetworkInfo throws on null result",
+      "Boundary: RPC Retry and Response Shapes R-10: RPC returns result: null getRawMempool throws on null result",
+      "Boundary: RPC Retry and Response Shapes R-11: getRawMempool returns empty array returns empty array successfully",
+      "Boundary: RPC Retry and Response Shapes R-12: RPC returns error object in response methods that check result truthiness throw on null result",
+      "Boundary: RPC Retry and Response Shapes R-13: RPC returns malformed JSON (axios parse error) throws clean error (does not expose parse details)",
+      "Boundary: RPC Retry and Response Shapes R-14: RPC returns HTTP 500 throws clean error (does not expose status code)",
+      "Boundary: RPC Retry and Response Shapes R-15: Connection refused (node not running) throws clean error (does not expose connection details)",
+      "Boundary: RPC Retry and Response Shapes R-16: getRawTransaction returns null on error returns hex on success",
+      "Boundary: RPC Retry and Response Shapes R-16: getRawTransaction returns null on error returns null on RPC error",
+      "Boundary: RPC Retry and Response Shapes R-16: getRawTransaction returns null on error returns null on network error",
+      "Boundary: RPC Retry and Response Shapes R-17: generateToAddress returns empty array returns empty array for 0 blocks",
+      "Boundary: RPC Retry and Response Shapes R-18: generateToAddress called with 0 blocks sends count=0 as param",
+      "Boundary: RPC Retry and Response Shapes createWallet with falsy result then success decrements tries on falsy result and retries",
+      "Boundary: RPC Retry and Response Shapes createWallet with tries=0 throws immediately with zero tries (no attempts made)",
+      "Boundary: RPC Retry and Response Shapes createWallet with tries=1 gets exactly one attempt",
+      "Boundary: RPC Retry and Response Shapes generateToAddress timeout boundary inherits the connector-wide default timeout (no per-call override)",
+      "Boundary: RPC Retry and Response Shapes getBalance boundary responses accepts -0 as valid (isNaN(-0) is false)",
+      "Boundary: RPC Retry and Response Shapes getBalance boundary responses returns 0 for zero balance",
+      "Boundary: RPC Retry and Response Shapes getBalance boundary responses returns very small positive balance",
+      "Boundary: RPC Retry and Response Shapes getBalance boundary responses throws when result is null (explicit null check)",
+      "Boundary: RPC Retry and Response Shapes getBalance boundary responses throws when result is string (NaN check)",
+      "Boundary: RPC Retry and Response Shapes getBalance boundary responses throws when result is undefined",
+      "Boundary: RPC Retry and Response Shapes getWalletInfo sleeps between retries sleeps 1000ms on each retry",
+      "Boundary: RPC Retry and Response Shapes getWalletInfo succeeds on first try makes exactly one call",
+      "Boundary: RPC Retry and Response Shapes getWalletInfo with maxRetries=0 throws immediately with zero retries",
+      "Boundary: RPC Retry and Response Shapes getWalletInfo with maxRetries=1 gets exactly one attempt",
+      "Boundary: RPC Retry and Response Shapes sendToAddress response shape boundaries extracts txid from verbose response",
+      "Boundary: RPC Retry and Response Shapes sendToAddress response shape boundaries throws when response has no txid key"
+    ],
+    "57a803d31d74b2a1": [
+      "XChainRegtestMiner prepareWallet creates the wallet when the probe fails and loadWallet fails",
+      "XChainRegtestMiner prepareWallet does not mine when balance is positive",
+      "XChainRegtestMiner prepareWallet gets a new address after wallet is ready",
+      "XChainRegtestMiner prepareWallet loads the named wallet when the getNewAddress probe never succeeds",
+      "XChainRegtestMiner prepareWallet mines 101 blocks at exactly height 100",
+      "XChainRegtestMiner prepareWallet mines 101 blocks at height 101 (coinbase maturity)",
+      "XChainRegtestMiner prepareWallet mines 101 blocks when balance is zero and height <= 100",
+      "XChainRegtestMiner prepareWallet mines 101 blocks when balance is zero and height > 100 (coinbase maturity)",
+      "XChainRegtestMiner prepareWallet retries the getNewAddress probe while a legacy daemon's wallet is still loading",
+      "XChainRegtestMiner prepareWallet skips load/create when wallet is already loaded",
+      "XChainRegtestMiner prepareWallet throws when the probe fails and both load and create fail",
+      "XChainRegtestMiner prepareWallet treats a never-succeeding probe as no wallet loaded (falls through to loadWallet)"
     ],
     "58706b2a54fa0008": [
       "JSON-RPC body guard (Express 5 / body-parser 2.x regression) does not crash WITH the guard (GET -> not 500)",
@@ -176,6 +417,59 @@
       "JSON-RPC body guard (Express 5 / body-parser 2.x regression) reproduces the crash WITHOUT the guard (bodiless GET -> 500)",
       "JSON-RPC body guard (Express 5 / body-parser 2.x regression) src/api.js wires the guard before the jsonRouter mount",
       "JSON-RPC body guard (Express 5 / body-parser 2.x regression) still serves a valid JSON-RPC POST WITH the guard"
+    ],
+    "58bc7d752838d3f3": [
+      "Security: Resource Exhaustion & DoS Prevention fillMempool concurrent access protection (SEC-006) allows new fillMempool call after previous one completes",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool concurrent access protection (SEC-006) does not modify keepMining when rejected for concurrency",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool concurrent access protection (SEC-006) initializes fillMempoolRunning to false",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool concurrent access protection (SEC-006) rejects concurrent call when fillMempool is already running",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool concurrent access protection (SEC-006) resets fillMempoolRunning to false after quantity cap rejection",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool concurrent access protection (SEC-006) resets fillMempoolRunning to false after success path",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool concurrent access protection (SEC-006) sets fillMempoolRunning to true during execution",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool memory exhaustion prevention (SEC-002) rejects 1000000 without allocating addresses",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool memory exhaustion prevention (SEC-002) rejects 50001 without allocating addresses",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool memory exhaustion prevention (SEC-002) rejects Number.MAX_SAFE_INTEGER",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool sendFundsToAddress retry limit (SEC-001) does not hang indefinitely when RPC is permanently down",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool sendFundsToAddress retry limit (SEC-001) resets fillMempoolRunning after retry failure",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool sendFundsToAddress retry limit (SEC-001) retries exactly 50 times before throwing",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool sendFundsToAddress retry limit (SEC-001) succeeds if sendFundsToAddress recovers within retry limit",
+      "Security: Resource Exhaustion & DoS Prevention fillMempool sendFundsToAddress retry limit (SEC-001) throws after MAX_SEND_RETRIES when sendFundsToAddress always fails"
+    ],
+    "590d1d45036e5ed4": [
+      "Chaos: fillMempool Interruption (CE-06) CE-06a: fillMempoolRunning resets to false after node failure mid-fillMempool",
+      "Chaos: fillMempool Interruption (CE-06) CE-06b: keepMining is restored to true after fillMempool fails (W-3 fixed)",
+      "Chaos: fillMempool Interruption (CE-06) CE-06c: mining works immediately after failed fillMempool (W-3 fixed)"
+    ],
+    "5b031e69aaf9f134": [
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline UTXO identification from raw transaction correctly identifies UTXOs across multiple funding transactions",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline UTXO identification from raw transaction finds the correct output when mainAddress is not at index 0",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline UTXO identification from raw transaction finds the output matching the main address at index 0"
+    ],
+    "5d3ce1b81ea05e74": [
+      "Boundary: Adaptive Mining Timer Logic T-12: floating-point timer values rejects float values via Number.isInteger check"
+    ],
+    "5eeda98f25283817": [
+      "T2 Regression: Full E2E Pipeline REG-T2-007: send_funds creates a real transaction send_funds produces a transaction in the mempool"
+    ],
+    "5fe09f057023d96d": [
+      "BlockchainConnector getBlockHash sends blockindex as param and returns hash",
+      "BlockchainConnector getBlockHash throws clean error on network error",
+      "BlockchainConnector getBlockHash throws when result is falsy"
+    ],
+    "63c129ac17a4843e": [
+      "Boundary: fillMempool Chunking and Calculations F-05: tx_quantity = 2501 (one above chunk size) creates 2 chunks: one of 2500 and one of 1",
+      "Boundary: fillMempool Chunking and Calculations F-05: tx_quantity = 2501 (one above chunk size) first chunk is full size, second is remainder"
+    ],
+    "666fc4b8e265f889": [
+      "BlockchainConnector getBalance returns numeric balance",
+      "BlockchainConnector getBalance returns zero balance",
+      "BlockchainConnector getBalance throws when result is NaN"
+    ],
+    "671fa2c590201b73": [
+      "BlockchainConnector constructor builds the correct URL from host and port",
+      "BlockchainConnector constructor handles special characters in host/port",
+      "BlockchainConnector constructor stores RPC credentials",
+      "BlockchainConnector constructor stores the port"
     ],
     "6759ce6db03c3c10": [
       "CryptoNetworks.getBitcoinJsNetwork returns dogecoin-mainnet params",
@@ -186,6 +480,96 @@
       "CryptoNetworks.getBitcoinJsNetwork returns litecoin-testnet params with the tltc bech32 prefix",
       "CryptoNetworks.getBitcoinJsNetwork returns the bitcoinjs-lib bitcoin params augmented with relay policy fields",
       "CryptoNetworks.getBitcoinJsNetwork returns undefined for an unknown network name (no matching case)"
+    ],
+    "675d44d420b96497": [
+      "Boundary: fillMempool Chunking and Calculations F-01: tx_quantity = 0 rejects invalid input and does not change keepMining"
+    ],
+    "692fa0a1aa4cae1d": [
+      "T0 Regression: Critical Gate REG-T0-001: Constructor defaults initializes with correct default values",
+      "T0 Regression: Critical Gate REG-T0-002: setMiningTime validation accepts boundary maximum (3600000ms)",
+      "T0 Regression: Critical Gate REG-T0-002: setMiningTime validation accepts boundary minimum (1000ms)",
+      "T0 Regression: Critical Gate REG-T0-002: setMiningTime validation accepts valid integer values",
+      "T0 Regression: Critical Gate REG-T0-002: setMiningTime validation rejects negative values",
+      "T0 Regression: Critical Gate REG-T0-002: setMiningTime validation rejects non-integer maxTime",
+      "T0 Regression: Critical Gate REG-T0-002: setMiningTime validation rejects values above maximum (3600000ms)",
+      "T0 Regression: Critical Gate REG-T0-002: setMiningTime validation rejects values below minimum (1000ms)",
+      "T0 Regression: Critical Gate REG-T0-002: setMiningTime validation rejects zero values",
+      "T0 Regression: Critical Gate REG-T0-003: setDefaultMiningTime resets to defaults restores 30000/5000 defaults",
+      "T0 Regression: Critical Gate REG-T0-004: prepareWallet branching creates wallet when both the probe and loadWallet fail",
+      "T0 Regression: Critical Gate REG-T0-004: prepareWallet branching does not mine when balance is positive",
+      "T0 Regression: Critical Gate REG-T0-004: prepareWallet branching loads existing wallet when the probe fails",
+      "T0 Regression: Critical Gate REG-T0-004: prepareWallet branching mines 101 blocks when balance is zero and height <= 100",
+      "T0 Regression: Critical Gate REG-T0-004: prepareWallet branching mines 101 blocks when balance is zero and height > 100 (maturity depth is height-independent)",
+      "T0 Regression: Critical Gate REG-T0-004: prepareWallet branching skips load/create when wallet is already loaded",
+      "T0 Regression: Critical Gate REG-T0-004: prepareWallet branching throws when all wallet methods fail",
+      "T0 Regression: Critical Gate REG-T0-005: Mining loop core paths calls prepareWallet and sets keepMining on start",
+      "T0 Regression: Critical Gate REG-T0-005: Mining loop core paths detects new mempool transactions without mining immediately",
+      "T0 Regression: Critical Gate REG-T0-005: Mining loop core paths does not poll mempool when keepMining is false",
+      "T0 Regression: Critical Gate REG-T0-005: Mining loop core paths handles generateBlocks error gracefully and retries",
+      "T0 Regression: Critical Gate REG-T0-005: Mining loop core paths handles getRawMempool error gracefully and retries",
+      "T0 Regression: Critical Gate REG-T0-005: Mining loop core paths mines block after addedTimeToMineTxs with no new txs",
+      "T0 Regression: Critical Gate REG-T0-005: Mining loop core paths mines block after maxTimeToMineTxs elapses",
+      "T0 Regression: Critical Gate REG-T0-005: Mining loop core paths resets timers when mempool empties",
+      "T0 Regression: Critical Gate REG-T0-006: fillMempool guards (W-3 bug prevention) leaves mining paused after fillMempool (resume is continue_mining)",
+      "T0 Regression: Critical Gate REG-T0-006: fillMempool guards (W-3 bug prevention) rejects concurrent fillMempool calls",
+      "T0 Regression: Critical Gate REG-T0-006: fillMempool guards (W-3 bug prevention) rejects invalid txQuantity without changing keepMining",
+      "T0 Regression: Critical Gate REG-T0-006: fillMempool guards (W-3 bug prevention) rejects txQuantity exceeding maximum",
+      "T0 Regression: Critical Gate REG-T0-007: sendFundsToAddress input validation delegates valid inputs to connector",
+      "T0 Regression: Critical Gate REG-T0-007: sendFundsToAddress input validation rejects Infinity amount",
+      "T0 Regression: Critical Gate REG-T0-007: sendFundsToAddress input validation rejects empty string address",
+      "T0 Regression: Critical Gate REG-T0-007: sendFundsToAddress input validation rejects negative amount",
+      "T0 Regression: Critical Gate REG-T0-007: sendFundsToAddress input validation rejects non-number amount",
+      "T0 Regression: Critical Gate REG-T0-007: sendFundsToAddress input validation rejects non-string address",
+      "T0 Regression: Critical Gate REG-T0-007: sendFundsToAddress input validation rejects zero amount",
+      "T0 Regression: Critical Gate REG-T0-008: JSON-RPC API controller continue_mining dispatches to miner",
+      "T0 Regression: Critical Gate REG-T0-008: JSON-RPC API controller fill_mempool dispatches to miner",
+      "T0 Regression: Critical Gate REG-T0-008: JSON-RPC API controller ping returns success",
+      "T0 Regression: Critical Gate REG-T0-008: JSON-RPC API controller send_funds dispatches to miner",
+      "T0 Regression: Critical Gate REG-T0-008: JSON-RPC API controller send_funds returns error on failure",
+      "T0 Regression: Critical Gate REG-T0-008: JSON-RPC API controller set_default_mining_time dispatches to miner",
+      "T0 Regression: Critical Gate REG-T0-008: JSON-RPC API controller set_mining_time dispatches to miner",
+      "T0 Regression: Critical Gate REG-T0-009: BlockchainConnector construction builds correct URL and stores credentials",
+      "T0 Regression: Critical Gate REG-T0-010: continueMining sets keepMining flag sets keepMining to true"
+    ],
+    "69e9f1274058b9c0": [
+      "Fuzz: mining loop state machine loop continuation property loop continues for any sequence of mempool/error events"
+    ],
+    "6a07711134934e3e": [
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences mining loop sequences B-10: no mining with empty mempool",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences mining loop sequences B-11: mines multiple blocks across timer resets",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences mining loop sequences B-12: paused mining does not generate blocks",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences mining loop sequences B-13: recovers from getRawMempool errors",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences mining loop sequences B-14: recovers from generateToAddress errors",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences mining loop sequences B-9: mines when mempool has transactions and timer expires",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences mining loop sequences keepMining toggle: continueMining resumes after pause",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences mining loop sequences timer extension: new txs delay mining"
+    ],
+    "6aa1699b0a42bd65": [
+      "Regtest Miner Smoke Tests BlockchainConnector ST-01: instantiates with correct RPC URL and credentials",
+      "Regtest Miner Smoke Tests JSON-RPC API ST-10: ping returns success",
+      "Regtest Miner Smoke Tests JSON-RPC API ST-11: send_funds dispatches to miner",
+      "Regtest Miner Smoke Tests JSON-RPC API ST-12: set_mining_time dispatches to miner",
+      "Regtest Miner Smoke Tests XChainRegtestMiner ST-02: instantiates with correct defaults",
+      "Regtest Miner Smoke Tests XChainRegtestMiner ST-03: prepares wallet on fresh node (create + fund)",
+      "Regtest Miner Smoke Tests XChainRegtestMiner ST-04: prepares wallet with existing wallet (load)",
+      "Regtest Miner Smoke Tests XChainRegtestMiner ST-05: detects new mempool transactions",
+      "Regtest Miner Smoke Tests XChainRegtestMiner ST-06: triggers block generation after timer expires",
+      "Regtest Miner Smoke Tests XChainRegtestMiner ST-07: max timer forces generation despite new txs arriving",
+      "Regtest Miner Smoke Tests XChainRegtestMiner ST-08: pauses and resumes mining via keepMining flag",
+      "Regtest Miner Smoke Tests XChainRegtestMiner ST-09: overrides and resets mining time constants"
+    ],
+    "6ad73e8c3003b480": [
+      "Boundary: Adaptive Mining Timer Logic T-05: addedTimeToMineTxs = 1 fires after 1ms with no new txs"
+    ],
+    "6bbb6ea0661ff52d": [
+      "Security: Error Sanitization & Information Disclosure API error messages do not reflect user input (SEC-012) sendFundsToAddress error does not include the address",
+      "Security: Error Sanitization & Information Disclosure API error messages do not reflect user input (SEC-012) setMiningTime error does not include raw values",
+      "Security: Error Sanitization & Information Disclosure sendRawTransaction error sanitization (SEC-004) does not log credentials on sendRawTransaction failure",
+      "Security: Error Sanitization & Information Disclosure sendRawTransaction error sanitization (SEC-004) throws a clean error message",
+      "Security: Error Sanitization & Information Disclosure sendToAddress does not reflect RPC error data does not include RPC error response in thrown error",
+      "Security: Error Sanitization & Information Disclosure sendToAddress error sanitization (SEC-004) does not expose RPC URL in thrown error",
+      "Security: Error Sanitization & Information Disclosure sendToAddress error sanitization (SEC-004) does not log RPC credentials on sendToAddress failure",
+      "Security: Error Sanitization & Information Disclosure sendToAddress error sanitization (SEC-004) throws a clean error message for sendToAddress"
     ],
     "6c3ecc15eec173af": [
       "wallet balance freshness in the auto-mine loop CONTROL: without the loop refresh a drained wallet still reports funded",
@@ -198,9 +582,42 @@
       "wallet balance freshness in the auto-mine loop reports the drained wallet unfunded within one interval, with no reorg RPC",
       "wallet balance freshness in the auto-mine loop stamps wallet_balance_at even when the read fails, so a wedged node is not re-polled every tick"
     ],
+    "6c604ce0bd6197e6": [
+      "Boundary: fillMempool Chunking and Calculations F-08: tx_quantity = 50000 (20 chunks, exact mining threshold) triggers exactly one intermediate block mine"
+    ],
     "71884b7dd048eb3b": [
       "no-API-key boot warning @regression the warning states authentication is disabled (fail-open)",
       "no-API-key boot warning @regression warns at boot when MINER_API_KEY is unset"
+    ],
+    "71e1b7f9a9d64a57": [
+      "E2E: JSON-RPC API Against Live Miner C1: ping returns success while mining loop is running",
+      "E2E: JSON-RPC API Against Live Miner C2: send_funds creates a transaction on the mock node",
+      "E2E: JSON-RPC API Against Live Miner C3: set_mining_time changes live mining behavior",
+      "E2E: JSON-RPC API Against Live Miner C4: continue_mining resumes mining after pause"
+    ],
+    "745d6021f0e4b4c1": [
+      "Fuzz: JSON-RPC API parameters continue_mining with unexpected params never throws regardless of extra params",
+      "Fuzz: JSON-RPC API parameters fill_mempool with arbitrary tx_quantity handles miner throwing for any input including non-stringifiable objects",
+      "Fuzz: JSON-RPC API parameters fill_mempool with arbitrary tx_quantity never throws for any arbitrary type",
+      "Fuzz: JSON-RPC API parameters fill_mempool with arbitrary tx_quantity never throws for any integer-like value",
+      "Fuzz: JSON-RPC API parameters malformed parameter objects fill_mempool handles missing tx_quantity",
+      "Fuzz: JSON-RPC API parameters malformed parameter objects send_funds handles missing fields gracefully",
+      "Fuzz: JSON-RPC API parameters malformed parameter objects set_mining_time handles missing fields",
+      "Fuzz: JSON-RPC API parameters ping stability always returns success regardless of call count",
+      "Fuzz: JSON-RPC API parameters send_funds with arbitrary address values handles arbitrary character address strings",
+      "Fuzz: JSON-RPC API parameters send_funds with arbitrary address values handles miner throwing for any input including non-stringifiable objects",
+      "Fuzz: JSON-RPC API parameters send_funds with arbitrary address values handles very long address strings",
+      "Fuzz: JSON-RPC API parameters send_funds with arbitrary address values never throws for any arbitrary address type",
+      "Fuzz: JSON-RPC API parameters send_funds with arbitrary address values never throws for any string address",
+      "Fuzz: JSON-RPC API parameters set_mining_time with arbitrary parameters handles miner throwing for any input",
+      "Fuzz: JSON-RPC API parameters set_mining_time with arbitrary parameters never throws for any pair of values"
+    ],
+    "77974a1b36c1001b": [
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline ECPair network parameter creates key pair with regtest network",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline ECPair network parameter produces the same address as direct P2PKH derivation"
+    ],
+    "78a7eebc2e596bbb": [
+      "Boundary: Adaptive Mining Timer Logic T-03: both timers set to 0 mines on the very next poll after first tx detected"
     ],
     "7b49b18b1c656b04": [
       "XChainRegtestMiner idle mine-empty heartbeat _idleMineDue does not fire before the interval elapses",
@@ -216,11 +633,229 @@
       "XChainRegtestMiner idle mine-empty heartbeat setIdleMineInterval enforces the same bounds as the mining timers",
       "XChainRegtestMiner idle mine-empty heartbeat setIdleMineInterval throws (never returns a sentinel) on non-integers and negatives"
     ],
+    "7da8bb2e5e171546": [
+      "Security: BlockchainConnector Error Sanitization createWallet does not log credentials",
+      "Security: BlockchainConnector Error Sanitization createWallet throws clean error without credentials after retries",
+      "Security: BlockchainConnector Error Sanitization generateToAddress does not log credentials",
+      "Security: BlockchainConnector Error Sanitization generateToAddress throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getBalance does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getBalance throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getBlock does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getBlock throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getBlockHash does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getBlockHash throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getBlockchainInfo does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getBlockchainInfo throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getMempoolEntry does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getMempoolEntry throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getNetworkInfo does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getNetworkInfo throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getNewAddress does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getNewAddress throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getRawMempool does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getRawMempool throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getRawTransaction returns null on error without logging credentials",
+      "Security: BlockchainConnector Error Sanitization getWalletInfo does not log credentials during retries",
+      "Security: BlockchainConnector Error Sanitization getWalletInfo throws clean error without credentials after retries",
+      "Security: BlockchainConnector Error Sanitization loadWallet does not log credentials",
+      "Security: BlockchainConnector Error Sanitization loadWallet throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console generateToAddress does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBalance does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBlock does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBlockHash does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBlockchainInfo does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getMempoolEntry does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getNetworkInfo does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getNewAddress does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getRawMempool does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console loadWallet does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console sendRawTransaction does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console sendToAddress does not log password",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors createWallet error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors generateToAddress error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBalance error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBlock error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBlockHash error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBlockchainInfo error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getMempoolEntry error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getNetworkInfo error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getNewAddress error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getRawMempool error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getWalletInfo error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors loadWallet error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors sendRawTransaction error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors sendToAddress error has no .config property",
+      "Security: BlockchainConnector Error Sanitization sendRawTransaction does not log credentials",
+      "Security: BlockchainConnector Error Sanitization sendRawTransaction throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization sendToAddress does not log credentials",
+      "Security: BlockchainConnector Error Sanitization sendToAddress throws clean error without credentials"
+    ],
+    "7eda23ba590cdcee": [
+      "BlockchainConnector getNetworkInfo returns the result on success",
+      "BlockchainConnector getNetworkInfo throws clean error on network error",
+      "BlockchainConnector getNetworkInfo throws when result is falsy"
+    ],
+    "81dd0521aa6acf67": [
+      "Boundary: fillMempool Chunking and Calculations F-12: very large tx_quantity calculates chunk count correctly for 1000000",
+      "Boundary: fillMempool Chunking and Calculations F-12: very large tx_quantity funding amount does not exceed Number.MAX_SAFE_INTEGER for single chunk",
+      "Boundary: fillMempool Chunking and Calculations F-12: very large tx_quantity total funding for all chunks stays within safe integer range"
+    ],
+    "82becc1ea033f724": [
+      "Boundary: Adaptive Mining Timer Logic T-23: mempool empties completely between polls resets all timers and does not mine"
+    ],
+    "8413db92098da15f": [
+      "Boundary: fillMempool Chunking and Calculations BIP32 derivation index boundaries first address uses derive(1).derive(0)",
+      "Boundary: fillMempool Chunking and Calculations BIP32 derivation index boundaries last address for tx_quantity=N uses derive(N).derive(0)",
+      "Boundary: fillMempool Chunking and Calculations BIP32 derivation index boundaries main address uses derive(0).derive(0)"
+    ],
+    "88085445af960ca9": [
+      "Boundary: fillMempool Chunking and Calculations Stress transaction output index calculation output index wraps correctly within chunk",
+      "Boundary: fillMempool Chunking and Calculations Stress transaction output index calculation utxo index selects correct chunk"
+    ],
+    "8aa317e8fb38fb47": [
+      "XChainRegtestMiner constructor creates a BlockchainConnector instance",
+      "XChainRegtestMiner constructor initializes with correct defaults",
+      "XChainRegtestMiner continueMining sets keepMining to true",
+      "XChainRegtestMiner createWallet delegates to connector.createWallet and returns true",
+      "XChainRegtestMiner createWallet throws on connector error",
+      "XChainRegtestMiner funding fee ceiling does not invent a fee_rate for a coin that has no such argument",
+      "XChainRegtestMiner funding fee ceiling falls back to the per-call rate when a daemon has dropped settxfee",
+      "XChainRegtestMiner funding fee ceiling keeps the wallet-wide settxfee pin for LTC and DOGE",
+      "XChainRegtestMiner funding fee ceiling leaves a working settxfee daemon on the wallet-wide pin",
+      "XChainRegtestMiner funding fee ceiling pins BTC per call, because settxfee no longer exists there",
+      "XChainRegtestMiner generateBlocks accepts the maximum count and does not poison the queue after an over-cap throw",
+      "XChainRegtestMiner generateBlocks calls generateToAddress with count and wallet address",
+      "XChainRegtestMiner generateBlocks logs plural message for multiple blocks",
+      "XChainRegtestMiner generateBlocks logs singular message for one block",
+      "XChainRegtestMiner generateBlocks throws for a count above the maximum instead of driving the node",
+      "XChainRegtestMiner generateBlocks throws for an absurd count (Number.MAX_SAFE_INTEGER)",
+      "XChainRegtestMiner generateBlocks throws for zero blocks and does not log a generation message",
+      "XChainRegtestMiner invalidateBlock pauses mining and calls connector.invalidateBlock",
+      "XChainRegtestMiner invalidateBlock rejects when blockHash is not a string",
+      "XChainRegtestMiner sendFundsToAddress delegates to connector.sendToAddress and returns txid",
+      "XChainRegtestMiner sendFundsToAddress does NOT retry a send that failed for any other reason",
+      "XChainRegtestMiner sendFundsToAddress gives up after ONE reload, rather than looping on a node that stays broken",
+      "XChainRegtestMiner sendFundsToAddress propagates errors",
+      "XChainRegtestMiner sendFundsToAddress reloads the wallet and retries once when the node lost it",
+      "XChainRegtestMiner setDefaultMiningTime resets timing to defaults",
+      "XChainRegtestMiner setMiningTime does not update with non-integer maxTime",
+      "XChainRegtestMiner setMiningTime does not update with non-integer txAddedTime",
+      "XChainRegtestMiner setMiningTime is isolated per instance",
+      "XChainRegtestMiner setMiningTime rejects negative integers",
+      "XChainRegtestMiner setMiningTime rejects zero values",
+      "XChainRegtestMiner setMiningTime updates both timing values with valid integers"
+    ],
+    "906040fe4a8a748f": [
+      "BlockchainConnector getWalletInfo defaults to 50 max retries",
+      "BlockchainConnector getWalletInfo retries on failure and returns on success",
+      "BlockchainConnector getWalletInfo returns wallet info on first success",
+      "BlockchainConnector getWalletInfo silently retries without logging credentials",
+      "BlockchainConnector getWalletInfo sleeps 1s between retries",
+      "BlockchainConnector getWalletInfo throws after exhausting max retries",
+      "BlockchainConnector getWalletInfo throws when response has no result"
+    ],
+    "90901a7a34d0d4aa": [
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline fillMempool end-to-end with real crypto all broadcast transactions are valid parseable hex",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline fillMempool end-to-end with real crypto fillMempool(1) broadcasts exactly 2 raw transactions",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline fillMempool end-to-end with real crypto fillMempool(1) completes without error",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline fillMempool end-to-end with real crypto fillMempool(1) distribution tx has correct structure",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline fillMempool end-to-end with real crypto fillMempool(1) distribution tx output goes to correct child address",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline fillMempool end-to-end with real crypto fillMempool(1) leaves mining paused so the txs stay in the mempool",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline fillMempool end-to-end with real crypto fillMempool(1) mines 2 blocks during the process",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline fillMempool end-to-end with real crypto fillMempool(1) stress tx has correct structure",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline fillMempool end-to-end with real crypto fillMempool(1) stress tx output goes to main address",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline fillMempool end-to-end with real crypto fillMempool(3) broadcasts correct number of transactions",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline fillMempool end-to-end with real crypto fillMempool(3) distribution tx has 3 outputs"
+    ],
+    "92924e9ce2b2d4ed": [
+      "Boundary: Adaptive Mining Timer Logic T-21: mempool grows during extension window resets extendedStartToMine but not initialStartToMine"
+    ],
+    "948d96ff2404b44b": [
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences generateBlocks delegation passes count and wallet address to connector"
+    ],
+    "9aeab30acdc92870": [
+      "Boundary: Adaptive Mining Timer Logic T-13: non-numeric timer values rejects Infinity",
+      "Boundary: Adaptive Mining Timer Logic T-13: non-numeric timer values rejects NaN",
+      "Boundary: Adaptive Mining Timer Logic T-13: non-numeric timer values rejects mixed valid/invalid (maxTime valid, txAddedTime invalid)",
+      "Boundary: Adaptive Mining Timer Logic T-13: non-numeric timer values rejects null values",
+      "Boundary: Adaptive Mining Timer Logic T-13: non-numeric timer values rejects string values",
+      "Boundary: Adaptive Mining Timer Logic T-13: non-numeric timer values rejects undefined values"
+    ],
+    "9b5bfd0cd5515696": [
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NETWORK value validation (SEC-018) accepts mainnet",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NETWORK value validation (SEC-018) accepts regtest",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NETWORK value validation (SEC-018) accepts testnet",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NETWORK value validation (SEC-018) exits when NETWORK is \"REGTEST\" (case-sensitive)",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NETWORK value validation (SEC-018) exits when NETWORK is \"production\"",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NETWORK value validation (SEC-018) exits when NETWORK is an invalid value",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NETWORK value validation (SEC-018) logs valid network values in error message",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NODE_URL localhost warning (SEC-017) does not exit on non-localhost NODE_URL (warning only)",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NODE_URL localhost warning (SEC-017) does not warn when NODE_URL is 127.0.0.1",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NODE_URL localhost warning (SEC-017) does not warn when NODE_URL is localhost",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NODE_URL localhost warning (SEC-017) warns when NODE_URL is a hostname",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) NODE_URL localhost warning (SEC-017) warns when NODE_URL is a remote host",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) empty environment variables exits when NETWORK is empty string",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) empty environment variables exits when NODE_PASSWORD is whitespace only",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) invalid port values exits when NODE_PORT exceeds 65535",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) invalid port values exits when NODE_PORT is 0",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) invalid port values exits when NODE_PORT is negative",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) invalid port values exits when NODE_PORT is not a number",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) invalid port values exits when REGTEST_MINER_API_PORT exceeds 65535",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) invalid port values exits when REGTEST_MINER_API_PORT is not a number",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) invalid port values logs which port variable is invalid",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) missing environment variables exits when NETWORK is missing",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) missing environment variables exits when NODE_PASSWORD is missing",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) missing environment variables exits when NODE_PORT is missing",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) missing environment variables exits when NODE_URL is missing",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) missing environment variables exits when NODE_USER is missing",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) missing environment variables exits when REGTEST_MINER_API_PORT is missing",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) missing environment variables exits when all env vars are missing",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) missing environment variables logs which variables are missing",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) valid environment accepts port 1",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) valid environment accepts port 65535",
+      "Security: Environment Variable Validation (SEC-005, SEC-017, SEC-018) valid environment does not exit with valid env vars"
+    ],
+    "9bfa068b0fc7fb6e": [
+      "Fuzz: RPC response handling sendFundsToAddress with arbitrary inputs passes through valid address and amount to connector",
+      "Fuzz: RPC response handling sendFundsToAddress with arbitrary inputs propagates connector errors for valid inputs",
+      "Fuzz: RPC response handling sendFundsToAddress with arbitrary inputs rejects invalid inputs without reaching connector"
+    ],
+    "9c4aeeddbe42a3d0": [
+      "Boundary: Adaptive Mining Timer Logic T-08: both timers = Number.MAX_SAFE_INTEGER mining never triggers via timer"
+    ],
+    "9f3bc35ced2d361c": [
+      "BlockchainConnector sendToAddress carries a supplied fee rate to the daemon as the fee_rate argument",
+      "BlockchainConnector sendToAddress does NOT flag an ordinary send failure as a lost wallet",
+      "BlockchainConnector sendToAddress flags a lost wallet so the caller can reload it, without saying anything in the message",
+      "BlockchainConnector sendToAddress keeps the legacy positional form when no fee rate is supplied",
+      "BlockchainConnector sendToAddress logs the node RPC error when result is falsy but throws a static message",
+      "BlockchainConnector sendToAddress still surfaces a lost wallet on the fee_rate path",
+      "BlockchainConnector sendToAddress throws a static message on a transport error (no host:port leak)",
+      "BlockchainConnector sendToAddress tolerates the verbose-form {txid: ...} response shape",
+      "BlockchainConnector sendToAddress uses positional params and returns the txid"
+    ],
+    "9f982bd37d35fcf5": [
+      "BlockchainConnector invalidateBlock calls invalidateblock RPC and returns true on success",
+      "BlockchainConnector invalidateBlock logs the node RPC error but throws a static message",
+      "BlockchainConnector invalidateBlock rejects a 2xx body whose result member is absent",
+      "BlockchainConnector invalidateBlock rejects an error-less body that carries no result",
+      "BlockchainConnector invalidateBlock throws a static message on network error (no transport detail leak)"
+    ],
     "9fb04900c6b508bd": [
       "MINER_API_KEY exemption contract @regression does NOT exempt mutating/spend methods (the gate still protects them)",
       "MINER_API_KEY exemption contract @regression exempts the `health` readiness probe the container healthcheck POSTs",
       "MINER_API_KEY exemption contract @regression exempts the healthcheck `ping` method",
       "MINER_API_KEY exemption contract @regression exempts the read-only `status` method"
+    ],
+    "a0d7818c7e9c64f7": [
+      "E2E: fillMempool with Real Broadcasting D1: fillMempool(1) broadcasts valid transactions to the node",
+      "E2E: fillMempool with Real Broadcasting D2: fillMempool(3) creates 3 distinct stress transactions",
+      "E2E: fillMempool with Real Broadcasting D3: intermediate funding and distribution txs are properly mined"
+    ],
+    "a188cfac7fb226c9": [
+      "Chaos: Startup Under Node Unavailability (CE-05) CE-05a: miner initializes successfully if node comes online within retry window",
+      "Chaos: Startup Under Node Unavailability (CE-05) CE-05b: miner initialization fails after exhausting retry windows (documented W-2)",
+      "Chaos: Startup Under Node Unavailability (CE-05) CE-05c: miner re-initializes with existing wallet after node outage and recovery"
     ],
     "a3697a617b189cfb": [
       "JSON-RPC null params normalization CONTROL: without the normalizer, params:null escapes to a top-level JSON-RPC error",
@@ -229,6 +864,9 @@
       "JSON-RPC null params normalization normalizes each member of a batch body rather than replacing the array",
       "JSON-RPC null params normalization src/api.js wires the params normalizer before the jsonRouter mount",
       "JSON-RPC null params normalization with the normalizer, params:null returns the controller error envelope"
+    ],
+    "a53a8286edcd4b5c": [
+      "Boundary: Adaptive Mining Timer Logic T-01: maxTimeToMineTxs = 0 mines immediately on next poll after first tx detected"
     ],
     "a5f61984809250ef": [
       "pauseMining barrier vs the auto-mine loop CONTROL: without the guard a block lands after pauseMining() resolved",
@@ -245,6 +883,246 @@
       "reconsiderBlock vs a concurrent reconsider_block the last reconsider out is the one that restores",
       "reconsiderBlock vs a concurrent reconsider_block two overlapping reconsiders still leave auto-mining running"
     ],
+    "a76524c338212afe": [
+      "Fuzz: mining loop state machine timer state resets after block generation resets all timer state after successful mining"
+    ],
+    "a809b314e6383258": [
+      "BlockchainConnector loadWallet returns wallet info on success",
+      "BlockchainConnector loadWallet throws clean error on network error",
+      "BlockchainConnector loadWallet throws when result is falsy"
+    ],
+    "a881885342b3f349": [
+      "Chaos: RPC Response Corruption & Auth Failure CE-04: RPC Returns Unexpected Data Shapes CE-04a: string result is rejected by Array.isArray check (W-1 fixed)",
+      "Chaos: RPC Response Corruption & Auth Failure CE-04: RPC Returns Unexpected Data Shapes CE-04b: null result causes connector to throw; mining loop catches and continues",
+      "Chaos: RPC Response Corruption & Auth Failure CE-04: RPC Returns Unexpected Data Shapes CE-04c: undefined result causes connector to throw; mining loop catches and continues",
+      "Chaos: RPC Response Corruption & Auth Failure CE-04: RPC Returns Unexpected Data Shapes CE-04d: HTML response body causes error caught by mining loop",
+      "Chaos: RPC Response Corruption & Auth Failure CE-10: RPC Authentication Failure CE-10: auth failure mid-loop logs errors; mining resumes when auth restored"
+    ],
+    "aa208f59123349c1": [
+      "BlockchainConnector getBlockchainInfo returns blockchain info on success",
+      "BlockchainConnector getBlockchainInfo throws when result is falsy"
+    ],
+    "aa89d162b15525bf": [
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline key derivation from fixed mnemonic child address at index i uses derive(i+1).derive(0)",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline key derivation from fixed mnemonic derives unique child addresses",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline key derivation from fixed mnemonic derives valid P2PKH regtest child addresses",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline key derivation from fixed mnemonic main address uses derivation path m/44h/0h/0h/0 \u2192 derive(0) \u2192 derive(0)",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline key derivation from fixed mnemonic produces a valid P2PKH regtest main address"
+    ],
+    "ad0ce90a16979680": [
+      "Boundary: fillMempool Chunking and Calculations F-09: tx_quantity = 50001 (21 chunks, one past threshold) triggers intermediate mining once at chunk 20, then resets counter"
+    ],
+    "ad83370fc3a030e3": [
+      "T2 Regression: Full E2E Pipeline REG-T2-001: Wallet lifecycle, fresh start creates wallet and mines 101 blocks on fresh node",
+      "T2 Regression: Full E2E Pipeline REG-T2-002: Wallet lifecycle, restart skips creation when wallet is already loaded",
+      "T2 Regression: Full E2E Pipeline REG-T2-003: Wallet lifecycle, exists but unloaded loads wallet without creating it"
+    ],
+    "ae2962b0ca51d81a": [
+      "Security: API Hardening fill_mempool returns generic errors returns generic error on miner exception",
+      "Security: API Hardening prototype pollution resistance sendFundsToAddress rejects __proto__ as address",
+      "Security: API Hardening prototype pollution resistance sendFundsToAddress rejects constructor as address",
+      "Security: API Hardening send_funds returns generic errors (SEC-012) returns generic error for XSS in address",
+      "Security: API Hardening send_funds returns generic errors (SEC-012) returns generic error for invalid address type",
+      "Security: API Hardening send_funds returns generic errors (SEC-012) returns generic error for negative amount",
+      "Security: API Hardening send_funds returns generic errors (SEC-012) returns generic error for null parameters",
+      "Security: API Hardening send_funds returns generic errors (SEC-012) returns generic error for string amount",
+      "Security: API Hardening send_funds returns generic errors (SEC-012) returns generic error for undefined parameters",
+      "Security: API Hardening set_mining_time handles edge cases does not crash with null params",
+      "Security: API Hardening set_mining_time handles edge cases does not crash with object params",
+      "Security: API Hardening set_mining_time handles edge cases does not crash with very large numbers"
+    ],
+    "b07b8e66b3b25748": [
+      "Boundary: Adaptive Mining Timer Logic T-22: mempool shrinks between polls does not reset timers on mempool shrink (length still > 0)"
+    ],
+    "b0e568e61782776e": [
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences prepareWallet call sequences B-1: fresh node, full create+mine sequence",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences prepareWallet call sequences B-2: wallet exists but unloaded, load succeeds, no mining",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences prepareWallet call sequences B-3: wallet already loaded and funded, minimal calls",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences prepareWallet call sequences B-4: wallet loaded, empty balance, aged chain, still mines to maturity depth",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences prepareWallet call sequences B-5: empty balance, height exactly 100, mines 101 blocks",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences prepareWallet call sequences B-8: all wallet methods fail, throws",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences prepareWallet call sequences stores the balance after checking",
+      "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences prepareWallet call sequences stores the new address after wallet is ready"
+    ],
+    "b1f9526761a35b1c": [
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline distribution PSBT (main address \u2192 child addresses) adds correct number of outputs with correct values",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline distribution PSBT (main address \u2192 child addresses) constructs a valid PSBT with correct input",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline distribution PSBT (main address \u2192 child addresses) produces valid serializable transaction hex",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline distribution PSBT (main address \u2192 child addresses) signs and finalizes successfully with the main key"
+    ],
+    "b4562253ce7e4c30": [
+      "T2 Regression: Full E2E Pipeline REG-T2-006: Mining timer override via setMiningTime setDefaultMiningTime restores defaults",
+      "T2 Regression: Full E2E Pipeline REG-T2-006: Mining timer override via setMiningTime setMiningTime changes timer behavior"
+    ],
+    "b52e97ba49c25a4d": [
+      "Boundary: Wallet Preparation W-01: wallet loaded, balance > 0, height > 100 takes no mining action",
+      "Boundary: Wallet Preparation W-02: wallet loaded, balance = 0, height = 0 mines 101 blocks for coinbase maturity",
+      "Boundary: Wallet Preparation W-03: wallet loaded, balance = 0, height = 99 mines 101 blocks (height < 100 branch)",
+      "Boundary: Wallet Preparation W-04: wallet loaded, balance = 0, height = 100 mines 101 blocks (height <= 100, uses <= comparison)",
+      "Boundary: Wallet Preparation W-05: wallet loaded, balance = 0, height = 101 does not mark the wallet ready when balance stays 0 after mining to maturity",
+      "Boundary: Wallet Preparation W-05: wallet loaded, balance = 0, height = 101 mines to maturity (101 blocks) and only reports ready once balance is observed positive",
+      "Boundary: Wallet Preparation W-06: wallet not loaded, exists on disk loads wallet without creating",
+      "Boundary: Wallet Preparation W-07: wallet not loaded, does not exist creates wallet after load fails",
+      "Boundary: Wallet Preparation W-08: createWallet fails all retries throws wallet creation error",
+      "Boundary: Wallet Preparation W-09: getNewAddress probe exhausts retries (not infinite loop) catches probe failure and proceeds to load/create flow",
+      "Boundary: Wallet Preparation W-10: balance at floating-point boundary handles -0 correctly",
+      "Boundary: Wallet Preparation W-10: balance at floating-point boundary treats exactly 0 as needing mining",
+      "Boundary: Wallet Preparation W-10: balance at floating-point boundary treats negative balance (theoretical) as needing mining",
+      "Boundary: Wallet Preparation W-10: balance at floating-point boundary treats very small positive balance as positive (no mining)",
+      "Boundary: Wallet Preparation W-11: probe returns no usable address treats a failed probe as no wallet loaded",
+      "Boundary: Wallet Preparation walletAddress assignment propagates error when getNewAddress fails",
+      "Boundary: Wallet Preparation walletAddress assignment sets walletAddress from getNewAddress result"
+    ],
+    "b7240968c0c65fdc": [
+      "Boundary: Adaptive Mining Timer Logic T-20: mempool transitions from 0 to 1 tx sets both initialStartToMine and extendedStartToMine"
+    ],
+    "bb00bce9d839766b": [
+      "Boundary: API Input Validation A-01: set_mining_time with both values = 0 rejects zero for both timers",
+      "Boundary: API Input Validation A-02: set_mining_time with negative integers rejects large negative integers",
+      "Boundary: API Input Validation A-02: set_mining_time with negative integers rejects negative integers",
+      "Boundary: API Input Validation A-03: set_mining_time with floats rejects 0.1 (float close to zero)",
+      "Boundary: API Input Validation A-03: set_mining_time with floats rejects 1.5 and 2.7 (not integers)",
+      "Boundary: API Input Validation A-04: set_mining_time with strings rejects numeric strings",
+      "Boundary: API Input Validation A-04: set_mining_time with strings rejects string \"abc\" and \"def\"",
+      "Boundary: API Input Validation A-05: set_mining_time with null and undefined rejects null values",
+      "Boundary: API Input Validation A-05: set_mining_time with null and undefined rejects undefined values",
+      "Boundary: API Input Validation A-06: set_mining_time with Number.MAX_SAFE_INTEGER rejects MAX_SAFE_INTEGER (exceeds max timer bound)",
+      "Boundary: API Input Validation A-07: set_mining_time with Infinity rejects -Infinity",
+      "Boundary: API Input Validation A-07: set_mining_time with Infinity rejects Infinity (not an integer)",
+      "Boundary: API Input Validation A-08: set_mining_time with only one value valid rejects both when maxTime is invalid but txAddedTime is valid",
+      "Boundary: API Input Validation A-08: set_mining_time with only one value valid rejects both when maxTime is valid but txAddedTime is invalid",
+      "Boundary: API Input Validation fill_mempool API controller boundaries A-10: passes tx_quantity=0 through to fillMempool",
+      "Boundary: API Input Validation fill_mempool API controller boundaries A-11: passes tx_quantity=-1 through (no validation in controller)",
+      "Boundary: API Input Validation fill_mempool API controller boundaries A-12: passes tx_quantity=1 through",
+      "Boundary: API Input Validation fill_mempool API controller boundaries A-14: passes tx_quantity=1.5 through (no type check)",
+      "Boundary: API Input Validation fill_mempool API controller boundaries A-15: passes tx_quantity=\"not_a_number\" through (no type check)",
+      "Boundary: API Input Validation fill_mempool API controller boundaries A-16: passes undefined tx_quantity when missing",
+      "Boundary: API Input Validation fill_mempool API controller boundaries returns error object when fillMempool throws",
+      "Boundary: API Input Validation send_funds API controller boundaries A-20: passes empty address and zero amount through",
+      "Boundary: API Input Validation send_funds API controller boundaries A-21: passes minimum BTC amount (1 satoshi)",
+      "Boundary: API Input Validation send_funds API controller boundaries A-22: passes sub-satoshi amount through (no validation)",
+      "Boundary: API Input Validation send_funds API controller boundaries A-23: passes total supply amount through",
+      "Boundary: API Input Validation send_funds API controller boundaries A-24: passes negative amount through (no validation)",
+      "Boundary: API Input Validation send_funds API controller boundaries A-25: returns error for invalid address (when node rejects)",
+      "Boundary: API Input Validation setDefaultMiningTime always resets to hardcoded defaults regardless of current values",
+      "Boundary: API Input Validation setDefaultMiningTime resets from extreme values",
+      "Boundary: API Input Validation set_mining_time API controller boundaries always returns ok when the miner stub resolves (this test double does not model validation)",
+      "Boundary: API Input Validation set_mining_time API controller boundaries passes negative values through",
+      "Boundary: API Input Validation set_mining_time API controller boundaries passes null through when parameters missing",
+      "Boundary: API Input Validation set_mining_time API controller boundaries passes zero values through"
+    ],
+    "bbb8d93e48e408c3": [
+      "T2 Regression: Full E2E Pipeline REG-T2-010: Graceful shutdown via _shutdown flag mining loop exits when _shutdown is set"
+    ],
+    "bcc3419e3ac11cd3": [
+      "Boundary: Mempool Polling M-01: mempool always empty never triggers mining and never sets timers",
+      "Boundary: Mempool Polling M-02: mempool with exactly one transaction sets timers and mines after addedTimeToMineTxs",
+      "Boundary: Mempool Polling M-03: mempool size unchanged between polls does not reset extendedStartToMine",
+      "Boundary: Mempool Polling M-04: mempool shrinks (tx eviction/replacement) treats shrink as no new txs (no timer extension)",
+      "Boundary: Mempool Polling M-04: mempool shrinks (tx eviction/replacement) updates lastRawMempoolLength to the lower value",
+      "Boundary: Mempool Polling M-05: mempool grows by 1 tx every poll continuously resets extendedStartToMine; only maxTime fires",
+      "Boundary: Mempool Polling M-06: mempool jumps from 0 to 10000 in one poll handles large mempool without per-tx processing",
+      "Boundary: Mempool Polling M-07: getRawMempool fails continuously retries on each iteration without corrupting timer state",
+      "Boundary: Mempool Polling M-08: getRawMempool returns null (not array) treats null as empty mempool without crashing",
+      "Boundary: Mempool Polling M-09: mempool non-empty after generateBlocks returns begins new mining cycle for remaining transactions",
+      "Boundary: Mempool Polling M-10: rapid mempool changes between polls only sees snapshot at each poll; intermediate states invisible"
+    ],
+    "be20180b82010b3b": [
+      "BlockchainConnector sendRawTransaction sends tx hex and returns txid",
+      "BlockchainConnector sendRawTransaction throws and logs when result is falsy",
+      "BlockchainConnector sendRawTransaction throws on network error"
+    ],
+    "bf035dc937c62161": [
+      "Boundary: Adaptive Mining Timer Logic T-07: addedTimeToMineTxs = Number.MAX_SAFE_INTEGER never triggers extension timer; relies on maxTimeToMineTxs"
+    ],
+    "c2c713cd8eaa3392": [
+      "Boundary: fillMempool Chunking and Calculations Chunk mining threshold (processedChunkCount >= 20) does not mine at exactly 19 processed chunks",
+      "Boundary: fillMempool Chunking and Calculations Chunk mining threshold (processedChunkCount >= 20) mines at exactly 20 processed chunks",
+      "Boundary: fillMempool Chunking and Calculations Chunk mining threshold (processedChunkCount >= 20) resets to 0 after mining at 20 (counter does not stay at 21)"
+    ],
+    "c7022ea59c9bf473": [
+      "BlockchainConnector reconsiderBlock calls reconsiderblock RPC and returns true on success",
+      "BlockchainConnector reconsiderBlock logs the node RPC error but throws a static message",
+      "BlockchainConnector reconsiderBlock rejects a 2xx body whose result member is absent",
+      "BlockchainConnector reconsiderBlock rejects an error-less body that carries no result",
+      "BlockchainConnector reconsiderBlock throws a static message on network error (no transport detail leak)"
+    ],
+    "c9fdce7eba14e3e9": [
+      "Boundary: Adaptive Mining Timer Logic T-04: maxTimeToMineTxs = 1 fires after 1ms elapses"
+    ],
+    "cc33601c162a7ea5": [
+      "Boundary: Adaptive Mining Timer Logic T-25: keepMining toggled false mid-timer pauses mining; timer check skipped"
+    ],
+    "cff2b23e68673921": [
+      "Boundary: fillMempool Chunking and Calculations F-02: tx_quantity = 1 calculates correct funding amount for 1 address (bare-\"regtest\" FALLBACK path)",
+      "Boundary: fillMempool Chunking and Calculations F-02: tx_quantity = 1 calculates correct funding amount for 1 address (resolved \"bitcoin-regtest\" coin config)",
+      "Boundary: fillMempool Chunking and Calculations F-02: tx_quantity = 1 creates exactly 1 chunk with 1 output"
+    ],
+    "d4519a4a9c594ea3": [
+      "Seam D: BlockchainConnector \u2194 MockRpcServer HTTP Basic Auth sends correct Authorization header",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips generateToAddress: sends count and address params",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBalance: returns positive balance",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBalance: returns zero correctly (falsy but valid)",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlock: sends blockhash with verbose=false (hex format)",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlock: sends blockhash with verbose=true (JSON format)",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlockHash: sends blockindex param",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlockchainInfo: sends correct payload and parses response",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getMempoolEntry: sends txid param",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getNetworkInfo: round-trip",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getNewAddress: returns address string",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getRawMempool: returns empty array",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getRawMempool: returns populated array",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips sendRawTransaction: sends tx hex param",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips sendToAddress: sends positional params (DOGE v1.14 compat)",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer error handling loadWallet: throws on RPC error",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer error handling throws on unregistered method (null result)",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer getRawTransaction error handling returns null when server returns RPC error",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer getRawTransaction error handling returns result on success",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior createWallet: exhausts retries and throws",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior createWallet: retries on failure and succeeds",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior getWalletInfo: exhausts max retries and throws",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior getWalletInfo: retries on failure and succeeds",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer sequential call patterns full wallet setup sequence through real HTTP"
+    ],
+    "d459b9fc4347a8dc": [
+      "Security: Input Validation fillMempool quantity cap (SEC-002) accepts txQuantity at maximum boundary (50000)",
+      "Security: Input Validation fillMempool quantity cap (SEC-002) rejects txQuantity exceeding 50000",
+      "Security: Input Validation fillMempool quantity cap (SEC-002) rejects txQuantity of 100000",
+      "Security: Input Validation fillMempool quantity cap (SEC-002) rejects txQuantity of Number.MAX_SAFE_INTEGER",
+      "Security: Input Validation fillMempool quantity cap (SEC-002) still rejects non-positive-integer before cap check",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) accepts valid string address and positive number amount",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) accepts very small positive amount",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) never reaches RPC layer with invalid inputs",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects -Infinity amount",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects Infinity amount",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects NaN amount",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects boolean amount",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects empty string address",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects negative amount",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects non-number amount (string)",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects non-string address (array)",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects non-string address (boolean)",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects non-string address (null)",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects non-string address (number)",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects non-string address (object)",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects non-string address (undefined)",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects null amount",
+      "Security: Input Validation sendFundsToAddress input validation (SEC-003) rejects zero amount",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) accepts values at maximum boundary (3600000ms)",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) accepts values at minimum boundary (1000ms)",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) does not crash with non-printable values",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) rejects both values above maximum",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) rejects maxTime above maximum (SEC-008)",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) rejects maxTime below minimum (SEC-008)",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) rejects maxTime of 1ms (near-continuous mining)",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) rejects txAddedTime above maximum (SEC-008)",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) rejects txAddedTime below minimum (SEC-008)",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) throws for Number.MAX_SAFE_INTEGER",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) throws for negative values",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) throws for non-integer maxTime",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) throws for non-integer txAddedTime",
+      "Security: Input Validation setMiningTime timer bounds (SEC-008) throws for zero values"
+    ],
     "d7f7b80a68b84a33": [
       "reorg primitives vs a concurrent generate_blocks CONTROL: the drain-only invalidate lets a mine land mid-reorg",
       "reorg primitives vs a concurrent generate_blocks CONTROL: the drain-only reconsider lets a mine land mid-reorg",
@@ -254,6 +1132,71 @@
       "reorg primitives vs a concurrent generate_blocks releases the hold when the reorg node call throws",
       "reorg primitives vs a concurrent generate_blocks the held-off mine still runs once the reorg finishes"
     ],
+    "d8b24687ef4490f3": [
+      "Fuzz: mining timer parameters rapid sequential setMiningTime calls last valid write wins with random positive integer sequences",
+      "Fuzz: mining timer parameters setDefaultMiningTime after arbitrary setMiningTime always restores defaults regardless of prior state",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases accepts (1000, 1000) without throwing",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases accepts (1000, 3600000) without throwing",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases accepts (30000, 5000) without throwing",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases accepts (3600000, 1000) without throwing",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases accepts (3600000, 3600000) without throwing",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (-1, -1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (-1, 1000) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (-2147483648, -2147483648) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (-9007199254740991, -9007199254740991) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (0, 0) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (0, 9007199254740991) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (1, 1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (1000, -1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (3600001, 3600001) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (9007199254740991, 0) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (9007199254740991, 9007199254740991) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime integer edge cases rejects (999, 999) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (\"1000\", 1000) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (1, 1.5) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (1, null) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (1, null) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (1, null) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (1.5, 1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (1000, \"1000\") and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects ([], 1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (false, 0) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (null, 1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (null, 1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (null, 1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (null, 1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (true, 1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects (undefined, 1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime rejects non-integers rejects ({}, 1) and preserves defaults",
+      "Fuzz: mining timer parameters setMiningTime with arbitrary values handles objects with non-callable toString by throwing our own Error, not a TypeError",
+      "Fuzz: mining timer parameters setMiningTime with arbitrary values never crashes the process regardless of input types (including non-stringifiable objects)",
+      "Fuzz: mining timer parameters setMiningTime with arbitrary values only accepts positive integers within bounds; rejects (throws) otherwise",
+      "Fuzz: mining timer parameters zero/negative timers are rejected setMiningTime(-1000, -1000) is rejected",
+      "Fuzz: mining timer parameters zero/negative timers are rejected setMiningTime(0, 5000) is rejected",
+      "Fuzz: mining timer parameters zero/negative timers are rejected setMiningTime(1, 0) is rejected (both must be positive)"
+    ],
+    "d8c2a8769681373c": [
+      "T2 Regression: Full E2E Pipeline REG-T2-008: Mining loop survives transient RPC errors recovers from transient RPC errors and mines"
+    ],
+    "d941ad2dd8749051": [
+      "Boundary: Adaptive Mining Timer Logic T-02: addedTimeToMineTxs = 0 mines as soon as mempool stops growing"
+    ],
+    "d951ee83273e1e7c": [
+      "XChainRegtestMiner sleep resolves after the specified delay"
+    ],
+    "d9d91dfbd4624ad0": [
+      "T2 Regression: Full E2E Pipeline REG-T2-004: Mining loop, mempool detection detects mempool transaction and mines a block",
+      "T2 Regression: Full E2E Pipeline REG-T2-004: Mining loop, mempool detection does not mine when mempool is empty",
+      "T2 Regression: Full E2E Pipeline REG-T2-004: Mining loop, mempool detection mines multiple blocks across timer resets"
+    ],
+    "dc379c2fb71ee433": [
+      "BlockchainConnector getRawMempool returns array of txids",
+      "BlockchainConnector getRawMempool throws clean error on network error",
+      "BlockchainConnector getRawMempool throws when result is falsy"
+    ],
+    "deba678e2a24e6f6": [
+      "Boundary: Adaptive Mining Timer Logic T-10: maxTimeToMineTxs < addedTimeToMineTxs initial timer fires first, extension timer is irrelevant"
+    ],
     "df1e698cc29dbe12": [
       "fill_mempool vs a concurrent generate_blocks CONTROL: the ungated mine path drains the mempool mid-fill",
       "fill_mempool vs a concurrent generate_blocks lets the fill run its own funding mines while the public entry point is shut",
@@ -262,116 +1205,413 @@
       "fill_mempool vs a concurrent generate_blocks rejects synchronously, before the queue append, so the guard cannot straddle an await",
       "fill_mempool vs a concurrent generate_blocks still validates the block count when no fill is running"
     ],
-    "f9829bc1b7a45fc9": [
-      "BlockchainConnector constructor builds the correct URL from host and port",
-      "BlockchainConnector constructor handles special characters in host/port",
-      "BlockchainConnector constructor stores RPC credentials",
-      "BlockchainConnector constructor stores the port",
-      "BlockchainConnector createWallet defaults to 50 retries",
-      "BlockchainConnector createWallet exhausts retries and throws",
-      "BlockchainConnector createWallet retries on failure and succeeds",
-      "BlockchainConnector createWallet retries on falsy result and succeeds",
-      "BlockchainConnector createWallet returns wallet info on first success",
-      "BlockchainConnector createWallet sends correct RPC method and params",
-      "BlockchainConnector createWallet sleeps between retries",
-      "BlockchainConnector generateToAddress does not override the timeout, inheriting the NODE_RPC_TIMEOUT default",
-      "BlockchainConnector generateToAddress does not surface a transport error host:port in the thrown message",
-      "BlockchainConnector generateToAddress logs the node RPC error for diagnosis but throws a static message",
-      "BlockchainConnector generateToAddress returns array of block hashes",
-      "BlockchainConnector generateToAddress throws a static message when result is falsy",
-      "BlockchainConnector getBalance returns numeric balance",
-      "BlockchainConnector getBalance returns zero balance",
-      "BlockchainConnector getBalance throws when result is NaN",
-      "BlockchainConnector getBlock sends boolean false verbose for hex format (default)",
-      "BlockchainConnector getBlock sends boolean true verbose when hexFormat is false",
-      "BlockchainConnector getBlock throws clean error on network error",
-      "BlockchainConnector getBlock throws when result is falsy",
-      "BlockchainConnector getBlockHash sends blockindex as param and returns hash",
-      "BlockchainConnector getBlockHash throws clean error on network error",
-      "BlockchainConnector getBlockHash throws when result is falsy",
-      "BlockchainConnector getBlockchainInfo returns blockchain info on success",
-      "BlockchainConnector getBlockchainInfo throws when result is falsy",
-      "BlockchainConnector getMempoolEntry sends txid as param and returns entry",
-      "BlockchainConnector getMempoolEntry throws when result is falsy",
-      "BlockchainConnector getNetworkInfo returns the result on success",
-      "BlockchainConnector getNetworkInfo throws clean error on network error",
-      "BlockchainConnector getNetworkInfo throws when result is falsy",
-      "BlockchainConnector getNewAddress returns address string",
-      "BlockchainConnector getNewAddress throws when result is falsy",
-      "BlockchainConnector getRawMempool returns array of txids",
-      "BlockchainConnector getRawMempool throws clean error on network error",
-      "BlockchainConnector getRawMempool throws when result is falsy",
-      "BlockchainConnector getRawTransaction returns null on RPC error instead of throwing",
-      "BlockchainConnector getRawTransaction returns null on network error instead of throwing",
-      "BlockchainConnector getRawTransaction returns raw tx hex on success",
-      "BlockchainConnector getRawTransaction throws when result is falsy (caught internally, returns null)",
-      "BlockchainConnector getWalletInfo defaults to 50 max retries",
-      "BlockchainConnector getWalletInfo retries on failure and returns on success",
-      "BlockchainConnector getWalletInfo returns wallet info on first success",
-      "BlockchainConnector getWalletInfo silently retries without logging credentials",
-      "BlockchainConnector getWalletInfo sleeps 1s between retries",
-      "BlockchainConnector getWalletInfo throws after exhausting max retries",
-      "BlockchainConnector getWalletInfo throws when response has no result",
-      "BlockchainConnector invalidateBlock calls invalidateblock RPC and returns true on success",
-      "BlockchainConnector invalidateBlock logs the node RPC error but throws a static message",
-      "BlockchainConnector invalidateBlock rejects a 2xx body whose result member is absent",
-      "BlockchainConnector invalidateBlock rejects an error-less body that carries no result",
-      "BlockchainConnector invalidateBlock throws a static message on network error (no transport detail leak)",
-      "BlockchainConnector loadWallet returns wallet info on success",
-      "BlockchainConnector loadWallet throws clean error on network error",
-      "BlockchainConnector loadWallet throws when result is falsy",
-      "BlockchainConnector reconsiderBlock calls reconsiderblock RPC and returns true on success",
-      "BlockchainConnector reconsiderBlock logs the node RPC error but throws a static message",
-      "BlockchainConnector reconsiderBlock rejects a 2xx body whose result member is absent",
-      "BlockchainConnector reconsiderBlock rejects an error-less body that carries no result",
-      "BlockchainConnector reconsiderBlock throws a static message on network error (no transport detail leak)",
-      "BlockchainConnector sendRawTransaction sends tx hex and returns txid",
-      "BlockchainConnector sendRawTransaction throws and logs when result is falsy",
-      "BlockchainConnector sendRawTransaction throws on network error",
-      "BlockchainConnector sendToAddress carries a supplied fee rate to the daemon as the fee_rate argument",
-      "BlockchainConnector sendToAddress does NOT flag an ordinary send failure as a lost wallet",
-      "BlockchainConnector sendToAddress flags a lost wallet so the caller can reload it, without saying anything in the message",
-      "BlockchainConnector sendToAddress keeps the legacy positional form when no fee rate is supplied",
-      "BlockchainConnector sendToAddress logs the node RPC error when result is falsy but throws a static message",
-      "BlockchainConnector sendToAddress still surfaces a lost wallet on the fee_rate path",
-      "BlockchainConnector sendToAddress throws a static message on a transport error (no host:port leak)",
-      "BlockchainConnector sendToAddress tolerates the verbose-form {txid: ...} response shape",
-      "BlockchainConnector sendToAddress uses positional params and returns the txid",
+    "e02b043673d67d6a": [
+      "Boundary: Block Generation G-01: generateBlocks(0) does not log any block generation message",
+      "Boundary: Block Generation G-01: generateBlocks(0) throws and does not call generateToAddress (node rejects count 0)",
+      "Boundary: Block Generation G-02: generateBlocks(1) calls generateToAddress with count=1",
+      "Boundary: Block Generation G-02: generateBlocks(1) logs singular message",
+      "Boundary: Block Generation G-03: generateBlocks(101) for coinbase maturity calls generateToAddress with count=101",
+      "Boundary: Block Generation G-03: generateBlocks(101) for coinbase maturity logs plural message for 101 blocks",
+      "Boundary: Block Generation G-04: generateBlocks when node is disconnected propagates the clean error from connector",
+      "Boundary: Block Generation G-05: generateBlocks timeout propagates clean error from connector on timeout",
+      "Boundary: Block Generation G-06: concurrent generateBlocks calls second call is serialized behind first; both complete in queue order",
+      "Boundary: Block Generation G-07: walletAddress is null or undefined passes empty string address",
+      "Boundary: Block Generation G-07: walletAddress is null or undefined passes null address to generateToAddress",
+      "Boundary: Block Generation G-07: walletAddress is null or undefined passes undefined address to generateToAddress",
+      "Boundary: Block Generation Large block count generateBlocks(1000) passes count to connector",
+      "Boundary: Block Generation Large block count logs plural message for large count",
+      "Boundary: Block Generation Negative block count does not log for negative count",
+      "Boundary: Block Generation Negative block count throws and does not call connector for negative count"
+    ],
+    "e1192821bba4db65": [
+      "Boundary: Adaptive Mining Timer Logic T-11: negative timer values via setMiningTime rejects negative values"
+    ],
+    "e277119bcac1e563": [
+      "XChainRegtestMiner fillMempool calculates correct funding amount per chunk",
+      "XChainRegtestMiner fillMempool calculates correct number of chunks for exact multiple",
+      "XChainRegtestMiner fillMempool calculates correct number of chunks for large quantity",
+      "XChainRegtestMiner fillMempool calculates correct number of chunks for quantities within one chunk",
+      "XChainRegtestMiner fillMempool calculates correct number of chunks for quantity exceeding one chunk",
+      "XChainRegtestMiner fillMempool calculates correct remainder for last chunk",
+      "XChainRegtestMiner fillMempool calculates correct remainder when evenly divisible",
+      "XChainRegtestMiner fillMempool rejects a truly concurrent second call, not just one pre-flagged by the caller",
+      "XChainRegtestMiner fillMempool sets keepMining to false only after validation passes",
+      "XChainRegtestMiner fillMempool throws (rather than silently returning) on invalid txQuantity"
+    ],
+    "e30837a744f83ab0": [
+      "T1 Regression: Boundary Conditions REG-T1-C01: Timer boundary, maxTime = 0 mines immediately on next poll after first tx",
+      "T1 Regression: Boundary Conditions REG-T1-C02: Both timers expire simultaneously generates exactly one block (not two)",
+      "T1 Regression: Boundary Conditions REG-T1-C03: Empty mempool never triggers mining regardless of time elapsed",
+      "T1 Regression: Boundary Conditions REG-T1-C04: Mempool size unchanged, no timer reset does not reset extendedStartToMine when size stays the same",
+      "T1 Regression: Boundary Conditions REG-T1-C05: Wallet height boundary at 100 mines 101 blocks at height 101 (maturity depth is height-independent)",
+      "T1 Regression: Boundary Conditions REG-T1-C05: Wallet height boundary at 100 mines 101 blocks at height exactly 100",
+      "T1 Regression: Boundary Conditions REG-T1-C06: fillMempool chunking math 1 chunk for 100 txs",
+      "T1 Regression: Boundary Conditions REG-T1-C06: fillMempool chunking math 1 chunk for exactly 2500 txs",
+      "T1 Regression: Boundary Conditions REG-T1-C06: fillMempool chunking math 2 chunks for 2501 txs",
+      "T1 Regression: Boundary Conditions REG-T1-C06: fillMempool chunking math correct funding amount per chunk",
+      "T1 Regression: Boundary Conditions REG-T1-C06: fillMempool chunking math correct remainder for last chunk (2501 \u2192 remainder 1)",
+      "T1 Regression: Boundary Conditions REG-T1-C06: fillMempool chunking math zero remainder for evenly divisible (5000)"
+    ],
+    "e3f5f5c8a4bf3db2": [
+      "Chaos: RPC Disruption CE-01: RPC Connection Loss CE-01a: mining loop survives RPC outage and resumes after recovery",
+      "Chaos: RPC Disruption CE-01: RPC Connection Loss CE-01b: miner does not crash during extended outage",
+      "Chaos: RPC Disruption CE-02: RPC Timeout on generatetoaddress CE-02: timeout error does not crash loop; mining resumes after recovery",
+      "Chaos: RPC Disruption CE-03: 50% RPC Flapping CE-03: timer logic remains valid under 50% random failure rate",
+      "Chaos: RPC Disruption CE-03: 50% RPC Flapping CE-03b: mining resumes cleanly after flapping period ends"
+    ],
+    "e541c4daee612963": [
+      "XChainRegtestMiner start (mining loop) calls prepareWallet on start",
+      "XChainRegtestMiner start (mining loop) does not poll mempool when keepMining is false",
+      "XChainRegtestMiner start (mining loop) extends timer when new txs arrive",
+      "XChainRegtestMiner start (mining loop) handles generateBlocks error gracefully",
+      "XChainRegtestMiner start (mining loop) handles getRawMempool error gracefully",
+      "XChainRegtestMiner start (mining loop) mines block after addedTimeToMineTxs with no new txs",
+      "XChainRegtestMiner start (mining loop) mines block after maxTimeToMineTxs elapses",
+      "XChainRegtestMiner start (mining loop) polls mempool when keepMining is true",
+      "XChainRegtestMiner start (mining loop) resets mempool length tracking when mempool empties",
+      "XChainRegtestMiner start (mining loop) resets timers after mining a block",
+      "XChainRegtestMiner start (mining loop) sets keepMining to true",
+      "XChainRegtestMiner start (mining loop) starts initial timer when first tx appears in mempool",
+      "XChainRegtestMiner start (mining loop) tracks lastRawMempoolLength correctly (bug fix verification)"
+    ],
+    "e84ae18c9ef78b12": [
       "BlockchainConnector setMockTime calls setmocktime RPC with the numeric timestamp and returns true",
       "BlockchainConnector setMockTime coerces the timestamp to a Number for the RPC params",
       "BlockchainConnector setMockTime logs the node RPC error but throws a static message",
       "BlockchainConnector setMockTime rejects a 2xx body whose result member is absent",
       "BlockchainConnector setMockTime rejects an error-less body that carries no result",
-      "BlockchainConnector setMockTime throws a static message on network error (no transport detail leak)",
-      "BlockchainConnector setTxFee calls settxfee with the fee rate and returns true on success",
-      "BlockchainConnector setTxFee returns false (tolerated) when the daemon rejects settxfee",
-      "BlockchainConnector setTxFee returns false on a network error rather than throwing",
-      "BlockchainConnector sleep resolves after the specified delay"
+      "BlockchainConnector setMockTime throws a static message on network error (no transport detail leak)"
+    ],
+    "eadbe33d0879b4bc": [
+      "Fuzz: fillMempool input handling fillMempool chunk math boundaries UTXO index math stays within bounds",
+      "Fuzz: fillMempool input handling fillMempool chunk math boundaries chunk math never produces negative or NaN values for positive inputs",
+      "Fuzz: fillMempool input handling fillMempool chunk math boundaries totalAmount calculation never overflows for realistic txQuantity",
+      "Fuzz: fillMempool input handling fillMempool chunk math boundaries txQuantity = 2499 calculates 1 chunk",
+      "Fuzz: fillMempool input handling fillMempool chunk math boundaries txQuantity = 2500 (exact multiple) calculates 1 chunk",
+      "Fuzz: fillMempool input handling fillMempool chunk math boundaries txQuantity = 2501 calculates 2 chunks",
+      "Fuzz: fillMempool input handling fillMempool getRawTransaction retry limit throws after 50 retries when getRawTransaction perpetually returns null",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects -Infinity with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects Infinity with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects NaN with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects boolean false with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects boolean true with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects empty array with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects empty object with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects empty string with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects float (1.5) with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects negative (-1) with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects null with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects string with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects undefined with a validation error",
+      "Fuzz: fillMempool input handling fillMempool rejects invalid txQuantity rejects zero with a validation error",
+      "Fuzz: fillMempool input handling fillMempool resource exhaustion concerns large txQuantity creates proportionally large address arrays",
+      "Fuzz: fillMempool input handling fillMempool state management does not change keepMining for invalid inputs (validation rejects early)",
+      "Fuzz: fillMempool input handling fillMempool with txQuantity = 0 rejects zero without crash or transactions"
+    ],
+    "ec3024fe0a8eaa51": [
+      "Boundary: Adaptive Mining Timer Logic T-27: mempool non-empty after generateBlocks resets timers and starts new cycle for remaining txs"
+    ],
+    "edc346175129551c": [
+      "Boundary: Adaptive Mining Timer Logic T-26: keepMining re-enabled with stale timer values stale timestamps may cause immediate mining on resume"
+    ],
+    "f19903a0c9068d45": [
+      "BlockchainConnector getBlock sends boolean false verbose for hex format (default)",
+      "BlockchainConnector getBlock sends boolean true verbose when hexFormat is false",
+      "BlockchainConnector getBlock throws clean error on network error",
+      "BlockchainConnector getBlock throws when result is falsy"
+    ],
+    "f5c56c81dbf860a3": [
+      "Boundary: fillMempool Chunking and Calculations PSBT output distribution per chunk address index capped by addresses.length for partial last chunk",
+      "Boundary: fillMempool Chunking and Calculations PSBT output distribution per chunk first chunk processes addresses 0 to 2499",
+      "Boundary: fillMempool Chunking and Calculations PSBT output distribution per chunk second chunk processes addresses 2500 to 4999"
+    ],
+    "f95579d047e3480a": [
+      "T1 Regression: Security REG-T1-D01: sendFundsToAddress input validation rejects -Infinity amount",
+      "T1 Regression: Security REG-T1-D01: sendFundsToAddress input validation rejects Infinity amount",
+      "T1 Regression: Security REG-T1-D01: sendFundsToAddress input validation rejects NaN amount",
+      "T1 Regression: Security REG-T1-D01: sendFundsToAddress input validation rejects array address",
+      "T1 Regression: Security REG-T1-D01: sendFundsToAddress input validation rejects boolean address",
+      "T1 Regression: Security REG-T1-D01: sendFundsToAddress input validation rejects null address",
+      "T1 Regression: Security REG-T1-D01: sendFundsToAddress input validation rejects object address",
+      "T1 Regression: Security REG-T1-D01: sendFundsToAddress input validation rejects undefined address",
+      "T1 Regression: Security REG-T1-D02: fillMempool input validation rejects concurrent calls",
+      "T1 Regression: Security REG-T1-D02: fillMempool input validation rejects exceeding maximum (50001)",
+      "T1 Regression: Security REG-T1-D02: fillMempool input validation rejects float",
+      "T1 Regression: Security REG-T1-D02: fillMempool input validation rejects negative",
+      "T1 Regression: Security REG-T1-D02: fillMempool input validation rejects null",
+      "T1 Regression: Security REG-T1-D02: fillMempool input validation rejects string",
+      "T1 Regression: Security REG-T1-D02: fillMempool input validation rejects zero",
+      "T1 Regression: Security REG-T1-D03: setMiningTime input validation rejects Infinity",
+      "T1 Regression: Security REG-T1-D03: setMiningTime input validation rejects NaN maxTime",
+      "T1 Regression: Security REG-T1-D03: setMiningTime input validation rejects null",
+      "T1 Regression: Security REG-T1-D03: setMiningTime input validation rejects string",
+      "T1 Regression: Security REG-T1-D03: setMiningTime input validation rejects undefined",
+      "T1 Regression: Security REG-T1-D04: Error sanitization, no credential leaks generateToAddress does not expose credentials in error",
+      "T1 Regression: Security REG-T1-D04: Error sanitization, no credential leaks getRawMempool does not expose credentials in error",
+      "T1 Regression: Security REG-T1-D04: Error sanitization, no credential leaks getWalletInfo does not log credentials during retries",
+      "T1 Regression: Security REG-T1-D04: Error sanitization, no credential leaks sendToAddress does not expose credentials in error"
+    ],
+    "fecf3e86c4fd0b69": [
+      "Boundary: fillMempool Chunking and Calculations F-02b: split-tx fee scales to coin dust threshold floors at 50 sat/output only when no dustThreshold resolves (bare-network fallback)",
+      "Boundary: fillMempool Chunking and Calculations F-02b: split-tx fee scales to coin dust threshold scales to 100000 koinu/output for dogecoin-regtest",
+      "Boundary: fillMempool Chunking and Calculations F-02b: split-tx fee scales to coin dust threshold scales to 5460 litoshi/output for litecoin-regtest",
+      "Boundary: fillMempool Chunking and Calculations F-02b: split-tx fee scales to coin dust threshold uses 546 sat/output for the resolved bitcoin-regtest coin config"
+    ],
+    "ff313fe7b4fabc63": [
+      "BlockchainConnector generateToAddress does not override the timeout, inheriting the NODE_RPC_TIMEOUT default",
+      "BlockchainConnector generateToAddress does not surface a transport error host:port in the thrown message",
+      "BlockchainConnector generateToAddress logs the node RPC error for diagnosis but throws a static message",
+      "BlockchainConnector generateToAddress returns array of block hashes",
+      "BlockchainConnector generateToAddress throws a static message when result is falsy"
     ]
   },
   "scripts": {
-    "test:unit": {
-      "fileCount": 18,
-      "titleCount": 312,
+    "test": {
+      "notRun": "includes performance tests that require a controlled venue"
+    },
+    "test:boundary": {
+      "fileCount": 45,
+      "titleCount": 189,
       "files": {
-        "test/unit/BlockchainConnector.test.js": "f9829bc1b7a45fc9",
-        "test/unit/CryptoNetworks.test.js": "6759ce6db03c3c10",
-        "test/unit/XChainRegtestMiner.test.js": "25132dbe1770a61b",
-        "test/unit/api-key-exemption.test.js": "9fb04900c6b508bd",
+        "test/boundary/api_boundary.test.js": "bb00bce9d839766b",
+        "test/boundary/combined_boundary.test.js": "2e20a614bd0a6433",
+        "test/boundary/fill_mempool_boundary.test.js": "675d44d420b96497",
+        "test/boundary/fill_mempool_boundary.test/01_f_02_tx_quantity_1.test.js": "cff2b23e68673921",
+        "test/boundary/fill_mempool_boundary.test/02_f_02b_split_tx_fee_scales_to_coin_dust_threshold.test.js": "fecf3e86c4fd0b69",
+        "test/boundary/fill_mempool_boundary.test/03_f_03_tx_quantity_2499_one_below_chunk_size.test.js": "3c4ccdb0229f8c81",
+        "test/boundary/fill_mempool_boundary.test/04_f_04_tx_quantity_2500_exactly_one_chunk.test.js": "50eee7e50e0f3e01",
+        "test/boundary/fill_mempool_boundary.test/05_f_05_tx_quantity_2501_one_above_chunk_size.test.js": "63c129ac17a4843e",
+        "test/boundary/fill_mempool_boundary.test/06_f_06_tx_quantity_5000_exactly_two_chunks.test.js": "03ed940e766ba274",
+        "test/boundary/fill_mempool_boundary.test/07_f_07_tx_quantity_47500_19_chunks_below_mining_threshold.test.js": "290463c72104a20c",
+        "test/boundary/fill_mempool_boundary.test/08_f_08_tx_quantity_50000_20_chunks_exact_mining_threshold.test.js": "6c604ce0bd6197e6",
+        "test/boundary/fill_mempool_boundary.test/09_f_09_tx_quantity_50001_21_chunks_one_past_threshold.test.js": "ad0ce90a16979680",
+        "test/boundary/fill_mempool_boundary.test/10_f_10_negative_tx_quantity.test.js": "073ff31bc214849d",
+        "test/boundary/fill_mempool_boundary.test/11_f_11_non_integer_tx_quantity_2_5.test.js": "12766211aaa6a3e4",
+        "test/boundary/fill_mempool_boundary.test/12_f_12_very_large_tx_quantity.test.js": "81dd0521aa6acf67",
+        "test/boundary/fill_mempool_boundary.test/13_chunk_mining_threshold_processed_chunk_count_20.test.js": "c2c713cd8eaa3392",
+        "test/boundary/fill_mempool_boundary.test/14_funding_amount_per_address_calculation.test.js": "48b7a987053b1f3d",
+        "test/boundary/fill_mempool_boundary.test/15_bip32_derivation_index_boundaries.test.js": "8413db92098da15f",
+        "test/boundary/fill_mempool_boundary.test/16_psbt_output_distribution_per_chunk.test.js": "f5c56c81dbf860a3",
+        "test/boundary/fill_mempool_boundary.test/17_stress_transaction_output_index_calculation.test.js": "88085445af960ca9",
+        "test/boundary/generate_blocks_boundary.test.js": "e02b043673d67d6a",
+        "test/boundary/mempool_boundary.test.js": "bcc3419e3ac11cd3",
+        "test/boundary/rpc_boundary.test.js": "52722d0530e0365c",
+        "test/boundary/timer_boundary.test.js": "a53a8286edcd4b5c",
+        "test/boundary/timer_boundary.test/01_t_02_added_time_to_mine_txs_0.test.js": "d941ad2dd8749051",
+        "test/boundary/timer_boundary.test/02_t_03_both_timers_set_to_0.test.js": "78a7eebc2e596bbb",
+        "test/boundary/timer_boundary.test/03_t_04_max_time_to_mine_txs_1.test.js": "c9fdce7eba14e3e9",
+        "test/boundary/timer_boundary.test/04_t_05_added_time_to_mine_txs_1.test.js": "6ad73e8c3003b480",
+        "test/boundary/timer_boundary.test/05_t_06_max_time_to_mine_txs_number_max_safe_integer.test.js": "4729331c168dff3d",
+        "test/boundary/timer_boundary.test/06_t_07_added_time_to_mine_txs_number_max_safe_integer.test.js": "bf035dc937c62161",
+        "test/boundary/timer_boundary.test/07_t_08_both_timers_number_max_safe_integer.test.js": "9c4aeeddbe42a3d0",
+        "test/boundary/timer_boundary.test/08_t_09_max_time_to_mine_txs_equals_added_time_to_mine_txs.test.js": "0eed39d9df2c3ddb",
+        "test/boundary/timer_boundary.test/09_t_10_max_time_to_mine_txs_added_time_to_mine_txs.test.js": "deba678e2a24e6f6",
+        "test/boundary/timer_boundary.test/10_t_11_negative_timer_values_via_set_mining_time.test.js": "e1192821bba4db65",
+        "test/boundary/timer_boundary.test/11_t_12_floating_point_timer_values.test.js": "5d3ce1b81ea05e74",
+        "test/boundary/timer_boundary.test/12_t_13_non_numeric_timer_values.test.js": "9aeab30acdc92870",
+        "test/boundary/timer_boundary.test/13_t_20_mempool_transitions_from_0_to_1_tx.test.js": "b7240968c0c65fdc",
+        "test/boundary/timer_boundary.test/14_t_21_mempool_grows_during_extension_window.test.js": "92924e9ce2b2d4ed",
+        "test/boundary/timer_boundary.test/15_t_22_mempool_shrinks_between_polls.test.js": "b07b8e66b3b25748",
+        "test/boundary/timer_boundary.test/16_t_23_mempool_empties_completely_between_polls.test.js": "82becc1ea033f724",
+        "test/boundary/timer_boundary.test/17_t_24_mempool_burst_from_0_to_n_in_single_poll.test.js": "171e36155ca4a255",
+        "test/boundary/timer_boundary.test/18_t_25_keep_mining_toggled_false_mid_timer.test.js": "cc33601c162a7ea5",
+        "test/boundary/timer_boundary.test/19_t_26_keep_mining_re_enabled_with_stale_timer_values.test.js": "edc346175129551c",
+        "test/boundary/timer_boundary.test/20_t_27_mempool_non_empty_after_generate_blocks.test.js": "ec3024fe0a8eaa51",
+        "test/boundary/wallet_boundary.test.js": "b52e97ba49c25a4d"
+      }
+    },
+    "test:chaos": {
+      "fileCount": 6,
+      "titleCount": 22,
+      "files": {
+        "test/chaos/fillmempool.test.js": "590d1d45036e5ed4",
+        "test/chaos/lifecycle.test.js": "120562cb6c17ba52",
+        "test/chaos/rpc_corruption.test.js": "a881885342b3f349",
+        "test/chaos/rpc_disruption.test.js": "e3f5f5c8a4bf3db2",
+        "test/chaos/startup.test.js": "a188cfac7fb226c9",
+        "test/chaos/stress.test.js": "5235278c7e6f0773"
+      }
+    },
+    "test:e2e": {
+      "fileCount": 6,
+      "titleCount": 26,
+      "files": {
+        "test/e2e/api.test.js": "71e1b7f9a9d64a57",
+        "test/e2e/chain_state.test.js": "3c97a1ee3d28ebdd",
+        "test/e2e/fill_mempool.test.js": "a0d7818c7e9c64f7",
+        "test/e2e/mining_loop.test.js": "0c35eb34f3d791ca",
+        "test/e2e/resilience.test.js": "461fb74fe5da7ce2",
+        "test/e2e/startup.test.js": "491dcf628d743c23"
+      }
+    },
+    "test:fuzz": {
+      "fileCount": 9,
+      "titleCount": 124,
+      "files": {
+        "test/fuzz/fill_mempool.test.js": "eadbe33d0879b4bc",
+        "test/fuzz/mining_loop.test.js": "12e6d8186843b0b9",
+        "test/fuzz/mining_loop.test/01_timer_state_resets_after_block_generation.test.js": "a76524c338212afe",
+        "test/fuzz/mining_loop.test/02_loop_continuation_property.test.js": "69e9f1274058b9c0",
+        "test/fuzz/rpc_params.test.js": "745d6021f0e4b4c1",
+        "test/fuzz/rpc_response.test.js": "506263d0668be715",
+        "test/fuzz/rpc_response.test/01_wallet_setup_with_fuzzed_responses.test.js": "1943d7ab6dc94933",
+        "test/fuzz/rpc_response.test/02_send_funds_to_address_with_arbitrary_inputs.test.js": "9bfa068b0fc7fb6e",
+        "test/fuzz/timer.test.js": "d8b24687ef4490f3"
+      }
+    },
+    "test:fuzz:quick": {
+      "fileCount": 9,
+      "titleCount": 124,
+      "files": {
+        "test/fuzz/fill_mempool.test.js": "eadbe33d0879b4bc",
+        "test/fuzz/mining_loop.test.js": "12e6d8186843b0b9",
+        "test/fuzz/mining_loop.test/01_timer_state_resets_after_block_generation.test.js": "a76524c338212afe",
+        "test/fuzz/mining_loop.test/02_loop_continuation_property.test.js": "69e9f1274058b9c0",
+        "test/fuzz/rpc_params.test.js": "745d6021f0e4b4c1",
+        "test/fuzz/rpc_response.test.js": "506263d0668be715",
+        "test/fuzz/rpc_response.test/01_wallet_setup_with_fuzzed_responses.test.js": "1943d7ab6dc94933",
+        "test/fuzz/rpc_response.test/02_send_funds_to_address_with_arbitrary_inputs.test.js": "9bfa068b0fc7fb6e",
+        "test/fuzz/timer.test.js": "d8b24687ef4490f3"
+      }
+    },
+    "test:integration": {
+      "fileCount": 12,
+      "titleCount": 80,
+      "files": {
+        "test/integration/api.test.js": "2f5f62c0490d67ca",
+        "test/integration/connector_rpc.test.js": "d4519a4a9c594ea3",
+        "test/integration/fill_mempool_crypto.test.js": "aa89d162b15525bf",
+        "test/integration/fill_mempool_crypto.test/01_utxo_identification_from_raw_transaction.test.js": "5b031e69aaf9f134",
+        "test/integration/fill_mempool_crypto.test/02_distribution_psbt_main_address_to_child_addresses.test.js": "b1f9526761a35b1c",
+        "test/integration/fill_mempool_crypto.test/03_stress_psbt_child_address_to_main_address.test.js": "397f170e984ec728",
+        "test/integration/fill_mempool_crypto.test/04_ecpair_network_parameter.test.js": "77974a1b36c1001b",
+        "test/integration/fill_mempool_crypto.test/05_fill_mempool_end_to_end_with_real_crypto.test.js": "90901a7a34d0d4aa",
+        "test/integration/miner_connector.test.js": "b0e568e61782776e",
+        "test/integration/miner_connector.test/01_mining_loop_sequences.test.js": "6a07711134934e3e",
+        "test/integration/miner_connector.test/02_send_funds_to_address_delegation.test.js": "4dc9be5ab1ba17be",
+        "test/integration/miner_connector.test/03_generate_blocks_delegation.test.js": "948d96ff2404b44b"
+      }
+    },
+    "test:mutation": {
+      "notRun": "uses Stryker and requires a mutation venue"
+    },
+    "test:mutation:unit": {
+      "notRun": "uses Stryker and requires a mutation venue"
+    },
+    "test:performance": {
+      "notRun": "requires a controlled performance venue"
+    },
+    "test:regression": {
+      "fileCount": 2,
+      "titleCount": 83,
+      "files": {
+        "test/regression/t0_critical_gate.test.js": "692fa0a1aa4cae1d",
+        "test/regression/t1_standard_regression.test.js": "1b6f025ebc780ed1"
+      }
+    },
+    "test:regression:t0": {
+      "fileCount": 1,
+      "titleCount": 45,
+      "files": {
+        "test/regression/t0_critical_gate.test.js": "692fa0a1aa4cae1d"
+      }
+    },
+    "test:regression:t1": {
+      "fileCount": 2,
+      "titleCount": 83,
+      "files": {
+        "test/regression/t0_critical_gate.test.js": "692fa0a1aa4cae1d",
+        "test/regression/t1_standard_regression.test.js": "1b6f025ebc780ed1"
+      }
+    },
+    "test:regression:t2": {
+      "fileCount": 14,
+      "titleCount": 147,
+      "files": {
+        "test/regression/t0_critical_gate.test.js": "692fa0a1aa4cae1d",
+        "test/regression/t1_standard_regression.test.js": "1b6f025ebc780ed1",
+        "test/regression/t1_standard_regression.test/01_miner_connector_integration_seams.test.js": "4597fa934b7af55d",
+        "test/regression/t1_standard_regression.test/02_boundary_conditions.test.js": "e30837a744f83ab0",
+        "test/regression/t1_standard_regression.test/03_security.test.js": "f95579d047e3480a",
+        "test/regression/t1_standard_regression.test/04_error_recovery_and_backoff.test.js": "34982ab520e9895b",
+        "test/regression/t2_full_regression.test.js": "ad83370fc3a030e3",
+        "test/regression/t2_full_regression.test/01_reg_t2_004_mining_loop_mempool_detection.test.js": "d9d91dfbd4624ad0",
+        "test/regression/t2_full_regression.test/02_reg_t2_005_mining_loop_pause_and_resume.test.js": "1e98d82f0526428b",
+        "test/regression/t2_full_regression.test/03_reg_t2_006_mining_timer_override_via_set_mining_time.test.js": "b4562253ce7e4c30",
+        "test/regression/t2_full_regression.test/04_reg_t2_007_send_funds_creates_a_real_transaction.test.js": "5eeda98f25283817",
+        "test/regression/t2_full_regression.test/05_reg_t2_008_mining_loop_survives_transient_rpc_errors.test.js": "d8c2a8769681373c",
+        "test/regression/t2_full_regression.test/06_reg_t2_009_chain_state_progresses_correctly.test.js": "0059376758ba4d8b",
+        "test/regression/t2_full_regression.test/07_reg_t2_010_graceful_shutdown_via_shutdown_flag.test.js": "bbb8d93e48e408c3"
+      }
+    },
+    "test:security": {
+      "fileCount": 6,
+      "titleCount": 159,
+      "files": {
+        "test/security/api_hardening_security.test.js": "ae2962b0ca51d81a",
+        "test/security/connector_sanitization_security.test.js": "7da8bb2e5e171546",
+        "test/security/env_validation_security.test.js": "9b5bfd0cd5515696",
+        "test/security/error_sanitization_security.test.js": "6bbb6ea0661ff52d",
+        "test/security/input_validation_security.test.js": "d459b9fc4347a8dc",
+        "test/security/resource_exhaustion_security.test.js": "58bc7d752838d3f3"
+      }
+    },
+    "test:smoke": {
+      "fileCount": 1,
+      "titleCount": 12,
+      "files": {
+        "test/smoke/smoke.test.js": "6aa1699b0a42bd65"
+      }
+    },
+    "test:unit": {
+      "fileCount": 45,
+      "titleCount": 317,
+      "files": {
         "test/unit/api.test.js": "33a2c9ffc8ebdb64",
-        "test/unit/coins-conformance.test.js": "2442df610ebb6911",
-        "test/unit/coverage-thresholds-sync.test.js": "4405034a199528ec",
-        "test/unit/fillMempoolMineExclusion.test.js": "df1e698cc29dbe12",
-        "test/unit/idleMineHeartbeat.test.js": "7b49b18b1c656b04",
-        "test/unit/jsonrpc-body-guard.test.js": "58706b2a54fa0008",
-        "test/unit/jsonrpc-null-params.test.js": "a3697a617b189cfb",
-        "test/unit/miner-health-probe.test.js": "071ce9df115b49d3",
-        "test/unit/no-key-boot-warning.test.js": "71884b7dd048eb3b",
-        "test/unit/pauseMiningBarrier.test.js": "a5f61984809250ef",
-        "test/unit/reorgMineBarrier.test.js": "d7f7b80a68b84a33",
-        "test/unit/reorgWalletFunds.test.js": "26d6ee08948e6531",
-        "test/unit/security/configuration/dependency-advisories.test.js": "0f2abe37f99c5a17",
-        "test/unit/walletBalanceFreshness.test.js": "6c3ecc15eec173af"
+        "test/unit/api_key_exemption.test.js": "9fb04900c6b508bd",
+        "test/unit/blockchain_connector.test.js": "671fa2c590201b73",
+        "test/unit/blockchain_connector.test/01_get_network_info.test.js": "7eda23ba590cdcee",
+        "test/unit/blockchain_connector.test/02_get_blockchain_info.test.js": "aa208f59123349c1",
+        "test/unit/blockchain_connector.test/03_get_block_hash.test.js": "5fe09f057023d96d",
+        "test/unit/blockchain_connector.test/04_get_block.test.js": "f19903a0c9068d45",
+        "test/unit/blockchain_connector.test/05_get_raw_mempool.test.js": "dc379c2fb71ee433",
+        "test/unit/blockchain_connector.test/06_get_mempool_entry.test.js": "03b767b82ad0110e",
+        "test/unit/blockchain_connector.test/07_get_raw_transaction.test.js": "207c46f298f2fc1f",
+        "test/unit/blockchain_connector.test/08_create_wallet.test.js": "42340a17642bb547",
+        "test/unit/blockchain_connector.test/09_get_wallet_info.test.js": "906040fe4a8a748f",
+        "test/unit/blockchain_connector.test/10_load_wallet.test.js": "a809b314e6383258",
+        "test/unit/blockchain_connector.test/11_get_new_address.test.js": "0b25bc4bf4dd2797",
+        "test/unit/blockchain_connector.test/12_generate_to_address.test.js": "ff313fe7b4fabc63",
+        "test/unit/blockchain_connector.test/13_get_balance.test.js": "666fc4b8e265f889",
+        "test/unit/blockchain_connector.test/14_send_to_address.test.js": "9f3bc35ced2d361c",
+        "test/unit/blockchain_connector.test/15_set_tx_fee.test.js": "09017d9bcfe5cdc8",
+        "test/unit/blockchain_connector.test/16_invalidate_block.test.js": "9f982bd37d35fcf5",
+        "test/unit/blockchain_connector.test/17_reconsider_block.test.js": "c7022ea59c9bf473",
+        "test/unit/blockchain_connector.test/18_set_mock_time.test.js": "e84ae18c9ef78b12",
+        "test/unit/blockchain_connector.test/19_send_raw_transaction.test.js": "be20180b82010b3b",
+        "test/unit/blockchain_connector.test/20_sleep.test.js": "46a7ade14e0c8964",
+        "test/unit/coins_conformance.test.js": "2442df610ebb6911",
+        "test/unit/coverage_thresholds_sync.test.js": "4405034a199528ec",
+        "test/unit/crypto_networks.test.js": "6759ce6db03c3c10",
+        "test/unit/fill_mempool_mine_exclusion.test.js": "df1e698cc29dbe12",
+        "test/unit/idle_mine_heartbeat.test.js": "7b49b18b1c656b04",
+        "test/unit/jsonrpc_body_guard.test.js": "58706b2a54fa0008",
+        "test/unit/jsonrpc_null_params.test.js": "a3697a617b189cfb",
+        "test/unit/mine_loop_turns.test.js": "1ea3ecec22eb8b8a",
+        "test/unit/miner_health_probe.test.js": "071ce9df115b49d3",
+        "test/unit/no_key_boot_warning.test.js": "71884b7dd048eb3b",
+        "test/unit/pause_mining_barrier.test.js": "a5f61984809250ef",
+        "test/unit/reorg_mine_barrier.test.js": "d7f7b80a68b84a33",
+        "test/unit/reorg_wallet_funds.test.js": "26d6ee08948e6531",
+        "test/unit/security/configuration/dependency_advisories.test.js": "0f2abe37f99c5a17",
+        "test/unit/wallet_balance_freshness.test.js": "6c3ecc15eec173af",
+        "test/unit/xchain_regtest_miner.test.js": "8aa317e8fb38fb47",
+        "test/unit/xchain_regtest_miner.test/01_reconsider_block.test.js": "0265235264a967fc",
+        "test/unit/xchain_regtest_miner.test/02_set_mock_time.test.js": "3aac6b841d274930",
+        "test/unit/xchain_regtest_miner.test/03_prepare_wallet.test.js": "57a803d31d74b2a1",
+        "test/unit/xchain_regtest_miner.test/04_start_mining_loop.test.js": "e541c4daee612963",
+        "test/unit/xchain_regtest_miner.test/05_fill_mempool.test.js": "e277119bcac1e563",
+        "test/unit/xchain_regtest_miner.test/06_sleep.test.js": "d951ee83273e1e7c"
       }
     }
   }
