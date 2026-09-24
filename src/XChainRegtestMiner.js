@@ -140,6 +140,29 @@ class XChainRegtestMiner {
     }
 }
 
-Object.assign(XChainRegtestMiner.prototype, miningSchedule, mempoolFill, reorgControl, walletSetup, blockGeneration)
+// Define each source's own enumerable keys on target with class-method flags
+// (writable, configurable, not enumerable). A class split into part modules
+// has to put the moved methods back on its prototype; Object.assign would do
+// that as ENUMERABLE own properties, unlike a class-body method, so a split
+// class would change what for...in over an instance, Object.keys of the
+// prototype and a spread of it return. Key choice and order match
+// Object.assign (a later source wins a shared key), so only the enumerable
+// flag differs.
+function installMethods(target, ...sources) {
+    for (const source of sources) {
+        for (const key of Reflect.ownKeys(source)) {
+            if (!Object.prototype.propertyIsEnumerable.call(source, key)) continue
+            Object.defineProperty(target, key, {
+                value: source[key],
+                writable: true,
+                enumerable: false,
+                configurable: true,
+            })
+        }
+    }
+    return target
+}
+
+installMethods(XChainRegtestMiner.prototype, miningSchedule, mempoolFill, reorgControl, walletSetup, blockGeneration)
 
 module.exports = XChainRegtestMiner
