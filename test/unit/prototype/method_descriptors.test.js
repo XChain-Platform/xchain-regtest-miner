@@ -12,6 +12,8 @@
  *
  **********************************************************************
  *
+ * test/unit/prototype/method_descriptors.test.js
+ *
  * XChainRegtestMiner and BlockchainConnector are each split into part
  * modules whose methods are put back on the prototype by a repository-local
  * installMethods helper (defined in each file next to its own install call).
@@ -24,8 +26,8 @@
  ********************************************************************/
 
 const assert = require('assert');
-const XChainRegtestMiner = require('../../src/XChainRegtestMiner.js');
-const BlockchainConnector = require('../../src/rpc/blockchain_connector.js');
+const XChainRegtestMiner = require('../../../src/XChainRegtestMiner.js');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector.js');
 
 // [key, enumerable, writable, configurable, typeof, function length], sorted by key.
 function row(obj, k) {
