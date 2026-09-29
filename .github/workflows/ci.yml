@@ -35,7 +35,7 @@ jobs:
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "22.22.3"
           cache: npm
 
       - name: Install dependencies
@@ -69,7 +69,7 @@ jobs:
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.22.3"
 
       - name: Coin-registry byte-identity vs canonical
         run: xchain-hub/bin/sync-coins.sh --check --only xchain-regtest-miner
@@ -103,7 +103,7 @@ jobs:
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.22.3"
           cache: npm
 
       - name: Install dependencies
