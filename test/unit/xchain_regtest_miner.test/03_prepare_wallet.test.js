@@ -73,7 +73,7 @@ function probeAlwaysFails(addr = 'bcrt1qnew') {
 
 function prepareWalletTestsA() {
     it('skips load/create when wallet is already loaded', async function () {
-        connectorStub.getWalletInfo.resolves({ walletname: 'existing' })
+        connectorStub.getWalletInfo.resolves({ walletname: 'xchain_regtest_wallet' })
         await miner.prepareWallet()
         assert(connectorStub.loadWallet.notCalled)
         assert(connectorStub.createWallet.notCalled)
@@ -90,7 +90,7 @@ function prepareWalletTestsA() {
 
     it('creates the wallet when the probe fails and loadWallet fails', async function () {
         connectorStub.getNewAddress = probeAlwaysFails()
-        connectorStub.loadWallet.rejects(new Error('not found'))
+        connectorStub.loadWallet.rejects(Object.assign(new Error('not found'), { rpcCode: -18 }))
         connectorStub.createWallet.resolves({ name: 'xchain_regtest_wallet' })
         await miner.prepareWallet()
         assert(connectorStub.createWallet.calledWith('xchain_regtest_wallet'))
@@ -98,13 +98,13 @@ function prepareWalletTestsA() {
 
     it('throws when the probe fails and both load and create fail', async function () {
         connectorStub.getNewAddress = sinon.stub().rejects(new Error('wallet not ready'))
-        connectorStub.loadWallet.rejects(new Error('not found'))
+        connectorStub.loadWallet.rejects(Object.assign(new Error('not found'), { rpcCode: -18 }))
         connectorStub.createWallet.rejects(new Error('disk full'))
         await assert.rejects(() => miner.prepareWallet(), /Could not create wallet/)
     })
 
     it('gets a new address after wallet is ready', async function () {
-        connectorStub.getWalletInfo.resolves({ walletname: 'w' })
+        connectorStub.getWalletInfo.resolves({ walletname: 'xchain_regtest_wallet' })
         await miner.prepareWallet()
         assert(connectorStub.getNewAddress.calledOnce)
         assert.strictEqual(miner.walletAddress, 'bcrt1qtest')

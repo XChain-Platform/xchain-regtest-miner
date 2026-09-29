@@ -71,5 +71,34 @@ describe('BlockchainConnector', function () {
             axiosPostStub.rejects(new Error('refused'))
             await assert.rejects(() => connector.loadWallet('w'), /Error loading wallet/)
         })
+
+        it('carries the node code from an HTTP 200 error body', async function () {
+            axiosPostStub.resolves({ data: { result: null, error: { code: -35, message: 'Wallet "w" is already loaded.' }, id: 1 } })
+            await assert.rejects(
+                () => connector.loadWallet('w'),
+                err => err.message === 'Error loading wallet' && err.rpcCode === -35 && !err.timedOut && err.config === undefined
+            )
+        })
+
+        it('carries the node code from an HTTP 500 rejection', async function () {
+            const rejection = new Error('Request failed with status code 500')
+            rejection.config = { auth: { username: 'rpcuser', password: 'rpcpass' } }
+            rejection.response = { status: 500, data: { result: null, error: { code: -18, message: 'Path does not exist' }, id: 1 } }
+            axiosPostStub.rejects(rejection)
+            await assert.rejects(
+                () => connector.loadWallet('w'),
+                err => err.message === 'Error loading wallet' && err.rpcCode === -18 && err.config === undefined
+            )
+        })
+
+        it('flags a timeout without an rpc code', async function () {
+            const timeout = new Error('timeout of 60000ms exceeded')
+            timeout.code = 'ECONNABORTED'
+            axiosPostStub.rejects(timeout)
+            await assert.rejects(
+                () => connector.loadWallet('w'),
+                err => err.message === 'Error loading wallet' && err.timedOut === true && err.rpcCode === undefined
+            )
+        })
     })
 })

@@ -145,3 +145,71 @@ describe('fill_mempool vs a concurrent generate_blocks', function () {
         await assert.rejects(() => miner.generateBlocks(10001), /count exceeds maximum/)
     })
 })
+
+// continue_mining sets keepMining true with no fill check, so a call that lands
+// mid-fill must not let the REAL auto-mine loop hit the generateBlocks guard every
+// pass, count each refusal as a failed mine and drive health to mine_failures.
+// Both loop mine sites are driven: the pending-mempool timer and the idle heartbeat.
+async function continueMiningDuringFill({ rawMempool, idleMineIntervalMs }) {
+    const { evaluateMinerHealth } = require('../../src/api/health')
+    let nowMs = 1e9
+    const realNow = Date.now
+    Date.now = () => nowMs
+    miner.sleep = async (ms) => { nowMs += (Number(ms) || 0); await tick() }
+    miner.prepareWallet = async function () { this.walletAddress = 'bcrt1qtest'; this.walletReady = true }
+    miner.connector.getBalance = async () => 1
+    miner.connector.getRawMempool = async () => rawMempool
+    let mines = 0
+    miner.connector.generateToAddress = async (count) => { mines++; return Array(count).fill('hash') }
+    await miner.setIdleMineInterval(idleMineIntervalMs)
+
+    const sigBefore = { SIGTERM: process.listeners('SIGTERM'), SIGINT: process.listeners('SIGINT') }
+    const loop = miner.start()
+    try {
+        for (let spins = 0; !miner.getStatus().mining_started && spins < 1000; spins++) await tick()
+        assert.strictEqual(miner.getStatus().mining_started, true, 'precondition: the loop must be running')
+
+        // Hold the fill open exactly as fillMempool does, then resume mid-fill.
+        miner.fillMempoolRunning = true
+        miner.keepMining = false
+        miner._miningStateGeneration++
+        await miner.continueMining()
+        await assert.rejects(() => miner.generateBlocks(1), /fill_mempool/,
+            'precondition: the guard is live, so zero failures means the loop never reached it')
+
+        // 3000 passes of at least 100 virtual ms each: far past the 5s timer and 1s idle interval.
+        for (let spins = 0; spins < 3000 && miner.getStatus().mine_failures < 5; spins++) await tick()
+        const during = miner.getStatus()
+        assert.strictEqual(mines, 0, 'no loop block may land while the fill runs')
+        assert.strictEqual(during.mine_failures, 0, 'a fill-guard refusal is not a failed mine')
+        assert.ok(during.consecutive_errors < 5, 'got consecutive_errors ' + during.consecutive_errors)
+        assert.strictEqual(evaluateMinerHealth({ status: during, uptimeMs: 10 * 60000 }).healthy, true)
+
+        // The fill ends: the resume the caller asked for takes effect.
+        miner.fillMempoolRunning = false
+        for (let spins = 0; spins < 3000 && mines === 0; spins++) await tick()
+        assert.ok(mines >= 1, 'the loop must mine again once the fill has settled')
+    } finally {
+        miner._shutdown = true
+        await loop
+        Date.now = realNow
+        for (const sig of ['SIGTERM', 'SIGINT']) {
+            for (const listener of process.listeners(sig)) {
+                if (!sigBefore[sig].includes(listener)) process.removeListener(sig, listener)
+            }
+        }
+    }
+}
+
+describe('fill_mempool vs a mid-fill continue_mining', function () {
+    beforeEach(setupMiner)
+    afterEach(teardownMiner)
+
+    it('keeps the pending-mempool timer mine idle until the fill ends', async function () {
+        await continueMiningDuringFill({ rawMempool: ['tx1'], idleMineIntervalMs: 0 })
+    })
+
+    it('keeps the idle heartbeat mine idle until the fill ends', async function () {
+        await continueMiningDuringFill({ rawMempool: [], idleMineIntervalMs: 1000 })
+    })
+})

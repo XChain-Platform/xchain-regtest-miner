@@ -63,7 +63,7 @@ describe('Boundary: Wallet Preparation', function () {
 
     describe('W-01: wallet loaded, balance > 0, height > 100', function () {
         it('takes no mining action', async function () {
-            connectorStub.getWalletInfo.resolves({ walletname: 'w' })
+            connectorStub.getWalletInfo.resolves({ walletname: 'xchain_regtest_wallet' })
             connectorStub.getBalance.resolves(50.0)
             connectorStub.getBlockchainInfo.resolves({ blocks: 200 })
 
@@ -183,7 +183,7 @@ describe('Boundary: Wallet Preparation', function () {
         it('creates wallet after load fails', async function () {
             connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
             connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
-            connectorStub.loadWallet.rejects(new Error('not found'))
+            connectorStub.loadWallet.rejects(Object.assign(new Error('not found'), { rpcCode: -18 }))
             connectorStub.createWallet.resolves({ name: 'xchain_regtest_wallet' })
 
             await miner.prepareWallet()
@@ -197,7 +197,7 @@ describe('Boundary: Wallet Preparation', function () {
     describe('W-08: createWallet fails all retries', function () {
         it('throws wallet creation error', async function () {
             connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
-            connectorStub.loadWallet.rejects(new Error('not found'))
+            connectorStub.loadWallet.rejects(Object.assign(new Error('not found'), { rpcCode: -18 }))
             connectorStub.createWallet.rejects(new Error('disk full'))
 
             await assert.rejects(

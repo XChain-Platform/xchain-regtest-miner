@@ -14,7 +14,32 @@
 
 const axios = require('axios');
 const { logger } = require('./constants');
-const { rejectedRpcErrorMessage } = require('./rpc_error');
+const { rejectedRpcErrorMessage, rpcErrorCode } = require('./rpc_error');
+
+// The one node answer a createwallet retry can outlive (RPC_IN_WARMUP); every
+// other code repeats on each try, such as "Database already exists".
+const RPC_IN_WARMUP = -28;
+
+// Codes axios sets on a call that hit its timeout.
+const TIMEOUT_ERROR_CODES = ['ECONNABORTED', 'ETIMEDOUT'];
+
+// Builds a wallet call's fixed-message error carrying only primitive classification
+// (never the axios error, whose config holds the RPC credentials).
+function walletCallError(message, rpcCode, timedOut) {
+    const err = new Error(message);
+    if (rpcCode !== null && rpcCode !== undefined) err.rpcCode = rpcCode;
+    if (timedOut) err.timedOut = true;
+    return err;
+}
+
+// The node's RPC code on a rejected axios call, or null for a transport failure.
+function rejectedRpcCode(error) {
+    return rpcErrorCode(error && error.response ? error.response.data : null);
+}
+
+function isTimeout(error) {
+    return Boolean(error && TIMEOUT_ERROR_CODES.includes(error.code));
+}
 
 function buildSendToAddressData(address, amount, feeRateSatPerVb) {
     // Use POSITIONAL params for sendtoaddress, not named. Named-parameter
@@ -52,41 +77,43 @@ function buildSendToAddressData(address, amount, feeRateSatPerVb) {
 }
 
 module.exports = {
+    // Retries transport failures, empty answers and warmup only; any other node
+    // answer is thrown at once with its rpcCode, since the node repeats it every try.
     async createWallet(walletName, tries = 50) {
-        try {
-            const data = {
-                jsonrpc: '2.0',
-                method: 'createwallet',
-                params: [walletName],
-                id: 1,
-            }
-
-            while (tries > 0){
-
-                try{
-                    const response = await axios.post(this.url, data, {
-                        auth: {
-                            username: this.rpcUser,
-                            password: this.rpcPassword,
-                        }
-                    })
-
-                    if (response.data.result) {
-                        return response.data.result;
-                    } else {
-                        tries--
-                    }
-                } catch (err){
-                    tries--
-                }
-
-                await this.sleep(1000)
-            }
-
-            throw new Error('Error creating wallet');
-        } catch (error) {
-            throw new Error('Error creating wallet');
+        const data = {
+            jsonrpc: '2.0',
+            method: 'createwallet',
+            params: [walletName],
+            id: 1,
         }
+
+        while (tries > 0){
+            let rpcCode = null
+            try{
+                const response = await axios.post(this.url, data, {
+                    auth: {
+                        username: this.rpcUser,
+                        password: this.rpcPassword,
+                    }
+                })
+
+                if (response.data && response.data.result) {
+                    return response.data.result;
+                }
+                rpcCode = rpcErrorCode(response.data)
+            } catch (err){
+                rpcCode = rejectedRpcCode(err)
+            }
+
+            if (rpcCode !== null && rpcCode !== RPC_IN_WARMUP) {
+                throw walletCallError('Error creating wallet', rpcCode, false);
+            }
+            tries--
+
+            await this.sleep(1000)
+        }
+
+        throw new Error('Error creating wallet');
     },
 
     async getWalletInfo(maxRetries = 50){
@@ -126,29 +153,46 @@ module.exports = {
         }
     },
 
+    // One attempt. A failure keeps the fixed message and carries the node's rpcCode
+    // and a timedOut flag, so the caller can tell "not found" from "already loaded".
     async loadWallet(walletName){
-        try {
-            const data = {
-                jsonrpc: '2.0',
-                method: 'loadwallet',
-                params: [walletName],
-                id: 1,
-            }
+        const data = {
+            jsonrpc: '2.0',
+            method: 'loadwallet',
+            params: [walletName],
+            id: 1,
+        }
 
-            const response = await axios.post(this.url, data, {
+        let response
+        try {
+            response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
                 }
             })
-
-            if (response.data.result) {
-                return response.data.result;
-            } else {
-                throw new Error('Error loading wallet');
-            }
         } catch (error) {
-            throw new Error('Error loading wallet');
+            throw walletCallError('Error loading wallet', rejectedRpcCode(error), isTimeout(error));
+        }
+
+        if (response && response.data && response.data.result) {
+            return response.data.result;
+        }
+        throw walletCallError('Error loading wallet', rpcErrorCode(response && response.data), false);
+    },
+
+    // Names of the wallets loaded on the node, or null when the daemon cannot say
+    // (Dogecoin v1.14 has no listwallets) or the call fails. Never throws.
+    async listWallets(){
+        try {
+            const data = { jsonrpc: '2.0', method: 'listwallets', params: [], id: 1 }
+            const response = await axios.post(this.url, data, {
+                auth: { username: this.rpcUser, password: this.rpcPassword }
+            })
+            const result = response.data && response.data.result
+            return Array.isArray(result) ? result : null
+        } catch (error) {
+            return null
         }
     },
 
@@ -293,13 +337,14 @@ module.exports = {
      * has no way to tell a recoverable fault from a permanent one. It needs
      * exactly one: a node that has been restarted under a long-running miner
      * answers every `sendtoaddress` with "Requested wallet does not exist or
-     * is not loaded", forever, because the wallet is bootstrapped once at
-     * startup and nothing reloads it. A boolean discloses nothing and lets
+     * is not loaded" (a /wallet/<name> URI) or "No wallet is loaded" (the base
+     * URL), forever, because the wallet is bootstrapped once at startup and
+     * nothing reloads it. A boolean discloses nothing and lets
      * `sendFundsToAddress` re-bootstrap without failing for days.
      */
     sendError(nodeErr) {
         const err = new Error('Error sending funds to address')
-        if (/wallet does not exist or is not loaded/i.test(String(nodeErr))) {
+        if (/wallet does not exist or is not loaded|no wallet is loaded/i.test(String(nodeErr))) {
             err.walletMissing = true
         }
         return err

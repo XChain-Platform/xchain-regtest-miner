@@ -165,7 +165,7 @@ describe('T0 Regression: Critical Gate', function () {
 
     describe('REG-T0-004: prepareWallet branching', function () {
         it('skips load/create when wallet is already loaded', async function () {
-            connectorStub.getWalletInfo.resolves({ walletname: 'existing' })
+            connectorStub.getWalletInfo.resolves({ walletname: 'xchain_regtest_wallet' })
             await miner.prepareWallet()
             assert(connectorStub.loadWallet.notCalled)
             assert(connectorStub.createWallet.notCalled)
@@ -184,7 +184,7 @@ describe('T0 Regression: Critical Gate', function () {
         it('creates wallet when both the probe and loadWallet fail', async function () {
             connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
             connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
-            connectorStub.loadWallet.rejects(new Error('not found'))
+            connectorStub.loadWallet.rejects(Object.assign(new Error('not found'), { rpcCode: -18 }))
             connectorStub.createWallet.resolves({ name: 'xchain_regtest_wallet' })
             await miner.prepareWallet()
             assert(connectorStub.createWallet.calledWith('xchain_regtest_wallet'))
@@ -192,7 +192,7 @@ describe('T0 Regression: Critical Gate', function () {
 
         it('throws when all wallet methods fail', async function () {
             connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
-            connectorStub.loadWallet.rejects(new Error('not found'))
+            connectorStub.loadWallet.rejects(Object.assign(new Error('not found'), { rpcCode: -18 }))
             connectorStub.createWallet.rejects(new Error('disk full'))
             await assert.rejects(() => miner.prepareWallet(), /Could not create wallet/)
         })

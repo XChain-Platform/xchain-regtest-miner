@@ -104,8 +104,8 @@ describe('Boundary: RPC Retry and Response Shapes', function () { registerConnec
 
     describe('createWallet with falsy result then success', function () {
         it('decrements tries on falsy result and retries', async function () {
-            axiosPostStub.onFirstCall().resolves(rpcNoResult())
-            axiosPostStub.onSecondCall().resolves(rpcNoResult())
+            axiosPostStub.onFirstCall().resolves({ data: { result: null, error: null, id: 1 } })
+            axiosPostStub.onSecondCall().resolves({ data: { result: null, error: null, id: 1 } })
             axiosPostStub.onThirdCall().resolves(rpcSuccess({ name: 'w' }))
 
             const result = await connector.createWallet('w', 5)

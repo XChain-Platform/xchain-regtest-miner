@@ -15,6 +15,7 @@
 'use strict';
 
 const assert = require('assert');
+const axios  = require('axios');
 const fs     = require('fs');
 const path   = require('path');
 const { createHealthController, evaluateMinerHealth, UNAUTHENTICATED_METHODS,
@@ -152,6 +153,58 @@ function realMinerFailures() {
             miner._shutdown = true;
             await loop;
             Date.now = realNow;
+            for (const sig of ['SIGTERM', 'SIGINT']) {
+                for (const listener of process.listeners(sig)) {
+                    if (!sigBefore[sig].includes(listener)) process.removeListener(sig, listener);
+                }
+            }
+        }
+    });
+}
+
+function realMinerEmptyMines() {
+    // The node's own answer when generatetoaddress exhausts maxtries at real
+    // difficulty: an empty hash list and no error. Drive it through the REAL
+    // connector so the contract under test is the one production runs.
+    it('counts an empty generatetoaddress answer as a failed mine, not a mined block', async function () {
+        const miner = newMiner();
+        let nowMs = 1e9;
+        const realNow = Date.now;
+        const realPost = axios.post;
+        const realConsoleError = console.error;
+        Date.now = () => nowMs;
+        miner.sleep = async (ms) => { nowMs += (Number(ms) || 0); await new Promise(r => setImmediate(r)); };
+        miner.prepareWallet = async function () { this.walletAddress = 'bcrt1qtest'; this.walletReady = true; };
+        miner.connector.getRawMempool = async () => [];
+        axios.post = async (url, body) => {
+            if (body && body.method === 'generatetoaddress') return { data: { result: [], error: null, id: 1 } };
+            throw new Error('unexpected RPC in this test: ' + (body && body.method));
+        };
+        console.error = () => {};
+        await miner.setIdleMineInterval(1000);
+
+        const sigBefore = { SIGTERM: process.listeners('SIGTERM'), SIGINT: process.listeners('SIGINT') };
+        const loop = miner.start();
+        try {
+            let spins = 0;
+            while (miner.getStatus().mine_failures < STALL_ERROR_THRESHOLD && spins < 20000) {
+                spins++;
+                await new Promise(resolve => setImmediate(resolve));
+            }
+            const status = miner.getStatus();
+            assert.strictEqual(status.blocks_mined, 0, 'an empty hash list mined nothing and must not be credited');
+            assert.strictEqual(status.last_mine_at, null, 'an empty hash list must not stamp a fresh last_mine_at');
+            assert.ok(status.mine_failures >= STALL_ERROR_THRESHOLD,
+                'an empty generatetoaddress answer must extend the mine-failure streak, got ' + status.mine_failures);
+            const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
+            assert.strictEqual(verdict.healthy, false);
+            assert.strictEqual(verdict.reason, 'mine_failures');
+        } finally {
+            miner._shutdown = true;
+            await loop;
+            Date.now = realNow;
+            axios.post = realPost;
+            console.error = realConsoleError;
             for (const sig of ['SIGTERM', 'SIGINT']) {
                 for (const listener of process.listeners(sig)) {
                     if (!sigBefore[sig].includes(listener)) process.removeListener(sig, listener);
@@ -325,4 +378,5 @@ describe('miner health probe verdict', function () {
     describe('against a real XChainRegtestMiner', realMinerBasics);
     describe('against a real XChainRegtestMiner', realMinerLifecycle);
     describe('against a real XChainRegtestMiner', realMinerFailures);
+    describe('against a real XChainRegtestMiner', realMinerEmptyMines);
 });

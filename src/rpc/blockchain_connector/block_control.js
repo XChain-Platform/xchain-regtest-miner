@@ -42,8 +42,16 @@ module.exports = {
                 // as every other call on this connector.
             })
 
-            if (response.data.result) {
-                return response.data.result;
+            // Accept only one hash per requested block. An empty or short array is
+            // truthy, yet it is how the node reports running out of maxtries at real
+            // difficulty (testnet), so it must fail the mine rather than count as one.
+            const result = response.data ? response.data.result : undefined
+            if (Array.isArray(result) && result.length === count) {
+                return result;
+            }
+            if (Array.isArray(result)) {
+                logger.error('generatetoaddress returned ' + result.length + ' of ' + count + ' requested blocks (maxtries exhausted?)')
+                throw new Error('Error generating to address')
             }
             // Surface the node's own RPC error to the LOG so failures are debuggable
             // (e.g. LTC's "bad-txns-vin-empty" stall), but THROW a static message: the

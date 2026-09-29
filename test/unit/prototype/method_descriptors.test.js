@@ -85,6 +85,7 @@ const CONNECTOR_PROTOTYPE_ROWS = [
     ["getRawTransaction", false, true, true, "function", 1],
     ["getWalletInfo", false, true, true, "function", 0],
     ["invalidateBlock", false, true, true, "function", 1],
+    ["listWallets", false, true, true, "function", 0],
     ["loadWallet", false, true, true, "function", 1],
     ["reconsiderBlock", false, true, true, "function", 1],
     ["sendError", false, true, true, "function", 1],
