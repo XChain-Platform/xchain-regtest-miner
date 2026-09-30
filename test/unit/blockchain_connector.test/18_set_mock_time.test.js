@@ -72,9 +72,8 @@ describe('BlockchainConnector', function () {
             await assert.rejects(() => connector.setMockTime(1900000000), /Error setting mock time/)
         })
 
-        // setmocktime answers result:null on success, so the absence of an error
-        // member is not itself a success signal: an empty or truncated body could
-        // certify a chain operation the node never performed.
+        // setmocktime answers result:null on success, so an empty or truncated body
+        // could certify a mock-clock pin the node never applied.
         it('rejects an error-less body that carries no result', async function () {
             axiosPostStub.resolves({ data: {} })
             await assert.rejects(() => connector.setMockTime(1900000000), /Error setting mock time/)

@@ -18,10 +18,12 @@
  * evolves as RPC methods are called, simulating a real bitcoind lifecycle.
  *
  * The `daemon` option selects which daemon's RPC surface it answers with:
- * 'legacy' (the default) keeps settxfee as LTC v0.21 and DOGE v1.14 do, and
- * 'core31' answers settxfee with method-not-found as Bitcoin Core 31 does.
- * It also picks the HTTP transport of every RPC error reply (HTTP 500/404 on
- * legacy, HTTP 200 on core31); see test/helpers/rpcErrorReply.js.
+ * 'legacy' (the default) keeps settxfee as LTC v0.21 does, 'doge114' also
+ * refuses the named sendtoaddress arguments Dogecoin v1.14 lacks (fee_rate,
+ * verbose) and has no walletname, and 'core31' answers settxfee with
+ * method-not-found as Bitcoin Core 31 does. It also picks the HTTP transport of
+ * every RPC error reply (HTTP 500/404 on legacy and doge114, HTTP 200 on
+ * core31); see test/helpers/rpcErrorReply.js.
  */
 
 const express = require('express')
@@ -33,6 +35,27 @@ const network = bitcoin.networks.regtest
 
 // Wallet RPCs a /wallet/<name> URI refuses while that wallet is not loaded.
 const WALLET_METHODS = ['getwalletinfo', 'getnewaddress', 'getbalance', 'settxfee', 'sendtoaddress']
+
+// Name the sendtoaddress arguments Dogecoin v1.14 takes; any other name is refused.
+const DOGE114_SENDTOADDRESS_ARGS = ['address', 'amount', 'comment', 'comment_to', 'subtractfeefromamount']
+
+// Throws the -8 Dogecoin v1.14 answers for a named sendtoaddress argument it lacks.
+function refuseUnknownDogeSendArgs(params) {
+    if (!params || Array.isArray(params)) return
+    const unknown = Object.keys(params).find(name => !DOGE114_SENDTOADDRESS_ARGS.includes(name))
+    if (unknown === undefined) return
+    const err = new Error('Unknown named parameter ' + unknown)
+    err.rpcCode = -8
+    throw err
+}
+
+// Throws the -18 a daemon answers on the base URL while no wallet is loaded.
+function assertWalletLoaded(wallet) {
+    if (wallet.loaded) return
+    const err = new Error('No wallet is loaded')
+    err.rpcCode = -18
+    throw err
+}
 
 class StatefulMockNode {
     constructor({ daemon = 'legacy' } = {}) {
@@ -211,6 +234,9 @@ class StatefulMockNode {
         if (this.daemon === 'core31') {
             return { version: 310000, subversion: '/Satoshi:31.0.0/', protocolversion: 70016 }
         }
+        if (this.daemon === 'doge114') {
+            return { version: 1140900, subversion: '/Shibetoshi:1.14.9/', protocolversion: 70015 }
+        }
         return { version: 250000, subversion: '/Satoshi:25.0.0/', protocolversion: 70016 }
     }
 
@@ -231,11 +257,9 @@ class StatefulMockNode {
             err.rpcCode = -18
             throw err
         }
-        return {
-            walletname: this.wallet.name,
-            walletversion: 210000,
-            balance: this.matureBalance / 100000000,
-        }
+        const info = { walletversion: 210000, balance: this.matureBalance / 100000000 }
+        // Omit walletname on doge114: a single-wallet daemon predates the field.
+        return this.daemon === 'doge114' ? info : { walletname: this.wallet.name, ...info }
     }
 
     _rpc_createwallet(params) {
@@ -296,6 +320,7 @@ class StatefulMockNode {
     }
 
     _rpc_getbalance() {
+        assertWalletLoaded(this.wallet)
         this._matureCoinbases()
         return this.matureBalance / 100000000
     }
@@ -334,6 +359,8 @@ class StatefulMockNode {
     }
 
     _rpc_sendtoaddress(params) {
+        assertWalletLoaded(this.wallet)
+        if (this.daemon === 'doge114') refuseUnknownDogeSendArgs(params)
         // Positional [address, amount] or named {address, amount, fee_rate, verbose}
         const address = params.address || (Array.isArray(params) ? params[0] : null)
         const amount = params.amount || (Array.isArray(params) ? params[1] : 0)

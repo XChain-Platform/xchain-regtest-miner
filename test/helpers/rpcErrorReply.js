@@ -13,15 +13,15 @@
  **********************************************************************
  * JSON-RPC error replies in the transport shape each supported daemon uses.
  *
- * 'legacy' (LTC v0.21, DOGE v1.14) answers every RPC error with a non-2xx
- * status: 404 for method-not-found, 400 for an invalid request, 500 for the
- * rest, carrying {result: null, error, id}. 'core31' (Bitcoin Core 28+)
+ * 'legacy' (LTC v0.21) and 'doge114' (DOGE v1.14) answer every RPC error with
+ * a non-2xx status: 404 for method-not-found, 400 for an invalid request, 500
+ * for the rest, carrying {result: null, error, id}. 'core31' (Bitcoin Core 28+)
  * answers with HTTP 200 and a spec-conformant {jsonrpc, error, id} body, but
  * only when the request declared JSON-RPC 2.0; any other request gets the
  * legacy shape there too.
  */
 
-const DAEMONS = ['legacy', 'core31']
+const DAEMONS = ['legacy', 'doge114', 'core31']
 
 // Refuse a daemon name no double models.
 function assertDaemon(daemon) {

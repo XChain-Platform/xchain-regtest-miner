@@ -111,6 +111,31 @@ const RPC_METHOD_NOT_FOUND = -32601
 const WALLET_LOAD_MAX_ATTEMPTS = 30
 const WALLET_LOAD_RETRY_INTERVAL_MS = 5000
 
+// Bounds the retries of a settxfee that timed out, lost its transport or hit warmup.
+const RPC_IN_WARMUP = -28
+const SETTXFEE_MAX_ATTEMPTS = 3
+const SETTXFEE_RETRY_INTERVAL_MS = 2000
+
+// Asks the daemon to pin the wallet fee. Resolves true when pinned, 'missing' when
+// settxfee does not exist, and 'undecided' for a refusal or a failure that outlived
+// its retries. Never throws.
+async function trySetTxFee(){
+    for (let attempt = 1; attempt <= SETTXFEE_MAX_ATTEMPTS; attempt++) {
+        let err
+        try {
+            return (await this.connector.setTxFee(FUNDING_FEE_RATE_COINS_PER_KB)) === true ? true : 'undecided'
+        } catch (caught) {
+            err = caught || {}
+        }
+        if (err.rpcCode === RPC_METHOD_NOT_FOUND) return 'missing'
+        // Any other code is the daemon refusing the value, which repeats on every try.
+        const transient = err.timedOut || err.rpcCode == null || err.rpcCode === RPC_IN_WARMUP
+        if (!transient) return 'undecided'
+        if (attempt < SETTXFEE_MAX_ATTEMPTS) await this.sleep(SETTXFEE_RETRY_INTERVAL_MS)
+    }
+    return 'undecided'
+}
+
 // Creates the wallet loadwallet reported absent. Resolves true once it exists and
 // is loaded; throws when the node cannot create it.
 async function createMissingWallet(walletName){
@@ -279,17 +304,18 @@ module.exports = {
      * funded-address tests failing for no reason late in a long run.
      *
      * Why two mechanisms: settxfee (wallet-wide, set once) was the ceiling, and
-     * Bitcoin Core 31 DELETED the RPC. On BTC that call just answers false,
+     * Bitcoin Core 31 DELETED the RPC. On BTC that call answers method-not-found,
      * and "best effort, fall back to the estimate" silently gives the ceiling up
      * on exactly the chain that needs it. Core 0.21 added a per-call fee_rate
      * argument to sendtoaddress as the replacement, so BTC pins per call instead.
-     * LTC v0.21 and DOGE v1.14 have no fee_rate and keep settxfee.
+     * LTC v0.21 and DOGE v1.14 keep settxfee and pin wallet-wide; DOGE v1.14 has
+     * no fee_rate argument at all.
      *
      * The unknown-coin case is neither: NETWORK may be a bare 'regtest' with no
-     * coin half. Those try settxfee first (harmless and correct on the legacy
-     * daemons that cannot take fee_rate) and fall back to the per-call rate when
-     * the daemon answers no, so a Core 31 node reached through a bare NETWORK
-     * keeps a ceiling rather than reverting to the estimate.
+     * coin half. Those try settxfee first and switch to the per-call rate only on
+     * method-not-found, so a Core 31 node keeps a ceiling. A timeout or transport
+     * failure is retried, and one that outlives its retries, or any other refusal,
+     * stays on the positional no-rate form, since a DOGE node refuses fee_rate.
      *
      * @returns {Promise<'fee_rate'|'settxfee'|'none'>} the mechanism in force
      */
@@ -307,22 +333,28 @@ module.exports = {
             return useFeeRate()
         }
 
-        const pinned = await this.connector.setTxFee(FUNDING_FEE_RATE_COINS_PER_KB)
-        if (pinned) {
-            // Leave the per-call rate null: these daemons have no fee_rate
-            // argument and a named-param send would fail outright.
+        const answer = await trySetTxFee.call(this)
+        if (answer === true) {
+            // Leave the per-call rate null: the wallet-wide pin already caps the
+            // send, and DOGE v1.14 refuses a fee_rate argument.
             this.fundingFeeRateSatPerVb = null
             logger.info('Pinned wallet fee rate to ' + FUNDING_FEE_RATE_COINS_PER_KB +
                 '/kB via settxfee (regtest estimatesmartfee bypass)')
             return 'settxfee'
         }
+        if (answer === 'undecided') {
+            // Stay on the positional no-rate form, which every supported daemon accepts.
+            this.fundingFeeRateSatPerVb = null
+            logger.warn('settxfee could not be confirmed on this daemon; funding sends use the fee estimate')
+            return 'none'
+        }
 
         if (SETTXFEE_COINS.includes(coin)) {
-            // A coin known NOT to have fee_rate: there is no second mechanism to
-            // try, so say so instead of claiming a ceiling that is not there.
+            // Stay positional on a coin that keeps settxfee: method-not-found there
+            // is not the Core 31 removal, and DOGE v1.14 refuses fee_rate.
             this.fundingFeeRateSatPerVb = null
-            logger.info('settxfee not honored by this daemon and ' + coin +
-                ' has no fee_rate argument; funding sends use the fee estimate')
+            logger.info('settxfee not found on this ' + coin +
+                ' daemon; funding sends use the fee estimate')
             return 'none'
         }
 

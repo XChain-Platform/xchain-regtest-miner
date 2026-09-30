@@ -44,6 +44,16 @@ function rpcSuccess(result) {
     return { data: { result, error: null, id: 1 } }
 }
 
+// Resolves the error a promise rejects with, failing if it resolves.
+async function rejectionOf(promise) {
+    try {
+        await promise
+    } catch (err) {
+        return err
+    }
+    throw new assert.AssertionError({ message: 'expected a rejection' })
+}
+
 describe('BlockchainConnector', function () {
     beforeEach(setup)
     afterEach(teardown)
@@ -65,9 +75,31 @@ describe('BlockchainConnector', function () {
             assert.strictEqual(await connector.setTxFee(0.001), false)
         })
 
-        it('returns false on a network error rather than throwing', async function () {
-            axiosPostStub.rejects(new Error('ECONNREFUSED'))
-            assert.strictEqual(await connector.setTxFee(0.001), false)
+        it('throws a static error with no rpcCode on a network error', async function () {
+            axiosPostStub.rejects(new Error('connect ECONNREFUSED 10.0.0.9:18332 rpcuser:rpcpass'))
+            const err = await rejectionOf(connector.setTxFee(0.001))
+            assert.strictEqual(err.message, 'Error setting wallet fee')
+            assert.ok(!('rpcCode' in err) && !err.timedOut)
+        })
+
+        it('flags a timed-out call', async function () {
+            axiosPostStub.rejects(Object.assign(new Error('timeout'), { code: 'ECONNABORTED' }))
+            const err = await rejectionOf(connector.setTxFee(0.001))
+            assert.strictEqual(err.timedOut, true)
+        })
+
+        it('carries method-not-found answered over HTTP 200', async function () {
+            axiosPostStub.resolves({ data: { jsonrpc: '2.0', error: { code: -32601, message: 'Method not found' }, id: 1 } })
+            const err = await rejectionOf(connector.setTxFee(0.001))
+            assert.strictEqual(err.rpcCode, -32601)
+        })
+
+        it('carries method-not-found answered over HTTP 404', async function () {
+            const body = { result: null, error: { code: -32601, message: 'Method not found' }, id: 1 }
+            axiosPostStub.rejects(Object.assign(new Error('Request failed with status code 404'), { response: { data: body } }))
+            const err = await rejectionOf(connector.setTxFee(0.001))
+            assert.strictEqual(err.rpcCode, -32601)
+            assert.strictEqual(err.message, 'Error setting wallet fee')
         })
     })
 })

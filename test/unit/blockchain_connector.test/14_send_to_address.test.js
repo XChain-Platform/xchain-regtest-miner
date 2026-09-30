@@ -179,7 +179,7 @@ describe('BlockchainConnector', function () {
         })
 
         it('keeps the legacy positional form when no fee rate is supplied', async function () {
-            // DOGE v1.14 rejects named params outright, so a coin that pins
+            // DOGE v1.14 refuses a fee_rate argument, so a coin that pins
             // wallet-wide must not be pushed onto the fee_rate call shape.
             axiosPostStub.resolves(rpcSuccess('abc123'))
             for (const rate of [null, undefined, 0, NaN, -5, 'fast']) {

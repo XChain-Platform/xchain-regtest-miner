@@ -177,11 +177,8 @@ module.exports = {
                 logger.error('setmocktime RPC error: ' + response.data.error.message)
                 throw new Error('Error setting mock time')
             }
-            // Require the explicit JSON-RPC success result, not merely the absence of
-            // an error member. setmocktime answers result:null on success, so an empty
-            // body, a {}, or any other error-less 2xx can certify a reorg the node
-            // never performed: the miner then reported "ok" for a rollback that did
-            // not happen, which is exactly the determinism the harness exists to give.
+            // Require result:null, not just no error: an error-less 2xx would certify a
+            // clock pin the node never applied, and the next block would stamp wall time.
             if (!response.data || response.data.result !== null) {
                 throw new Error('Error setting mock time')
             }

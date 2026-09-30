@@ -231,8 +231,8 @@ function fundingFeeCeilingTestsA() {
             assert.ok(connectorStub.setTxFee.firstCall.args[0] > 0)
 
             await m.sendFundsToAddress('addr', 1.0)
-            // These daemons have no fee_rate argument; a named-param send
-            // would be rejected outright (DOGE v1.14 predates named params).
+            // The wallet-wide pin caps these sends, and DOGE v1.14 refuses a
+            // fee_rate argument, so no rate reaches the connector.
             assert.ok(
                 !connectorStub.sendToAddress.firstCall.args[2],
                 coin + ' sends must stay on the positional form'
@@ -256,7 +256,7 @@ function fundingFeeCeilingTestsB() {
     // (no coin half) answers settxfee with "no". Falling back to the
     // estimate there is the silent ceiling loss; fall back to fee_rate.
     it('falls back to the per-call rate when a daemon has dropped settxfee', async function () {
-        connectorStub.setTxFee.resolves(false)
+        connectorStub.setTxFee.rejects(settxfeeError({ rpcCode: -32601 }))
         const m = minerFor('regtest')
 
         assert.strictEqual(await m.pinFundingFeeRate(), 'fee_rate')
@@ -273,6 +273,11 @@ function fundingFeeCeilingTestsB() {
         await m.sendFundsToAddress('addr', 1.0)
         assert.ok(!connectorStub.sendToAddress.firstCall.args[2])
     })
+}
+
+// A classified settxfee failure, shaped as the connector throws it.
+function settxfeeError(fields) {
+    return Object.assign(new Error('Error setting wallet fee'), fields)
 }
 
 // ─── createWallet ───────────────────────────────────────────────────
