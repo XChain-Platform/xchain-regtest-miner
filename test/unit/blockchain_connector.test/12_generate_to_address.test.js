@@ -122,3 +122,31 @@ describe('BlockchainConnector', function () {
         })
     })
 })
+
+describe('BlockchainConnector', function () {
+    beforeEach(setup)
+    afterEach(teardown)
+
+    describe('generateToAddress', function () {
+        // generatetoaddress answers a short or empty list, with no error, when it
+        // runs out of maxtries at real difficulty; that is a failed mine.
+        it('throws a static message when the node returns an empty hash list', async function () {
+            axiosPostStub.resolves(rpcSuccess([]))
+            await assert.rejects(() => connector.generateToAddress(1, 'addr'), /^Error: Error generating to address$/)
+        })
+
+        it('throws and logs both counts when the node returns fewer hashes than requested', async function () {
+            axiosPostStub.resolves(rpcSuccess(['h1']))
+            await assert.rejects(() => connector.generateToAddress(2, 'addr'), /^Error: Error generating to address$/)
+            const logged = console.error.getCalls().map(c => c.args.join(' ')).join('\n')
+            assert.match(logged, /returned 1 of 2 requested blocks/)
+        })
+
+        it('throws a static message when the result is truthy but not an array', async function () {
+            axiosPostStub.resolves(rpcSuccess('abc'))
+            await assert.rejects(() => connector.generateToAddress(1, 'addr'), /Error generating to address/)
+            axiosPostStub.resolves(rpcSuccess({}))
+            await assert.rejects(() => connector.generateToAddress(1, 'addr'), /Error generating to address/)
+        })
+    })
+})

@@ -70,7 +70,7 @@ describe('Fuzz: RPC response handling', function () {
         it('handles probe failing and loadWallet throwing', async function () {
             connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
             connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
-            connectorStub.loadWallet.rejects(new Error('no file'))
+            connectorStub.loadWallet.rejects(Object.assign(new Error('no file'), { rpcCode: -18 }))
 
             await miner.prepareWallet()
 

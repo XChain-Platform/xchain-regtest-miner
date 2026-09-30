@@ -232,12 +232,30 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
 describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
     useConnector()
 
+    describe('createWallet refusals', function () {
+        it('createWallet: stops at once when the wallet database already exists', async function () {
+            server.onMethod('createwallet')
+                .failTimes(100, 'rpc', { code: -4, message: "Failed to create database path 'w'. Database already exists." })
+                .thenReturn({ name: 'w' })
+
+            await assert.rejects(
+                () => connector.createWallet('w'),
+                err => err.message === 'Error creating wallet' && err.rpcCode === -4
+            )
+            assert.strictEqual(server.callsFor('createwallet').length, 1)
+        })
+    })
+})
+
+describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
+    useConnector()
+
     // ─── Retry Behavior ─────────────────────────────────────────────────
 
     describe('retry behavior', function () {
-        it('createWallet: retries on failure and succeeds', async function () {
+        it('createWallet: retries on warmup and succeeds', async function () {
             server.onMethod('createwallet')
-                .failTimes(2, 'rpc', { code: -35, message: 'Wallet loading in progress' })
+                .failTimes(2, 'rpc', { code: -28, message: 'Loading wallet...' })
                 .thenReturn({ name: 'test_wallet' })
 
             const result = await connector.createWallet('test_wallet', 5)
@@ -245,9 +263,9 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
             assert.strictEqual(server.callsFor('createwallet').length, 3)
         })
 
-        it('createWallet: exhausts retries and throws', async function () {
+        it('createWallet: exhausts retries on a node that stays in warmup and throws', async function () {
             server.onMethod('createwallet')
-                .failTimes(100, 'rpc', { code: -1, message: 'Permanently broken' })
+                .failTimes(100, 'rpc', { code: -28, message: 'Loading wallet...' })
                 .thenReturn({ name: 'w' })
 
             await assert.rejects(
@@ -300,7 +318,7 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
 
             await assert.rejects(
                 () => connector.loadWallet('missing'),
-                /Wallet file not found|Error loading wallet/
+                err => err.message === 'Error loading wallet' && err.rpcCode === -18
             )
         })
     })
@@ -319,7 +337,9 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
             server.onMethod('getnewaddress').returns('bcrt1qtest')
             server.onMethod('getbalance').returns(0)
             server.onMethod('getblockchaininfo').returns({ blocks: 0 })
-            server.onMethod('generatetoaddress').returns(['blockhash1'])
+            // A real node answers one hash per requested block.
+            const warmupHashes = Array.from({ length: 101 }, (_, i) => 'blockhash' + (i + 1))
+            server.onMethod('generatetoaddress').returns(warmupHashes)
 
             // getWalletInfo returns null result → throws "Error getting wallet info"
             // This is fine: the miner catches it and proceeds to loadWallet
@@ -340,7 +360,7 @@ describe('Seam D: BlockchainConnector ↔ MockRpcServer', function () {
             assert.strictEqual(chainInfo.blocks, 0)
 
             const hashes = await connector.generateToAddress(101, addr)
-            assert.deepStrictEqual(hashes, ['blockhash1'])
+            assert.deepStrictEqual(hashes, warmupHashes)
 
             // Verify all calls went through the server
             assert.strictEqual(server.calls.length, 6)

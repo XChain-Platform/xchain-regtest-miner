@@ -240,12 +240,23 @@ class StatefulMockNode {
 
     _rpc_createwallet(params) {
         const name = Array.isArray(params) ? params[0] : params
+        // Real daemons refuse to create over an existing wallet database.
+        if (this.wallet.exists && this.wallet.name === name) {
+            const err = new Error(`Wallet file verification failed. Failed to create database path '${name}'. Database already exists.`)
+            err.rpcCode = -4
+            throw err
+        }
         this.wallet = { exists: true, loaded: true, name }
         return { name, warning: '' }
     }
 
     _rpc_loadwallet(params) {
         const name = Array.isArray(params) ? params[0] : params
+        if (this.hasLoadedWallet(name)) {
+            const err = new Error(`Wallet "${name}" is already loaded.`)
+            err.rpcCode = -35
+            throw err
+        }
         if (!this.wallet.exists) {
             const err = new Error('Wallet file not found')
             err.rpcCode = -18
@@ -254,6 +265,10 @@ class StatefulMockNode {
         this.wallet.loaded = true
         this.wallet.name = name
         return { name, warning: '' }
+    }
+
+    _rpc_listwallets() {
+        return this.wallet.loaded ? [this.wallet.name] : []
     }
 
     _rpc_getnewaddress() {

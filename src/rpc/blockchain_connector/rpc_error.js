@@ -34,4 +34,18 @@ function rejectedRpcErrorMessage(error) {
     return JSON.stringify(rpcErr)
 }
 
-module.exports = { rejectedRpcErrorMessage }
+/**
+ * The daemon's numeric JSON-RPC error code in a response body, or null when the
+ * body carries none. Read `response.data` for a resolved call (Core 28+ answers
+ * errors with HTTP 200) and `error.response.data` for a rejected one. Never throws.
+ *
+ * @param {*} body a JSON-RPC response body
+ * @returns {number|null}
+ */
+function rpcErrorCode(body) {
+    if (!body || typeof body !== 'object' || !body.error) return null
+    const code = body.error.code
+    return Number.isInteger(code) ? code : null
+}
+
+module.exports = { rejectedRpcErrorMessage, rpcErrorCode }

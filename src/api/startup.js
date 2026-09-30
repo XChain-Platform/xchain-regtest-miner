@@ -51,6 +51,8 @@ function validateEnvVars(environment, network, logger) {
     // unauthenticated send_funds endpoint by default; pointed at a live mainnet
     // node it would drain a funded wallet via sendtoaddress. regtest is the
     // intended target; testnet is tolerated for faucet-style flows (valueless coins).
+    // This label check is the cheap first gate; verifyNodeChain backs it at startup
+    // with the node's own getblockchaininfo answer.
     const validNetworks = ['regtest', 'testnet']
     if (!validNetworks.includes(network)) {
         logger.error('NETWORK must resolve to one of: ' + validNetworks.join(', ') + ' (got: ' + environment.NETWORK + '). mainnet is refused.')
@@ -60,6 +62,43 @@ function validateEnvVars(environment, network, logger) {
     if (nodeUrl !== 'localhost' && nodeUrl !== '127.0.0.1') {
         logger.warn('WARNING: NODE_URL is not localhost (' + nodeUrl + '). RPC credentials will be transmitted over the network in plaintext.')
     }
+}
+
+// Name the node chains each NETWORK label may run against, as getblockchaininfo
+// reports them: 'test' for testnet3 and the LTC/DOGE testnets, 'testnet4' for
+// Bitcoin Core 28+. Anything else, 'main' above all, is refused.
+function chainMatchesNetwork(network, chain) {
+    if (typeof chain !== 'string') return false
+    if (network === 'regtest') return chain === 'regtest'
+    if (network === 'testnet') return chain === 'test' || /^testnet\d*$/.test(chain)
+    return false
+}
+
+// Refuse to start unless the node itself reports a chain matching NETWORK, failing
+// closed on a mismatch and on a node that never answers: the label is operator-typed,
+// and a funded mainnet node behind it would let send_funds spend real coins.
+async function verifyNodeChain(connector, network, logger, { attempts = 30, intervalMs = 1000, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
+    let info = null
+    // Retry while the node warms up: it rejects RPC with -28 until it has loaded.
+    for (let attempt = 1; attempt <= attempts && info === null; attempt++) {
+        try {
+            info = await connector.getBlockchainInfo()
+        } catch (err) {
+            if (attempt < attempts) await sleep(intervalMs)
+        }
+    }
+    if (info === null) {
+        logger.error('Could not verify the node chain: getblockchaininfo failed ' + attempts + ' times. Refusing to start.')
+        process.exit(1)
+        return
+    }
+    const chain = info && info.chain
+    if (!chainMatchesNetwork(network, chain)) {
+        logger.error('Node reports chain ' + JSON.stringify(chain) + ' but NETWORK resolves to ' + network + '. mainnet and mismatched nodes are refused.')
+        process.exit(1)
+        return
+    }
+    logger.log('Verified node chain: ' + chain)
 }
 
 function createMiner(config) {
@@ -96,6 +135,9 @@ function createStartApi({ config, environment, logger, createHealthController, m
         validateEnvVars(environment, config.network, logger)
 
         const miner = createMiner(config)
+        // Ask the node for its chain before anything reaches the wallet or opens
+        // the API port: send_funds can move coins as soon as the port listens.
+        await verifyNodeChain(miner.connector, config.network, logger)
 
         // Mine-empty heartbeat. An explicit IDLE_MINE_INTERVAL_MS (including "0")
         // is honored as-is; left unset, it defaults on so a rail that comes back
@@ -123,4 +165,4 @@ function createStartApi({ config, environment, logger, createHealthController, m
     }
 }
 
-module.exports = { REQUIRED_ENV_VARS, createApiApp, createMiner, createStartApi, listenApi, startMinerDetached, validateEnvVars }
+module.exports = { REQUIRED_ENV_VARS, chainMatchesNetwork, createApiApp, createMiner, createStartApi, listenApi, startMinerDetached, validateEnvVars, verifyNodeChain }

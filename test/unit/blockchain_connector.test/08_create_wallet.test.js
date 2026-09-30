@@ -72,8 +72,8 @@ describe('BlockchainConnector', function () {
             assert.strictEqual(axiosPostStub.callCount, 3)
         })
 
-        it('retries on falsy result and succeeds', async function () {
-            axiosPostStub.onFirstCall().resolves(rpcNoResult())
+        it('retries on an empty answer and succeeds', async function () {
+            axiosPostStub.onFirstCall().resolves({ data: { result: null, error: null, id: 1 } })
             axiosPostStub.onSecondCall().resolves(rpcSuccess({ name: 'w' }))
             const result = await connector.createWallet('w', 5)
             assert.deepStrictEqual(result, { name: 'w' })
@@ -105,4 +105,38 @@ describe('BlockchainConnector', function () {
             assertRpcCall('createwallet', ['my_wallet'])
         })
     })
+
+    describe('createWallet node answers', createWalletNodeAnswerTests)
 })
+
+// A node answer other than warmup repeats on every try, so it must not be retried.
+function createWalletNodeAnswerTests() {
+    it('retries a warmup answer and succeeds', async function () {
+        axiosPostStub.onFirstCall().resolves({ data: { result: null, error: { code: -28, message: 'Loading wallet...' }, id: 1 } })
+        axiosPostStub.onSecondCall().resolves(rpcSuccess({ name: 'w' }))
+        const result = await connector.createWallet('w', 5)
+        assert.deepStrictEqual(result, { name: 'w' })
+        assert.strictEqual(axiosPostStub.callCount, 2)
+    })
+
+    it('stops at once on a node error it would repeat (HTTP 200 body)', async function () {
+        axiosPostStub.resolves(rpcNoResult())
+        await assert.rejects(
+            () => connector.createWallet('w'),
+            err => err.message === 'Error creating wallet' && err.rpcCode === -1 && err.config === undefined
+        )
+        assert.strictEqual(axiosPostStub.callCount, 1)
+        assert(connector.sleep.notCalled)
+    })
+
+    it('stops at once on "Database already exists" (HTTP 500 body)', async function () {
+        const rejection = new Error('Request failed with status code 500')
+        rejection.response = { status: 500, data: { result: null, error: { code: -4, message: "Failed to create database path 'w'. Database already exists." }, id: 1 } }
+        axiosPostStub.rejects(rejection)
+        await assert.rejects(
+            () => connector.createWallet('w'),
+            err => err.message === 'Error creating wallet' && err.rpcCode === -4
+        )
+        assert.strictEqual(axiosPostStub.callCount, 1)
+    })
+}

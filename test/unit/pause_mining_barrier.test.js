@@ -97,9 +97,12 @@ describe('pauseMining barrier vs the auto-mine loop', function () {
         const path = require('path')
         const src = fs.readFileSync(path.join(__dirname, '../../src/XChainRegtestMiner/block_generation.js'), 'utf8')
         const body = src.slice(src.indexOf('while (!this._shutdown)'))
-        const guards = body.split('if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }').length - 1
+        const guards = body.split('if (!loopMayMine.call(this)) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }').length - 1
         assert.strictEqual(guards, 2,
-            'both loop mine sites must re-read keepMining immediately before generateBlocks')
+            'both loop mine sites must re-read the mine gate immediately before generateBlocks')
+        // The gate is the pause flag plus the fill mutex; losing keepMining reopens the pause window.
+        const gate = src.slice(src.indexOf('function loopMayMine'), src.indexOf('async function runMineLoop'))
+        assert.match(gate, /return this\.keepMining && !this\.fillMempoolRunning/)
     })
 
     it('an in-flight mine still holds the barrier open (the queue drain is unchanged)', async function () {

@@ -51,6 +51,13 @@ function installShutdownHandlers(){
     process.on('SIGINT',  () => this._sigTermHandler('SIGINT'))
 }
 
+// Whether the auto-mine loop may mine now: not paused, and no fill_mempool run in
+// progress. keepMining alone is not enough, because continue_mining can set it true
+// in the middle of a fill, and generateBlocks then refuses every loop mine.
+function loopMayMine(){
+    return this.keepMining && !this.fillMempoolRunning
+}
+
 // The auto-mine loop itself. `loop` carries the mempool timers, the RPC error
 // streak and the heartbeat baseline across passes.
 async function runMineLoop(loop){
@@ -62,23 +69,24 @@ async function runMineLoop(loop){
         // windows in which the wallet drains, and a refresh that only ran while
         // mining would go quiet at the moment it is needed. refreshWalletFunds()
         // never throws, so this cannot break the loop; and both mine sites below
-        // re-read keepMining immediately before generateBlocks, so this await
+        // re-read loopMayMine immediately before generateBlocks, so this await
         // cannot reopen the pause barrier window those guards close.
         if (this.walletRefreshDue(Date.now())) {
             await this.refreshWalletFunds()
         }
-        if (this.keepMining){
+        // A running fill idles the loop exactly like a pause (see loopMayMine).
+        if (loopMayMine.call(this)){
             if (timerMineDue.call(this, loop)){
-                // Re-read keepMining immediately before mining, with NO await
+                // Re-read loopMayMine immediately before mining, with NO await
                 // between the check and the call. generateBlocks appends to
                 // _generateQueue synchronously, so a pause that lands after this
                 // check is already behind the barrier pauseMining()/fillMempool()
                 // await, and one that lands before it stops the mine outright.
-                // Nothing awaits between the loop's own keepMining check above and
+                // Nothing awaits between the loop's own loopMayMine check above and
                 // here today, so this guard changes no behavior at this site; it
                 // pins the invariant so inserting an await above cannot silently
                 // reopen the window the idle-mine site below actually had.
-                if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
+                if (!loopMayMine.call(this)) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
                 if (!(await mineLoopBlock.call(this, loop, "generating a new block"))) continue
                 clearErrorStreak.call(this, loop, true)
 
@@ -96,7 +104,7 @@ async function runMineLoop(loop){
             // the empty-mempool branch: a pending transaction has its own
             // timer above, and racing it would mine the block early.
             if (trackMempool.call(this, loop, read.rawMempool) && this.idleMineDue(Date.now(), loop.watchingSince)){
-                // The real window this guard closes. The loop's keepMining check
+                // The real window this guard closes. The loop's loopMayMine check
                 // sits above the `await this.connector.getRawMempool()` in readLoopMempool,
                 // so a pauseMining()/fillMempool() that flipped the flag
                 // during that RPC had already cleared its _generateQueue barrier
@@ -104,7 +112,7 @@ async function runMineLoop(loop){
                 // landed a block INSIDE a section the caller had been told was
                 // serialized, corrupting exactly the height-deterministic reorg and
                 // mempool drills the barrier exists for.
-                if (!this.keepMining) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
+                if (!loopMayMine.call(this)) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
                 if (!(await mineLoopBlock.call(this, loop, "mining an idle block"))) continue
                 clearErrorStreak.call(this, loop, true)
             }
@@ -217,9 +225,9 @@ module.exports = {
         // that straddles an await is not a guard. fillMempool's own funding mines
         // and prepareWallet's warmup take _generateBlocksQueued below and are
         // unaffected. This cannot fire from the auto-mine loop: both of its mine
-        // sites re-read keepMining with no await before the call, and fillMempool
-        // sets fillMempoolRunning and clears keepMining in one synchronous block,
-        // so a loop that got past its guard is already ahead of this one.
+        // sites re-read fillMempoolRunning (loopMayMine) with no await before the
+        // call, and fillMempool sets that flag before its first await. Re-reading
+        // keepMining alone would not do, since continue_mining can set it mid-fill.
         if (this.fillMempoolRunning) {
             throw new Error("mining is disabled while fill_mempool is running")
         }
@@ -267,8 +275,9 @@ module.exports = {
         // loop, generate_blocks RPC, fillMempool, prepareWallet warmup). blocks_mined
         // is a monotonic count of blocks this service generated (mining work
         // performed), not chain height: it intentionally does NOT decrement after an
-        // invalidate_block rollback.
-        this._blocksMined += numberOfBlocks
+        // invalidate_block rollback. Credit the hashes the node returned, not the
+        // count requested, so the counter never reports a block that was not mined.
+        this._blocksMined += hashes.length
         this._lastMineAt = Date.now()
 
         if (numberOfBlocks > 1){

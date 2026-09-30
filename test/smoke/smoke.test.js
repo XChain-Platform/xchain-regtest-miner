@@ -136,7 +136,7 @@ describe('Regtest Miner Smoke Tests', function () {
             // created, then succeeds.
             connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
             connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
-            connectorStub.loadWallet.rejects(new Error('not found'))
+            connectorStub.loadWallet.rejects(Object.assign(new Error('not found'), { rpcCode: -18 }))
             connectorStub.createWallet.resolves({ name: 'xchain_regtest_wallet' })
             // Balance is 0 before mining; the post-mining re-poll sees funds.
             connectorStub.getBalance.onFirstCall().resolves(0)

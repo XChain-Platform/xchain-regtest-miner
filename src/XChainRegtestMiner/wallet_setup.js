@@ -60,6 +60,97 @@ async function probeWalletAddress(){
     return probeAddress
 }
 
+// Binds the miner to its own named wallet after the base-URL probe succeeded and
+// resolves the address to mine to. Core and LTC serve a base-URL wallet call from
+// whichever single wallet is loaded, so a foreign wallet answering is swapped for ours.
+async function bindProbedWallet(probeAddress){
+    let info = null
+    try {
+        // Keep the retries low: the probe just answered on this same endpoint.
+        info = await this.connector.getWalletInfo(3)
+    } catch(err){
+        logger.warn('Could not read wallet info after a successful probe; staying on the base RPC URL')
+        return probeAddress
+    }
+
+    // No walletname field means a legacy single-wallet daemon (Dogecoin v1.14).
+    if (!info || typeof info.walletname !== 'string'){
+        return probeAddress
+    }
+
+    // Our wallet answered: pin it so a second wallet loaded later cannot break routing.
+    if (info.walletname === this.walletNameParam){
+        this.connector.setWalletName(this.walletNameParam)
+        return probeAddress
+    }
+
+    // A foreign wallet answered (an empty name is Core's unnamed default wallet).
+    logger.warn(`Probe was answered by wallet '${info.walletname}', not '${this.walletNameParam}'; loading and pinning ours`)
+    await this.ensureWalletLoaded()
+    return await this.connector.getNewAddress()
+}
+
+// Reports whether the named wallet is already loaded on the node, false when the
+// daemon cannot say (no listwallets RPC, or the call failed).
+async function isWalletAlreadyLoaded(walletName){
+    try {
+        const loaded = await this.connector.listWallets()
+        return Array.isArray(loaded) && loaded.includes(walletName)
+    } catch(err){
+        return false
+    }
+}
+
+// loadwallet answers the miner acts on (Bitcoin Core rpc/protocol.h).
+const RPC_WALLET_NOT_FOUND = -18
+const RPC_WALLET_ALREADY_LOADED = -35
+const RPC_METHOD_NOT_FOUND = -32601
+
+// Bounds the wait for a wallet the node is still loading (a mature regtest
+// wallet was measured at about a minute, past the 60s RPC timeout).
+const WALLET_LOAD_MAX_ATTEMPTS = 30
+const WALLET_LOAD_RETRY_INTERVAL_MS = 5000
+
+// Creates the wallet loadwallet reported absent. Resolves true once it exists and
+// is loaded; throws when the node cannot create it.
+async function createMissingWallet(walletName){
+    logger.info("Wallet not found. Creating a new wallet")
+    try {
+        await this.createWallet(walletName)
+        return true
+    } catch(err){
+        // Another caller created it between our load and create.
+        if (await isWalletAlreadyLoaded.call(this, walletName)){
+            return true
+        }
+        throw new Error(`Could not create wallet '${walletName}' on regtest node (chain may not support createwallet RPC, e.g. Dogecoin v1.14.x): ${err.message}`)
+    }
+}
+
+// Runs one classified load: true when loaded, false to retry. Creates only on -18
+// (or -32601, whose create fails fast with the unsupported-daemon message).
+async function loadWalletOnce(walletName){
+    let loadErr
+    try {
+        await this.connector.loadWallet(walletName)
+        return true
+    } catch(err){
+        loadErr = err
+    }
+
+    const rpcCode = loadErr ? loadErr.rpcCode : undefined
+    if (rpcCode === RPC_WALLET_ALREADY_LOADED){
+        return true
+    }
+    if (rpcCode === RPC_WALLET_NOT_FOUND || rpcCode === RPC_METHOD_NOT_FOUND){
+        return await createMissingWallet.call(this, walletName)
+    }
+
+    // Timeout, warmup, "already loading" or a transport fault: the wallet may be
+    // loaded or still loading, so ask the node instead of creating over it.
+    return await isWalletAlreadyLoaded.call(this, walletName)
+}
+
 // Settles the startup balance read. A wallet prepareWallet found empty is mined
 // to coinbase maturity and polled for a spendable balance, throwing when it never
 // arrives; then the read is stamped and the funding fee rate pinned. The mining,
@@ -120,25 +211,24 @@ module.exports = {
      * (sendtoaddress, getbalance) working even if extra wallets get loaded on
      * the same node later. Legacy single-wallet chains (Dogecoin v1.14.x) never
      * take this path - their probe succeeds on the base URL.
+     *
+     * Only a loadwallet "not found" (-18) creates the wallet: an existing wallet
+     * answers createwallet with "Database already exists" forever. Any other
+     * failure is retried within WALLET_LOAD_MAX_ATTEMPTS, checking listwallets.
      */
     async ensureWalletLoaded(){
-        let walletLoaded = false
-        try {
-            await this.connector.loadWallet(this.walletNameParam)
-            walletLoaded = true
-        } catch(err){
-            //The named wallet couldn't be loaded (may not exist, or RPC unsupported)
-        }
-
-        if (!walletLoaded){
-            logger.info("Wallet not found. Creating a new wallet")
-            try{
-                await this.createWallet(this.walletNameParam)
-            } catch(err){
-                throw new Error(`Could not create wallet '${this.walletNameParam}' on regtest node (chain may not support createwallet RPC, e.g. Dogecoin v1.14.x): ${err.message}`)
+        const walletName = this.walletNameParam
+        for (let attempt = 1; attempt <= WALLET_LOAD_MAX_ATTEMPTS; attempt++) {
+            if (await loadWalletOnce.call(this, walletName)){
+                this.connector.setWalletName(walletName)
+                return
+            }
+            if (attempt < WALLET_LOAD_MAX_ATTEMPTS) {
+                logger.warn(`Wallet '${walletName}' not confirmed loaded (attempt ${attempt}/${WALLET_LOAD_MAX_ATTEMPTS}); retrying the load`)
+                await this.sleep(WALLET_LOAD_RETRY_INTERVAL_MS)
             }
         }
-        this.connector.setWalletName(this.walletNameParam)
+        throw new Error(`Could not load wallet '${walletName}' on regtest node: the node never confirmed it loaded`)
     },
 
     async sendFundsToAddress(address, amount){
@@ -249,8 +339,8 @@ module.exports = {
             logger.info("Getting a new address to receive blocks reward")
             this.walletAddress = await this.connector.getNewAddress()
         } else {
-            // Probe succeeded; wallet is already usable, use that address
-            this.walletAddress = probeAddress
+            // Probe succeeded; make sure the wallet that answered is ours before using it
+            this.walletAddress = await bindProbedWallet.call(this, probeAddress)
         }
 
         logger.info("Checking wallet balance")

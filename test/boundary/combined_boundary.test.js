@@ -355,7 +355,7 @@ describe('Boundary: Combined Parameter Interactions', function () {
 
         it('throws when the probe, loadWallet, and createWallet all fail', async function () {
             connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
-            connectorStub.loadWallet.rejects(new Error('wallet not found'))
+            connectorStub.loadWallet.rejects(Object.assign(new Error('wallet not found'), { rpcCode: -18 }))
             connectorStub.createWallet.rejects(new Error('disk full'))
 
             await assert.rejects(

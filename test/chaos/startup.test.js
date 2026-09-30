@@ -103,16 +103,16 @@ describe('Chaos: Startup Under Node Unavailability (CE-05)', function () {
 
         const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
 
-        // Stub connector.sleep so retries are instant (otherwise 50+ seconds)
+        // Stub both sleeps so retries are instant (otherwise minutes)
         sinon.stub(miner.connector, 'sleep').resolves()
+        sinon.stub(miner, 'sleep').resolves()
 
         // prepareWallet will call:
         //   1. getNewAddress probe (bounded retries): fails, falls through
-        //   2. loadWallet: fails, falls through
-        //   3. createWallet (50 retries): fails, throws
+        //   2. loadWallet (bounded retries): a transport failure never creates, so it throws
         await assert.rejects(
             () => miner.prepareWallet(),
-            /Could not create wallet/,
+            /Could not load wallet .* the node never confirmed it loaded/,
             'W-2: prepareWallet should throw after exhausting all retry windows'
         )
 

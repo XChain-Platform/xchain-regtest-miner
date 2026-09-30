@@ -36,7 +36,7 @@ function createMiner() {
         }),
         loadWallet: sinon.stub().callsFake(async (name) => {
             callLog.push(`loadWallet(${name})`)
-            throw new Error('Wallet not found')
+            throw Object.assign(new Error('Wallet not found'), { rpcCode: -18 })
         }),
         createWallet: sinon.stub().callsFake(async (name) => {
             callLog.push(`createWallet(${name})`)
@@ -159,6 +159,7 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
 
             assert.deepStrictEqual(callLog, [
                 'getNewAddress',
+                'getWalletInfo',
                 'getBalance',
                 'setTxFee',
             ])
