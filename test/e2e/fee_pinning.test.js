@@ -48,9 +48,12 @@ async function rpc(node, method, params) {
 }
 
 // Seeds a loaded, matured wallet so prepareWallet skips the fresh-node probe retries.
+// doge114 already has its one wallet loaded and no createwallet, so it mines to its own address.
 async function fundedNode(node) {
-    await rpc(node, 'createwallet', ['xchain_regtest_wallet'])
-    await rpc(node, 'generatetoaddress', [110, DEST])
+    let to = DEST
+    if (node.daemon === 'doge114') to = (await rpc(node, 'getnewaddress', [])).result
+    else await rpc(node, 'createwallet', ['xchain_regtest_wallet'])
+    await rpc(node, 'generatetoaddress', [110, to])
     node.calls = []
 }
 
@@ -131,6 +134,30 @@ describe('E2E: Funding fee pin on a Dogecoin 1.14 node', function () {
 
     it('keeps a bare network on the settxfee pin', async function () {
         await testSettxfeePinOnDoge('regtest')
+    })
+
+    it('prepares a fresh node without any multi-wallet RPC', async function () {
+        await withNode('doge114', async node => {
+            const miner = createMiner('dogecoin-regtest', node)
+            sinon.stub(miner, 'sleep').resolves()
+            await miner.prepareWallet()
+
+            for (const method of ['createwallet', 'loadwallet', 'listwallets']) {
+                assert.deepStrictEqual(node.callsFor(method), [], method)
+            }
+            assert.ok(typeof miner.walletAddress === 'string' && miner.walletAddress.length > 0)
+            assert.strictEqual(miner.walletReady, true)
+            assert.deepStrictEqual(node.callsFor('settxfee').map(c => c.params), [[FUNDING_FEE_RATE_COINS_PER_KB]])
+        })
+    })
+
+    it('fails fast when the load path is forced on a node without loadwallet', async function () {
+        await withNode('doge114', async node => {
+            const miner = createMiner('dogecoin-regtest', node)
+            sinon.stub(miner, 'sleep').resolves()
+            await assert.rejects(miner.ensureWalletLoaded(), /Could not create wallet .*Dogecoin v1\.14/)
+            assert.strictEqual(node.callsFor('loadwallet').length, 1)
+        })
     })
 })
 
@@ -247,6 +274,18 @@ describe('E2E: StatefulMockNode doge114 and no-wallet wire contract', function (
             assert.strictEqual(typeof body.result, 'string')
             const info = await rpc(node, 'getwalletinfo', [])
             assert.ok(!('walletname' in info.result))
+        })
+    })
+
+    it('starts with its wallet loaded and refuses the multi-wallet RPCs over HTTP 404 in doge114 mode', async function () {
+        await withNode('doge114', async node => {
+            const balance = await rpc(node, 'getbalance', [])
+            assert.strictEqual(typeof balance.result, 'number')
+            for (const method of ['createwallet', 'loadwallet', 'listwallets']) {
+                const reply = await rawRpc(node, '/', { jsonrpc: '2.0', method, params: ['xchain_regtest_wallet'], id: 5 })
+                assert.strictEqual(reply.status, 404, method)
+                assert.strictEqual(reply.body.error.code, -32601, method)
+            }
         })
     })
 

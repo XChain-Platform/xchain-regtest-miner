@@ -20,7 +20,9 @@
  * The `daemon` option selects which daemon's RPC surface it answers with:
  * 'legacy' (the default) keeps settxfee as LTC v0.21 does, 'doge114' also
  * refuses the named sendtoaddress arguments Dogecoin v1.14 lacks (fee_rate,
- * verbose) and has no walletname, and 'core31' answers settxfee with
+ * verbose) and has no walletname, starts with its one unnamed wallet loaded and
+ * answers createwallet, loadwallet and listwallets with method-not-found as a
+ * single-wallet daemon does, and 'core31' answers settxfee with
  * method-not-found as Bitcoin Core 31 does. It also picks the HTTP transport of
  * every RPC error reply (HTTP 500/404 on legacy and doge114, HTTP 200 on
  * core31); see test/helpers/rpcErrorReply.js.
@@ -49,6 +51,20 @@ function refuseUnknownDogeSendArgs(params) {
     throw err
 }
 
+// Throws the -32601 Dogecoin v1.14 answers for the multi-wallet RPCs it predates.
+function refuseWalletRpcOnDoge(daemon) {
+    if (daemon !== 'doge114') return
+    const err = new Error('Method not found')
+    err.rpcCode = -32601
+    throw err
+}
+
+// Starts doge114 with its auto-loaded unnamed wallet and every other daemon with none.
+function initialWallet(daemon) {
+    const loaded = daemon === 'doge114'
+    return { exists: loaded, loaded, name: null }
+}
+
 // Throws the -18 a daemon answers on the base URL while no wallet is loaded.
 function assertWalletLoaded(wallet) {
     if (wallet.loaded) return
@@ -68,7 +84,7 @@ class StatefulMockNode {
         this.calls = []
 
         // ── Internal state ──────────────────────────────────────────
-        this.wallet = { exists: false, loaded: false, name: null }
+        this.wallet = initialWallet(this.daemon)
         this.addresses = []
         this.height = 0
         this.blocks = []          // [{hash, height, txids, previousHash, time}]
@@ -129,7 +145,7 @@ class StatefulMockNode {
 
     reset() {
         this.calls = []
-        this.wallet = { exists: false, loaded: false, name: null }
+        this.wallet = initialWallet(this.daemon)
         this.addresses = []
         this.height = 0
         this.blocks = []
@@ -263,6 +279,7 @@ class StatefulMockNode {
     }
 
     _rpc_createwallet(params) {
+        refuseWalletRpcOnDoge(this.daemon)
         const name = Array.isArray(params) ? params[0] : params
         // Real daemons refuse to create over an existing wallet database.
         if (this.wallet.exists && this.wallet.name === name) {
@@ -275,6 +292,7 @@ class StatefulMockNode {
     }
 
     _rpc_loadwallet(params) {
+        refuseWalletRpcOnDoge(this.daemon)
         const name = Array.isArray(params) ? params[0] : params
         if (this.hasLoadedWallet(name)) {
             const err = new Error(`Wallet "${name}" is already loaded.`)
@@ -292,6 +310,7 @@ class StatefulMockNode {
     }
 
     _rpc_listwallets() {
+        refuseWalletRpcOnDoge(this.daemon)
         return this.wallet.loaded ? [this.wallet.name] : []
     }
 
