@@ -22,17 +22,15 @@ describe('pin identity tool', () => {
         assert.deepEqual(compare(identity, identity), []);
     });
 
-    it('identifies exactly one changed file through its reported section', () => {
+    it('reports the coins section when exactly one file digest changes', () => {
         const fresh = buildIdentity();
-        const changed = structuredClone(fresh);
         const target = 'src/coins/BTC.js';
-        changed.coins[target] = 'changed';
-        const differences = compare(changed, fresh);
-        const changedFiles = differences.flatMap((section) => Object.keys(fresh[section])
-            .filter((relativePath) => changed[section][relativePath] !== fresh[section][relativePath]));
+        const changed = {
+            ...fresh,
+            coins: { ...fresh.coins, [target]: 'changed' },
+        };
 
-        assert.deepEqual(differences, ['coins']);
-        assert.deepEqual(changedFiles, [target]);
+        assert.deepEqual(compare(changed, fresh), ['coins']);
     });
 
     it('hashes files in deterministic key order', () => {
