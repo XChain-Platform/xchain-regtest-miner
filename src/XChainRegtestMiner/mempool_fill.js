@@ -37,8 +37,6 @@ const {
 // Resolves the coin network, the per-output amounts and a fresh HD key tree: the
 // main address that collects the funding plus one derived key per stress tx.
 function deriveFillKeys(txQuantity){
-    //let AMOUNT_FOR_EACH_ADDRESS = 0.000001
-    //let FEE = 0.00001
 
     let OUTPUTS_QUANTITY_PER_TX = 2500
 
