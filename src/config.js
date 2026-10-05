@@ -30,4 +30,18 @@ const NODE_RPC_TIMEOUT_MS = /^\d+$/.test(rawNodeRpcTimeout)
     ? parseInt(rawNodeRpcTimeout, 10)
     : DEFAULT_NODE_RPC_TIMEOUT_MS;
 
-module.exports = { NODE_RPC_TIMEOUT_MS };
+const env = process.env;
+
+module.exports = {
+    NODE_RPC_TIMEOUT_MS,
+    NETWORK: env.NETWORK,
+    NODE_URL: env.NODE_URL,
+    NODE_PORT: env.NODE_PORT,
+    NODE_USER: env.NODE_USER,
+    NODE_PASSWORD: env.NODE_PASSWORD,
+    REGTEST_MINER_API_PORT: env.REGTEST_MINER_API_PORT,
+    MINER_API_KEY: env.MINER_API_KEY || null,
+    MINER_STALL_ERROR_THRESHOLD: env.MINER_STALL_ERROR_THRESHOLD,
+    MINER_WALLET_GRACE_MS: env.MINER_WALLET_GRACE_MS,
+    PROCESS_ENV: env
+};
