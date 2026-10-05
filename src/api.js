@@ -30,32 +30,33 @@ const {
     formatMinerHealth
 } = require('./api/health')
 const { createStartApi } = require('./api/startup')
+const envConfig = require('./config')
 
 // Accept either the bare network ("regtest") or the platform's "coin-network" form ("bitcoin-regtest").
 // COIN_NETWORK keeps the full identifier so the miner can resolve coin-specific
 // address/PSBT params (DOGE/LTC version bytes differ from Bitcoin); NETWORK is the
 // bare suffix, used only for validation below.
-const COIN_NETWORK = process.env.NETWORK
+const COIN_NETWORK = envConfig.NETWORK
 const NETWORK = (COIN_NETWORK || '').includes('-')
     ? COIN_NETWORK.split('-').pop()
     : COIN_NETWORK
-const NODE_URL =  process.env.NODE_URL
-const NODE_PORT =  process.env.NODE_PORT
-const NODE_USER =  process.env.NODE_USER
-const NODE_PASSWORD =  process.env.NODE_PASSWORD
-const REGTEST_MINER_API_PORT = process.env.REGTEST_MINER_API_PORT
+const NODE_URL = envConfig.NODE_URL
+const NODE_PORT = envConfig.NODE_PORT
+const NODE_USER = envConfig.NODE_USER
+const NODE_PASSWORD = envConfig.NODE_PASSWORD
+const REGTEST_MINER_API_PORT = envConfig.REGTEST_MINER_API_PORT
 
 // Optional API key for the miner's own JSON-RPC surface. When set, every request
 // must supply the matching value in the X-API-Key header; unset (default) means
 // no auth so existing unauthenticated callers (e2e harness, docker-compose stacks)
 // are unaffected. Mirrors the opt-in pattern used by xchain-encoder and xchain-hub.
-const MINER_API_KEY = process.env.MINER_API_KEY || null
+const MINER_API_KEY = envConfig.MINER_API_KEY
 
 // Stall thresholds for the `health` probe. A deliberate pause is never a stall,
 // so only these two shapes are: a run of failed mining cycles, and a wallet that
 // never became ready once the cold-start grace has elapsed.
-const STALL_ERROR_THRESHOLD = parseInt(process.env.MINER_STALL_ERROR_THRESHOLD, 10) || 5
-const WALLET_GRACE_MS       = parseInt(process.env.MINER_WALLET_GRACE_MS, 10) || 60000
+const STALL_ERROR_THRESHOLD = parseInt(envConfig.MINER_STALL_ERROR_THRESHOLD, 10) || 5
+const WALLET_GRACE_MS       = parseInt(envConfig.MINER_WALLET_GRACE_MS, 10) || 60000
 
 function evaluateMinerHealth({ status = {}, uptimeMs = 0,
                                errorThreshold = STALL_ERROR_THRESHOLD,
@@ -127,7 +128,7 @@ const startApi = createStartApi({
         apiPort: REGTEST_MINER_API_PORT,
         apiKey: MINER_API_KEY
     },
-    environment: process.env,
+    environment: envConfig.PROCESS_ENV,
     logger: console,
     createHealthController,
     mountJsonRpc,
