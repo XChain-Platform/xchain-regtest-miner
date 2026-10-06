@@ -65,6 +65,8 @@ function buildSendToAddressData(address, amount, feeRateSatPerVb) {
 }
 
 module.exports = {
+    buildSendToAddressData,
+
     // Retries transport failures, empty answers and warmup only; any other node
     // answer is thrown at once with its rpcCode, since the node repeats it every try.
     async createWallet(walletName, tries = 50) {
