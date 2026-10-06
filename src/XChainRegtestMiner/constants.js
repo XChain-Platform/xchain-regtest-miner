@@ -41,11 +41,11 @@ const MAX_FILL_MEMPOOL_QUANTITY = 50000 //max number of transactions to fill the
 const MAX_SEND_RETRIES = 50 //max retries for sending funds in fillMempool
 const MAX_GENERATE_BLOCKS = 10000 //max blocks a single generateBlocks call may mine (see the cap note in block_generation.js)
 
-// The funding-send fee ceiling, expressed once per fee mechanism. The two
-// numbers are the SAME rate: 0.001 coins/kB is 100000 sat per 1000 vB, i.e.
-// 100 sat/vB. Well above every supported chain's relayfee floor (BTC/LTC
-// 0.00001/kB, DOGE 0.001/kB) so funding txs still relay, and valueless on
-// regtest. See pinFundingFeeRate (wallet_setup.js) for why there are two mechanisms.
+// The funding-send fee ceiling, once per fee mechanism. Both are the SAME rate (0.001
+// coins/kB = 100000 sat per 1000 vB = 100 sat/vB), so change them together. It is 100x
+// the BTC/LTC default relayfee floor (0.00001/kB) but exactly AT Dogecoin's (0.001/kB), so
+// never lower it: below a floor funding txs stop relaying, or settxfee refuses and the pin
+// falls back to the fee estimate. Valueless on regtest; see pinFundingFeeRate (wallet_setup.js).
 const FUNDING_FEE_RATE_COINS_PER_KB = 0.001
 const FUNDING_FEE_RATE_SAT_PER_VB = 100
 

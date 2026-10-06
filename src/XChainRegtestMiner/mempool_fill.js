@@ -279,6 +279,30 @@ async function stressMempool(utxos, { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_A
     }
 }
 
+// Reloads a wallet the node lost (restarted under the miner) from the read path, in the
+// BACKGROUND: ensureWalletLoaded can retry for minutes, and refreshWalletFunds is awaited
+// inline by the auto-mine loop, so awaiting it would stall mining on a wallet that will not load.
+// Single-flight, at most one start per WALLET_BALANCE_REFRESH_MS, and never rejects.
+function startWalletReload(){
+    if (this.walletReloadInFlight) return this.walletReloadInFlight
+    const now = Date.now()
+    if (this.walletReloadStartedAt != null && (now - this.walletReloadStartedAt) < WALLET_BALANCE_REFRESH_MS) return null
+    this.walletReloadStartedAt = now
+    logger.info('Wallet is no longer loaded on the node (restarted?); reloading it from the balance read')
+    this.walletReloadInFlight = (async () => {
+        try {
+            await this.ensureWalletLoaded()
+            // Re-pin after the reload: settxfee is in-memory wallet state on LTC/DOGE.
+            await this.pinFundingFeeRate()
+        } catch (err) {
+            logger.info('Could not reload the wallet: ' + (err && err.message ? err.message : err))
+        } finally {
+            this.walletReloadInFlight = null
+        }
+    })()
+    return this.walletReloadInFlight
+}
+
 module.exports = {
     async fillMempool(txQuantity){
             if (this.fillMempoolRunning) {
@@ -349,6 +373,9 @@ module.exports = {
         } catch (err) {
             logger.info("Could not re-read the wallet balance: "+(err && err.message ? err.message : err))
             this.balance = null
+            // A lost wallet is reloaded in the background, so the next read (one interval on) can
+            // succeed: without it wallet_funded stayed false until a send happened to reload it.
+            if (err && err.walletMissing) startWalletReload.call(this)
         }
         this._balanceReadAt = Date.now()
         return this.balance

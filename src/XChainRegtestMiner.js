@@ -101,6 +101,10 @@ function initStatusFields() {
     // exported as wallet_balance_at so a drill can tell a fresh reading from a
     // never-refreshed one. null until prepareWallet has read a balance.
     this._balanceReadAt = null
+    // The in-flight read-path wallet reload and the epoch ms it last started (see
+    // startWalletReload in mempool_fill.js); both null until a read finds the wallet lost.
+    this.walletReloadInFlight = null
+    this.walletReloadStartedAt = null
     this._mempoolSize = 0
     this._blocksMined = 0
     this._lastMineAt = null

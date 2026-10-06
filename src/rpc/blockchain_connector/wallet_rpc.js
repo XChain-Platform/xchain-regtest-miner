@@ -14,7 +14,7 @@
 
 const axios = require('axios');
 const { logger } = require('./constants');
-const { rejectedRpcErrorMessage, rpcErrorCode } = require('./rpc_error');
+const { isWalletMissingMessage, rejectedRpcErrorMessage, rpcErrorCode } = require('./rpc_error');
 
 // The one node answer a createwallet retry can outlive (RPC_IN_WARMUP); every
 // other code repeats on each try, such as "Database already exists".
@@ -35,6 +35,14 @@ function walletCallError(message, rpcCode, timedOut) {
 // The node's RPC code on a rejected axios call, or null for a transport failure.
 function rejectedRpcCode(error) {
     return rpcErrorCode(error && error.response ? error.response.data : null);
+}
+
+// The static balance-read failure, flagged walletMissing when the node said the wallet
+// is not loaded, so the read path can reload it the way the send path does.
+function balanceError(nodeErr) {
+    const err = new Error('Error getting balance');
+    if (isWalletMissingMessage(nodeErr)) err.walletMissing = true;
+    return err;
 }
 
 function isTimeout(error) {
@@ -212,30 +220,33 @@ module.exports = {
         }
     },
 
+    // The thrown message stays static (a transport error.message leaks the RPC
+    // host:port); a lost wallet is flagged on both transports, the HTTP 200 error
+    // body Core 28+ sends and the HTTP 500 rejection of the legacy daemons.
     async getBalance(){
+        const data = {
+            jsonrpc: '2.0',
+            method: 'getbalance',
+            params: [],
+            id: 1,
+        }
+        let response
         try {
-            const data = {
-                jsonrpc: '2.0',
-                method: 'getbalance',
-                params: [],
-                id: 1,
-            }
-
-            const response = await axios.post(this.walletEndpoint(), data, {
+            response = await axios.post(this.walletEndpoint(), data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
                 }
             })
-
-            if (response.data.result !== null && response.data.result !== undefined && !isNaN(response.data.result)){
-                return response.data.result;
-            } else {
-                throw new Error('Error getting balance');
-            }
         } catch (error) {
-            throw new Error('Error getting balance');
+            throw balanceError(rejectedRpcErrorMessage(error));
         }
+
+        const body = response && response.data
+        if (body && body.result !== null && body.result !== undefined && !isNaN(body.result)){
+            return body.result;
+        }
+        throw balanceError(body && body.error ? (body.error.message || JSON.stringify(body.error)) : null);
     },
 
     // Pin a fixed wallet fee rate (coins/kB) so sendtoaddress never consults
@@ -338,7 +349,7 @@ module.exports = {
      */
     sendError(nodeErr) {
         const err = new Error('Error sending funds to address')
-        if (/wallet does not exist or is not loaded|no wallet is loaded/i.test(String(nodeErr))) {
+        if (isWalletMissingMessage(nodeErr)) {
             err.walletMissing = true
         }
         return err

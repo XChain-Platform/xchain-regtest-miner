@@ -328,7 +328,8 @@ module.exports = {
             // by design, so a drill that needs to know whether the wallet can still
             // fund a send reads these instead. wallet_balance is null when the last
             // read failed or none has happened, which is not funded either: a transient
-            // getbalance failure therefore flips wallet_funded false for one interval,
+            // getbalance failure therefore flips wallet_funded false for one interval
+            // (a node restart included: the read path reloads the lost wallet),
             // and that direction is deliberate, because a false unfunded is safe where
             // a false funded is not. wallet_balance_at is the epoch-ms timestamp of the
             // last read ATTEMPT (null if none), so a drill can tell a fresh reading

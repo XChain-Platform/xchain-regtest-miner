@@ -48,4 +48,17 @@ function rpcErrorCode(body) {
     return Number.isInteger(code) ? code : null
 }
 
-module.exports = { rejectedRpcErrorMessage, rpcErrorCode }
+/**
+ * Whether a node's RPC error message says the miner's wallet is not loaded:
+ * "Requested wallet does not exist or is not loaded" on a /wallet/<name> URI, or
+ * "No wallet is loaded" on the base URL, which is what every wallet call gets
+ * after the node restarts under a long-running miner. Never throws.
+ *
+ * @param {*} nodeErr the node's error message, or null when it sent none
+ * @returns {boolean}
+ */
+function isWalletMissingMessage(nodeErr) {
+    return /wallet does not exist or is not loaded|no wallet is loaded/i.test(String(nodeErr))
+}
+
+module.exports = { isWalletMissingMessage, rejectedRpcErrorMessage, rpcErrorCode }
