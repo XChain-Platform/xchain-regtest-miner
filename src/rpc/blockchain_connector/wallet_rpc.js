@@ -56,7 +56,7 @@ function buildSendToAddressData(address, amount, feeRateSatPerVb) {
     // Never send `verbose`: Dogecoin v1.14 refuses that name like any unknown one,
     // and elsewhere it swaps the bare "<txid string>" reply for an object.
     //
-    // Send NAMED params only with a rate (BTC, where Core 31 removed settxfee):
+    // Send NAMED params only with a rate (BTC, or a non-DOGE daemon that dropped settxfee):
     // fee_rate is argument 10, and padding the seven before it differs by version.
     const feeRate = (typeof feeRateSatPerVb === 'number' && isFinite(feeRateSatPerVb) && feeRateSatPerVb > 0)
         ? feeRateSatPerVb
@@ -292,7 +292,8 @@ module.exports = {
      *   unlike settxfee it cannot be silently ignored: a daemon that does not
      *   know the argument fails the send loudly rather than quietly reverting to
      *   estimatesmartfee. Omit it (LTC/DOGE, which pin wallet-wide instead) to
-     *   send the bare positional call; DOGE v1.14 has no fee_rate argument.
+     *   send the bare positional call; DOGE v1.14 has no fee_rate argument, while
+     *   an LTC daemon that ever drops settxfee gets the rate like BTC.
      */
     async sendToAddress(address, amount, feeRateSatPerVb = null){
         try {

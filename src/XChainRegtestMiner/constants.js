@@ -54,6 +54,11 @@ const FUNDING_FEE_RATE_SAT_PER_VB = 100
 // fee_rate path instead.
 const SETTXFEE_COINS = ['litecoin', 'dogecoin']
 
+// Coins whose daemons refuse the per-call fee_rate argument: Dogecoin v1.14's
+// sendtoaddress has none and answers an unknown named param with -8. Litecoin is
+// absent because LTC v0.21 is rebased on Core 0.21, which added fee_rate.
+const FEE_RATE_REFUSING_COINS = ['dogecoin']
+
 //This is useful only for filling the mempool
 const { BIP32Factory } = require('bip32')
 const ecc = require('tiny-secp256k1')
@@ -77,6 +82,7 @@ module.exports = {
     FUNDING_FEE_RATE_COINS_PER_KB,
     FUNDING_FEE_RATE_SAT_PER_VB,
     SETTXFEE_COINS,
+    FEE_RATE_REFUSING_COINS,
     bip32,
     logger,
     ECPair

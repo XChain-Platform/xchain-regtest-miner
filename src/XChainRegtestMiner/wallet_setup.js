@@ -25,6 +25,7 @@ const {
     FUNDING_FEE_RATE_COINS_PER_KB,
     FUNDING_FEE_RATE_SAT_PER_VB,
     SETTXFEE_COINS,
+    FEE_RATE_REFUSING_COINS,
     logger
 } = require('./constants.js')
 
@@ -308,8 +309,8 @@ module.exports = {
      * and "best effort, fall back to the estimate" silently gives the ceiling up
      * on exactly the chain that needs it. Core 0.21 added a per-call fee_rate
      * argument to sendtoaddress as the replacement, so BTC pins per call instead.
-     * LTC v0.21 and DOGE v1.14 keep settxfee and pin wallet-wide; DOGE v1.14 has
-     * no fee_rate argument at all.
+     * LTC v0.21 and DOGE v1.14 keep settxfee and pin wallet-wide; only DOGE v1.14
+     * lacks fee_rate, so an LTC daemon that drops settxfee moves to the per-call rate.
      *
      * The unknown-coin case is neither: NETWORK may be a bare 'regtest' with no
      * coin half. Those try settxfee first and switch to the per-call rate only on
@@ -349,15 +350,15 @@ module.exports = {
             return 'none'
         }
 
-        if (SETTXFEE_COINS.includes(coin)) {
-            // Stay positional on a coin that keeps settxfee: method-not-found there
-            // is not the Core 31 removal, and DOGE v1.14 refuses fee_rate.
+        if (FEE_RATE_REFUSING_COINS.includes(coin)) {
+            // Stay positional on a daemon that refuses fee_rate (DOGE v1.14).
             this.fundingFeeRateSatPerVb = null
             logger.info('settxfee not found on this ' + coin +
                 ' daemon; funding sends use the fee estimate')
             return 'none'
         }
-
+        // Surface the daemon change: a coin that shipped settxfee losing it means a new release.
+        if (SETTXFEE_COINS.includes(coin)) logger.warn('settxfee not found on this ' + coin + ' daemon; pinning fee_rate per call')
         return useFeeRate()
     },
 
