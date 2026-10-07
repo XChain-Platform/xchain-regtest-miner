@@ -66,6 +66,28 @@ function settxfeeRetryTests() {
     })
 }
 
+// The method-not-found fallback is decided by whether the daemon takes fee_rate, not by coin history.
+function settxfeeMissingPerCoinTests() {
+    it('moves a Litecoin daemon that dropped settxfee to the per-call rate', async function () {
+        connector.setTxFee.rejects(settxfeeError({ rpcCode: -32601 }))
+        const miner = minerFor('litecoin-regtest')
+
+        assert.strictEqual(await miner.pinFundingFeeRate(), 'fee_rate')
+        await miner.sendFundsToAddress('addr', 1.0)
+        const rate = connector.sendToAddress.firstCall.args[2]
+        assert.ok(rate > 0, 'LTC accepts fee_rate, so a dropped settxfee must not leave the send uncapped, got ' + rate)
+    })
+
+    it('keeps a Dogecoin daemon without settxfee on the positional form', async function () {
+        connector.setTxFee.rejects(settxfeeError({ rpcCode: -32601 }))
+        const miner = minerFor('dogecoin-regtest')
+
+        assert.strictEqual(await miner.pinFundingFeeRate(), 'none')
+        await miner.sendFundsToAddress('addr', 1.0)
+        assert.ok(!connector.sendToAddress.firstCall.args[2], 'DOGE v1.14 refuses fee_rate')
+    })
+}
+
 describe('XChainRegtestMiner', function () {
     beforeEach(function () {
         connector = {
@@ -81,4 +103,5 @@ describe('XChainRegtestMiner', function () {
     })
 
     describe('funding fee pin retry', settxfeeRetryTests)
+    describe('funding fee pin when settxfee is missing', settxfeeMissingPerCoinTests)
 })
