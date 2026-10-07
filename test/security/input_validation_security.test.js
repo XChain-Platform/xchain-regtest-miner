@@ -344,10 +344,9 @@ describe('Security: Input Validation', function () {
 
 describe('Security: Input Validation', function () {
     let miner
-    let connectorStub
 
     beforeEach(function () {
-        ({ miner, connectorStub } = createMinerContext())
+        ({ miner } = createMinerContext())
     })
 
     afterEach(function () {
@@ -382,16 +381,12 @@ describe('Security: Input Validation', function () {
         })
 
         it('accepts txQuantity at maximum boundary (50000)', async function () {
-            // Will fail at the crypto stage, but should pass the validation
-            miner.walletAddress = 'bcrt1qtest'
-            connectorStub.sendToAddress.rejects(new Error('test abort'))
-            try {
-                await miner.fillMempool(50000)
-            } catch(e) {
-                // Expected: fails at sendFundsToAddress after passing validation
-            }
-            // Verify it got past validation (fillMempoolRunning was set)
-            // It should be reset by finally block
+            Reflect.set(miner, '_generateQueue', Promise.reject(new Error('test abort')))
+
+            const fillPromise = miner.fillMempool(50000)
+
+            assert.strictEqual(miner.fillMempoolRunning, true)
+            await assert.rejects(fillPromise, /test abort/)
             assert.strictEqual(miner.fillMempoolRunning, false)
         })
     })
