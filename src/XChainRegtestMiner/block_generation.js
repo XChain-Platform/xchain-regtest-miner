@@ -289,6 +289,9 @@ module.exports = {
     },
 
     async start(){
+        // Snapshot operator intent first: the API listens during preparation, so a
+        // pause, fill or continue can land before the loop exists.
+        const operatorGeneration = this._operatorMiningGeneration
         //Prepare the wallet
         await this.prepareWallet()
 
@@ -308,8 +311,18 @@ module.exports = {
             // so enabling it never fires a block the instant the loop starts.
             watchingSince: Date.now()
         }
-        this.keepMining = true
-        this._miningStateGeneration++
+        // Switch mining on only if no operator control landed during preparation;
+        // otherwise its "ok" stands, as it would after ready.
+        if (this._operatorMiningGeneration === operatorGeneration){
+            if (this._reorgPauseDepth > 0){
+                // A reconsider_block is mid-reorg: hand the resume to its last exit,
+                // and leave the generation alone so that exit still owns the restore.
+                this._reorgPauseWasMining = true
+            } else {
+                this.keepMining = true
+                this._miningStateGeneration++
+            }
+        }
         // Reached only after prepareWallet() resolved, so from here a keepMining=false
         // is an operator pause rather than startup. Never reset: pauseMining() only
         // clears keepMining, and a paused loop has still started.

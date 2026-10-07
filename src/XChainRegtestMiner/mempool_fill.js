@@ -329,6 +329,7 @@ module.exports = {
             this.fillMempoolRunning = true
             this.keepMining = false //Stop the mining so the txs stay in mempool
             this._miningStateGeneration++
+            this._operatorMiningGeneration++
             try {
             // Mirror pauseMining's barrier: wait for any in-flight generateBlocks(1)
             // to settle before proceeding, so a mine that started just before the
