@@ -127,6 +127,8 @@ module.exports = {
     // tell a second reconsider apart from an operator pause.
     async pauseMining(){
         const generation = this.claimPause()
+        // Record operator intent here, not in claimPause, which the reorg pause shares.
+        this._operatorMiningGeneration++
         // Barrier: a pause that lands between the loop's keepMining check and its
         // generateBlocks(1) would let one more block settle after pause() resolves,
         // breaking a height-deterministic generateBlocks section. Await the in-flight
@@ -138,5 +140,6 @@ module.exports = {
     async continueMining(){
         this.keepMining = true
         this._miningStateGeneration++
+        this._operatorMiningGeneration++
     }
 }

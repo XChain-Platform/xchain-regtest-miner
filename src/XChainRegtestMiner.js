@@ -52,6 +52,12 @@ function initMineExclusionState() {
     // auto-mine loop under an operator who believed the miner was paused. A new
     // mutation site MUST bump this or it reopens that override.
     this._miningStateGeneration = 0
+    // Bumped only by operator mining controls: pauseMining (which invalidateBlock
+    // goes through), continueMining and fillMempool. start() compares it across
+    // wallet preparation, while the API already listens, so a control that landed
+    // there is honoured; the reorg pause must not bump it, or a reconsider_block
+    // before ready would leave the miner never started.
+    this._operatorMiningGeneration = 0
     // Ownership of the reorg pause reconsiderBlock restores from. The guard
     // above cannot be "any generation change since my snapshot": reconsiderBlock
     // is itself a keepMining writer and a generation bumper, so a SECOND
@@ -132,8 +138,9 @@ class XChainRegtestMiner {
       // Separates "never started" from "operator-paused". keepMining is false in both
       // states, so mining_paused alone cannot tell a wedged prepareWallet apart from a
       // deliberate pause_mining, and a health probe that treats a pause as healthy
-      // then certifies a miner that never mined a block. start() sets
-      // this true at the same point it sets keepMining, after prepareWallet resolves.
+      // then certifies a miner that never mined a block. start() sets this true
+      // once prepareWallet resolves, even when a pause that landed earlier keeps
+      // keepMining false.
       this.miningStarted = false
       this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
       this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
