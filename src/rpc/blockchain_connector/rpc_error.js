@@ -61,4 +61,12 @@ function isWalletMissingMessage(nodeErr) {
     return /wallet does not exist or is not loaded|no wallet is loaded/i.test(String(nodeErr))
 }
 
-module.exports = { isWalletMissingMessage, rejectedRpcErrorMessage, rpcErrorCode }
+// Codes axios sets on a call that hit its timeout.
+const TIMEOUT_ERROR_CODES = ['ECONNABORTED', 'ETIMEDOUT']
+
+// Whether an axios rejection is the client giving up on a call the node may still be running.
+function isTimeout(error) {
+    return Boolean(error && TIMEOUT_ERROR_CODES.includes(error.code))
+}
+
+module.exports = { isTimeout, isWalletMissingMessage, rejectedRpcErrorMessage, rpcErrorCode }

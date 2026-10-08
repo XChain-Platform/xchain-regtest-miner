@@ -26,6 +26,11 @@
  * method-not-found as Bitcoin Core 31 does. It also picks the HTTP transport of
  * every RPC error reply (HTTP 500/404 on legacy and doge114, HTTP 200 on
  * core31); see test/helpers/rpcErrorReply.js.
+ *
+ * Wallets are a name -> {loaded} map, as on a multi-wallet daemon: loadwallet
+ * answers -18 for a name never created and -35 for one already loaded,
+ * createwallet adds a wallet beside the loaded ones, and a base-URL wallet RPC
+ * answers -19 while more than one is loaded. Balances stay node-wide, not per wallet.
  */
 
 const express = require('express')
@@ -59,18 +64,19 @@ function refuseWalletRpcOnDoge(daemon) {
     throw err
 }
 
+// The -19 a multi-wallet daemon answers for a base-URL wallet RPC with several wallets loaded.
+const WALLET_NOT_SPECIFIED = 'Wallet file not specified (must request wallet RPC through /wallet/<filename> uri-path).'
+
 // Starts doge114 with its auto-loaded unnamed wallet and every other daemon with none.
-function initialWallet(daemon) {
-    const loaded = daemon === 'doge114'
-    return { exists: loaded, loaded, name: null }
+function initialWallets(daemon) {
+    return new Map(daemon === 'doge114' ? [['', { loaded: true }]] : [])
 }
 
-// Throws the -18 a daemon answers on the base URL while no wallet is loaded.
-function assertWalletLoaded(wallet) {
-    if (wallet.loaded) return
-    const err = new Error('No wallet is loaded')
-    err.rpcCode = -18
-    throw err
+// Builds an error carrying the RPC code the dispatcher replies with.
+function rpcError(code, message) {
+    const err = new Error(message)
+    err.rpcCode = code
+    return err
 }
 
 class StatefulMockNode {
@@ -84,7 +90,7 @@ class StatefulMockNode {
         this.calls = []
 
         // ── Internal state ──────────────────────────────────────────
-        this.wallet = initialWallet(this.daemon)
+        this.wallets = initialWallets(this.daemon) // name -> {loaded}
         this.addresses = []
         this.height = 0
         this.blocks = []          // [{hash, height, txids, previousHash, time}]
@@ -101,19 +107,16 @@ class StatefulMockNode {
         // connector switches to after setWalletName (Bitcoin Core 0.17+ style).
         this.app.post(['/', '/wallet/:walletName'], (req, res) => {
             const { method, params, id } = req.body
-            this.calls.push({ method, params, id })
+            this.calls.push({ method, params, id, wallet: req.params.walletName || null })
             const fail = error => sendRpcError(res, { daemon: this.daemon, request: req.body, error })
 
             const handler = this['_rpc_' + method]
             if (!handler) {
                 return fail({ code: -32601, message: `Method "${method}" not found` })
             }
-            if (req.params.walletName && WALLET_METHODS.includes(method) && !this.hasLoadedWallet(req.params.walletName)) {
-                return fail({ code: -18, message: 'Requested wallet does not exist or is not loaded' })
-            }
 
             try {
-                const result = handler.call(this, params)
+                const result = handler.call(this, params, this._routeWallet(method, req.params.walletName))
                 res.json({ jsonrpc: '2.0', result, error: null, id })
             } catch (err) {
                 fail({ code: err.rpcCode || -1, message: err.message })
@@ -145,7 +148,7 @@ class StatefulMockNode {
 
     reset() {
         this.calls = []
-        this.wallet = initialWallet(this.daemon)
+        this.wallets = initialWallets(this.daemon)
         this.addresses = []
         this.height = 0
         this.blocks = []
@@ -162,9 +165,33 @@ class StatefulMockNode {
         return this.calls.filter(c => c.method === method)
     }
 
-    /** Drop the loaded wallet, as a daemon restart does; the wallet file stays. */
+    /** Drop every loaded wallet, as a daemon restart does; the wallet files stay. */
     unloadWallet() {
-        this.wallet.loaded = false
+        for (const wallet of this.wallets.values()) wallet.loaded = false
+    }
+
+    /** Names of the loaded wallets, in creation order. */
+    loadedWallets() {
+        return [...this.wallets].filter(([, wallet]) => wallet.loaded).map(([name]) => name)
+    }
+
+    /** Seed a wallet file without an RPC, loaded or not. */
+    addWalletFile(name, { loaded = false } = {}) {
+        this.wallets.set(name, { loaded })
+    }
+
+    /** The node's only wallet as {exists, loaded, name}; refuses once several exist. */
+    get wallet() {
+        if (this.wallets.size > 1) throw new Error('several wallets exist; read loadedWallets() instead')
+        const [entry] = this.wallets
+        return entry
+            ? { exists: true, loaded: entry[1].loaded, name: entry[0] }
+            : { exists: false, loaded: false, name: null }
+    }
+
+    /** Replace every wallet with the single one {exists, loaded, name} describes. */
+    set wallet({ exists, loaded, name }) {
+        this.wallets = new Map(exists ? [[name, { loaded }]] : [])
     }
 
     /** Inject a transaction into the mempool externally (for test setup). */
@@ -175,9 +202,33 @@ class StatefulMockNode {
 
     // ── Helpers ─────────────────────────────────────────────────────
 
-    // True when `name` is the wallet currently loaded.
+    // True when a wallet called `name` is loaded.
     hasLoadedWallet(name) {
-        return this.wallet.loaded && this.wallet.name === name
+        const wallet = this.wallets.get(name)
+        return Boolean(wallet && wallet.loaded)
+    }
+
+    // Throws the -18 a daemon answers for a wallet RPC while no wallet is loaded.
+    _assertWalletLoaded() {
+        if (this.loadedWallets().length === 0) throw rpcError(-18, 'No wallet is loaded')
+    }
+
+    // Resolve the wallet a wallet RPC addresses: a /wallet/<name> URI needs that
+    // wallet loaded, and the base URL reaches the one loaded wallet.
+    _routeWallet(method, routed) {
+        if (!WALLET_METHODS.includes(method)) return undefined
+        if (!routed) return this._baseUrlWallet(method)
+        if (!this.hasLoadedWallet(routed)) throw rpcError(-18, 'Requested wallet does not exist or is not loaded')
+        return routed
+    }
+
+    // The one loaded wallet a base-URL wallet RPC reaches; -19 while several are
+    // loaded, except for a method the daemon lacks, which answers -32601 first.
+    _baseUrlWallet(method) {
+        const loaded = this.loadedWallets()
+        const lacksMethod = this.daemon === 'core31' && method === 'settxfee'
+        if (loaded.length > 1 && !lacksMethod) throw rpcError(-19, WALLET_NOT_SPECIFIED)
+        return loaded.length === 1 ? loaded[0] : undefined
     }
 
     _generateHash() {
@@ -267,62 +318,45 @@ class StatefulMockNode {
         }
     }
 
-    _rpc_getwalletinfo() {
-        if (!this.wallet.loaded) {
-            const err = new Error('No wallet is loaded')
-            err.rpcCode = -18
-            throw err
-        }
+    // A subclass dispatcher passes no wallet, so a base-URL call is assumed.
+    _rpc_getwalletinfo(params, wallet = this._baseUrlWallet('getwalletinfo')) {
+        this._assertWalletLoaded()
         const info = { walletversion: 210000, balance: this.matureBalance / 100000000 }
         // Omit walletname on doge114: a single-wallet daemon predates the field.
-        return this.daemon === 'doge114' ? info : { walletname: this.wallet.name, ...info }
+        return this.daemon === 'doge114' ? info : { walletname: wallet, ...info }
     }
 
     _rpc_createwallet(params) {
         refuseWalletRpcOnDoge(this.daemon)
         const name = Array.isArray(params) ? params[0] : params
         // Real daemons refuse to create over an existing wallet database.
-        if (this.wallet.exists && this.wallet.name === name) {
-            const err = new Error(`Wallet file verification failed. Failed to create database path '${name}'. Database already exists.`)
-            err.rpcCode = -4
-            throw err
+        if (this.wallets.has(name)) {
+            throw rpcError(-4, `Wallet file verification failed. Failed to create database path '${name}'. Database already exists.`)
         }
-        this.wallet = { exists: true, loaded: true, name }
+        this.wallets.set(name, { loaded: true })
         return { name, warning: '' }
     }
 
     _rpc_loadwallet(params) {
         refuseWalletRpcOnDoge(this.daemon)
         const name = Array.isArray(params) ? params[0] : params
-        if (this.hasLoadedWallet(name)) {
-            const err = new Error(`Wallet "${name}" is already loaded.`)
-            err.rpcCode = -35
-            throw err
-        }
-        if (!this.wallet.exists) {
-            const err = new Error('Wallet file not found')
-            err.rpcCode = -18
-            throw err
-        }
-        this.wallet.loaded = true
-        this.wallet.name = name
+        if (this.hasLoadedWallet(name)) throw rpcError(-35, `Wallet "${name}" is already loaded.`)
+        // Refuse a name never created, as a real daemon does, rather than taking over another wallet.
+        if (!this.wallets.has(name)) throw rpcError(-18, 'Wallet file not found')
+        this.wallets.get(name).loaded = true
         return { name, warning: '' }
     }
 
     _rpc_listwallets() {
         refuseWalletRpcOnDoge(this.daemon)
-        return this.wallet.loaded ? [this.wallet.name] : []
+        return this.loadedWallets()
     }
 
     _rpc_getnewaddress() {
         // Wallet RPCs fail until a wallet is loaded, matching Bitcoin Core
         // 0.17+; the miner's getNewAddress probe relies on this to detect a
         // fresh node and fall through to the load/create path.
-        if (!this.wallet.loaded) {
-            const err = new Error('No wallet is loaded')
-            err.rpcCode = -18
-            throw err
-        }
+        this._assertWalletLoaded()
         const addr = this._generateAddress()
         this.addresses.push(addr)
         return addr
@@ -339,7 +373,7 @@ class StatefulMockNode {
     }
 
     _rpc_getbalance() {
-        assertWalletLoaded(this.wallet)
+        this._assertWalletLoaded()
         this._matureCoinbases()
         return this.matureBalance / 100000000
     }
@@ -378,7 +412,7 @@ class StatefulMockNode {
     }
 
     _rpc_sendtoaddress(params) {
-        assertWalletLoaded(this.wallet)
+        this._assertWalletLoaded()
         if (this.daemon === 'doge114') refuseUnknownDogeSendArgs(params)
         // Positional [address, amount] or named {address, amount, fee_rate, verbose}
         const address = params.address || (Array.isArray(params) ? params[0] : null)

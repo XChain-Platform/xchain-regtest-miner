@@ -150,3 +150,30 @@ describe('BlockchainConnector', function () {
         })
     })
 })
+
+describe('BlockchainConnector', function () {
+    beforeEach(setup)
+    afterEach(teardown)
+
+    describe('generateToAddress', function () {
+        // A client timeout leaves the node mining, so the miner must be able to tell it apart.
+        it('flags a client timeout as timedOut with a static, host-free message', async function () {
+            for (const code of ['ECONNABORTED', 'ETIMEDOUT']) {
+                axiosPostStub.rejects(Object.assign(new Error('timeout of 60000ms exceeded at 127.0.0.1:3220'), { code }))
+                let threw = null
+                try { await connector.generateToAddress(5, 'addr') } catch (e) { threw = e }
+                assert.strictEqual(threw && threw.message, 'Error generating to address')
+                assert.strictEqual(threw.timedOut, true, code + ' must be flagged timedOut')
+                assert.deepStrictEqual(Object.keys(threw), ['timedOut'])
+            }
+        })
+
+        it('leaves a non-timeout failure unflagged', async function () {
+            axiosPostStub.rejects(Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:3220'), { code: 'ECONNREFUSED' }))
+            let threw = null
+            try { await connector.generateToAddress(1, 'addr') } catch (e) { threw = e }
+            assert.strictEqual(threw && threw.message, 'Error generating to address')
+            assert.strictEqual(threw.timedOut, undefined)
+        })
+    })
+})

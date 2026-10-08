@@ -14,7 +14,7 @@
 
 const axios = require('axios');
 const { logger } = require('./constants');
-const { rejectedRpcErrorMessage } = require('./rpc_error');
+const { isTimeout, rejectedRpcErrorMessage } = require('./rpc_error');
 
 // Log the node's own error from a non-2xx reply; the thrown message stays static.
 function logRejectedRpcError(error, prefix) {
@@ -66,7 +66,10 @@ module.exports = {
             throw new Error('Error generating to address')
         } catch (error) {
             logRejectedRpcError(error, 'generatetoaddress returned no result: ')
-            throw new Error('Error generating to address')
+            // Flag a client timeout as a primitive only: the node keeps mining after it.
+            const err = new Error('Error generating to address')
+            if (isTimeout(error)) err.timedOut = true
+            throw err
         }
     },
 

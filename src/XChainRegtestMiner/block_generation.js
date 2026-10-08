@@ -26,6 +26,7 @@ const {
     MAX_GENERATE_BLOCKS,
     logger
 } = require('./constants.js')
+const { settleAfterMineTimeout } = require('./mine_settle.js')
 
 const MAX_BACKOFF_MS = 30000
 
@@ -269,7 +270,15 @@ module.exports = {
     },
 
     async generateBlocksRaw(numberOfBlocks){
-        let hashes = await this.connector.generateToAddress(numberOfBlocks, this.walletAddress)
+        let hashes
+        try {
+            hashes = await this.connector.generateToAddress(numberOfBlocks, this.walletAddress)
+        } catch (err) {
+            // The node keeps mining after the client times out; hold this queue
+            // slot, and every barrier awaiting it, until the node stops.
+            if (err && err.timedOut) await settleAfterMineTimeout.call(this)
+            throw err
+        }
 
         // Count every mine that flows through this serialized chokepoint (auto-mine
         // loop, generate_blocks RPC, fillMempool, prepareWallet warmup). blocks_mined

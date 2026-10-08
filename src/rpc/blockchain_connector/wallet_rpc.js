@@ -14,14 +14,11 @@
 
 const axios = require('axios');
 const { logger } = require('./constants');
-const { isWalletMissingMessage, rejectedRpcErrorMessage, rpcErrorCode } = require('./rpc_error');
+const { isTimeout, isWalletMissingMessage, rejectedRpcErrorMessage, rpcErrorCode } = require('./rpc_error');
 
 // The one node answer a createwallet retry can outlive (RPC_IN_WARMUP); every
 // other code repeats on each try, such as "Database already exists".
 const RPC_IN_WARMUP = -28;
-
-// Codes axios sets on a call that hit its timeout.
-const TIMEOUT_ERROR_CODES = ['ECONNABORTED', 'ETIMEDOUT'];
 
 // Builds a wallet call's fixed-message error carrying only primitive classification
 // (never the axios error, whose config holds the RPC credentials).
@@ -43,10 +40,6 @@ function balanceError(nodeErr) {
     const err = new Error('Error getting balance');
     if (isWalletMissingMessage(nodeErr)) err.walletMissing = true;
     return err;
-}
-
-function isTimeout(error) {
-    return Boolean(error && TIMEOUT_ERROR_CODES.includes(error.code));
 }
 
 function buildSendToAddressData(address, amount, feeRateSatPerVb) {

@@ -26,6 +26,7 @@ const StatefulMockNode = require('./helpers/StatefulMockNode')
 
 const OURS = 'xchain_regtest_wallet'
 const DEST = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
+const WALLET_RPCS = ['getwalletinfo', 'getnewaddress', 'getbalance', 'settxfee', 'sendtoaddress']
 
 async function withNode(daemon, fn) {
     const node = new StatefulMockNode({ daemon })
@@ -56,17 +57,49 @@ async function preparedMiner(network, node) {
     return miner
 }
 
+// Sends one base-URL RPC and returns the reply whatever its HTTP status.
+async function rpcReply(node, method, params) {
+    const res = await axios.post(`http://127.0.0.1:${node.port}/`, { jsonrpc: '2.0', method, params, id: 1 },
+        { validateStatus: () => true })
+    return res.data
+}
+
+// Asserts the real daemon path: loadwallet finds no wallet of ours, the miner
+// creates it beside the foreign one, and every later wallet RPC is pinned to it.
+function assertCreatedBesideForeign(node, miner) {
+    assert.deepStrictEqual(node.callsFor('loadwallet').map(c => c.params[0]), [OURS])
+    assert.deepStrictEqual(node.callsFor('createwallet').map(c => c.params[0]), [OURS])
+    assert.deepStrictEqual(node.loadedWallets().sort(), ['cosigner_test', OURS])
+    assert.ok(miner.connector.walletUrl.endsWith('/wallet/' + OURS))
+    const created = node.calls.findIndex(c => c.method === 'createwallet')
+    const later = node.calls.slice(created + 1).filter(c => WALLET_RPCS.includes(c.method))
+    assert.ok(later.length > 0, 'the miner must make wallet calls after creating its wallet')
+    for (const call of later) assert.strictEqual(call.wallet, OURS, `${call.method} must target our wallet`)
+}
+
+// Balances are node-wide in the double, so the funded case asserts no warmup.
 async function testForeignWalletRebind() {
     await withNode('legacy', async node => {
         await fundedNodeWith(node, 'cosigner_test')
         const miner = await preparedMiner('litecoin-regtest', node)
 
-        assert.ok(miner.connector.walletUrl.endsWith('/wallet/' + OURS))
-        assert.strictEqual(node.wallet.name, OURS)
-        assert.strictEqual(node.callsFor('loadwallet').length, 1)
-        assert.strictEqual(node.callsFor('loadwallet')[0].params[0], OURS)
-        assert.strictEqual(node.callsFor('createwallet').length, 0)
+        assertCreatedBesideForeign(node, miner)
         assert.notStrictEqual(miner.walletAddress, node.addresses[0], 'the foreign wallet address must be discarded')
+        const reply = await rpcReply(node, 'getwalletinfo', [])
+        assert.strictEqual(reply.error && reply.error.code, -19, 'a base-URL wallet call is ambiguous with two wallets loaded')
+    })
+}
+
+async function testUnfundedForeignWalletRebind() {
+    await withNode('legacy', async node => {
+        await rpc(node, 'createwallet', ['cosigner_test'])
+        node.calls = []
+        const miner = await preparedMiner('litecoin-regtest', node)
+
+        assertCreatedBesideForeign(node, miner)
+        assert.deepStrictEqual(node.callsFor('generatetoaddress').map(c => c.params), [[101, miner.walletAddress]])
+        assert.ok(miner.balance > 0, 'the warmup must fund our pinned wallet')
+        assert.strictEqual(miner.walletReady, true)
     })
 }
 
@@ -98,6 +131,7 @@ describe('E2E: wallet binding after a successful probe', function () {
     })
 
     it('loads and pins its own wallet when only a foreign wallet is loaded', testForeignWalletRebind)
+    it('creates, pins and matures its own wallet when only an unfunded foreign wallet is loaded', testUnfundedForeignWalletRebind)
     it('reloads a wallet lost to a restart after a probed start (HTTP 500 daemon)', async function () {
         await testBaseUrlRestartRecovery('legacy', 'litecoin-regtest')
     })

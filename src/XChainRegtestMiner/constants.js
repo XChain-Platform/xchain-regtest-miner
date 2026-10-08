@@ -41,6 +41,12 @@ const MAX_FILL_MEMPOOL_QUANTITY = 50000 //max number of transactions to fill the
 const MAX_SEND_RETRIES = 50 //max retries for sending funds in fillMempool
 const MAX_GENERATE_BLOCKS = 10000 //max blocks a single generateBlocks call may mine (see the cap note in block_generation.js)
 
+// Bound the wait for the node to stop mining after a generatetoaddress timeout:
+// poll the height each second, call it settled after three equal reads, give up at five minutes.
+const MINE_SETTLE_POLL_MS = 1000
+const MINE_SETTLE_QUIET_READS = 3
+const MINE_SETTLE_DEADLINE_MS = 5 * 60 * 1000
+
 // The funding-send fee ceiling, once per fee mechanism. Both are the SAME rate (0.001
 // coins/kB = 100000 sat per 1000 vB = 100 sat/vB), so change them together. It is 100x
 // the BTC/LTC default relayfee floor (0.00001/kB) but exactly AT Dogecoin's (0.001/kB), so
@@ -79,6 +85,9 @@ module.exports = {
     MAX_FILL_MEMPOOL_QUANTITY,
     MAX_SEND_RETRIES,
     MAX_GENERATE_BLOCKS,
+    MINE_SETTLE_POLL_MS,
+    MINE_SETTLE_QUIET_READS,
+    MINE_SETTLE_DEADLINE_MS,
     FUNDING_FEE_RATE_COINS_PER_KB,
     FUNDING_FEE_RATE_SAT_PER_VB,
     SETTXFEE_COINS,
