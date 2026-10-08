@@ -14,7 +14,7 @@
 
 const assert = require('assert')
 const sinon = require('sinon')
-const { MINE_SETTLE_DEADLINE_MS } = require('../../src/XChainRegtestMiner/constants.js')
+const { MINE_SETTLE_DEADLINE_MS } = require('../../../src/XChainRegtestMiner/constants.js')
 
 // A node that keeps mining one block per poll interval after the client gave up.
 function miningNode(blocksAfterAbort) {
@@ -59,7 +59,7 @@ describe('a generatetoaddress client timeout holds the mine queue until the node
     let miner
 
     beforeEach(function () {
-        const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
+        const XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
         miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
         sinon.stub(console, 'log')
         sinon.stub(console, 'warn')
@@ -68,7 +68,7 @@ describe('a generatetoaddress client timeout holds the mine queue until the node
 
     afterEach(function () {
         sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
     })
 
     it('CONTROL: an unflagged mine failure releases the barriers while the node is still mining', async function () {
