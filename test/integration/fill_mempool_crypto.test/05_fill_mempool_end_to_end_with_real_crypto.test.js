@@ -45,6 +45,7 @@ function createMiner() {
         setTxFee: sinon.stub().resolves(true),
         setWalletName: sinon.stub(),
         generateToAddress: sinon.stub().resolves(['blockhash']),
+        getRawMempool: sinon.stub().resolves([]),
         getRawTransaction: sinon.stub().callsFake(async (txid) => {
             if (txid === funding.txid) return funding.hex
             return null

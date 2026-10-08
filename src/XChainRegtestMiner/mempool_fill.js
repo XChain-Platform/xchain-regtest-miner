@@ -33,6 +33,7 @@ const {
     logger,
     ECPair
 } = require('./constants.js')
+const { confirmSplitTxs } = require('./split_confirmation.js')
 
 // Resolves the coin network, the per-output amounts and a fresh HD key tree: the
 // main address that collects the funding plus one derived key per stress tx.
@@ -344,7 +345,7 @@ module.exports = {
 
             logger.info("Creating the transactions to send funds to those addresses")
             await splitFundingUtxos.call(this, utxos, plan)
-            await this.generateBlocksQueued(1)
+            await confirmSplitTxs.call(this, utxos)
 
             await stressMempool.call(this, utxos, plan)
 
