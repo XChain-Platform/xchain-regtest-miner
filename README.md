@@ -28,7 +28,7 @@ Auto-mining service for XChain Platform regtest environments. Polls the mempool 
 - **Optional API key auth:** set `MINER_API_KEY` to require a matching `X-API-Key` header on every request (401 otherwise); the read-only `ping`/`status`/`health` methods always bypass the gate so Docker healthchecks keep working
 - **Mempool stress testing:** `fill_mempool` constructs and broadcasts thousands of raw Bitcoin transactions using BIP32/BIP39 key derivation and PSBT signing
 - **Exponential backoff:** automatic retry with capped exponential backoff (200 ms to 30s) on RPC connection failures
-- **Pinned wallet fee rate:** `settxfee` pins a fixed funding fee on startup so an inflated `estimatesmartfee` on a matured regtest chain can't fail `send_funds`/`fill_mempool`; falls back to the fee estimate if the daemon rejects `settxfee`
+- **Pinned wallet fee rate:** a fixed funding fee ceiling keeps an inflated `estimatesmartfee` on a matured regtest chain from failing `send_funds`/`fill_mempool`; BTC passes 100 sat/vB as `sendtoaddress`'s per-call `fee_rate` and never calls `settxfee`, while LTC/DOGE pin 0.001 coins/kB wallet-wide through `settxfee`, applied again after a wallet reload (which daemon gets which mechanism, and when the estimate remains, is in the operations guide of the documentation repo)
 - **Graceful shutdown:** SIGTERM handler allows the current mining loop iteration to complete before exiting
 - **Input validation:** rejects invalid addresses, amounts, timer values, and transaction quantities before any RPC call
 - **Error sanitization:** RPC credentials never exposed in error messages or console output

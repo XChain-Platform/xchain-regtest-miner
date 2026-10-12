@@ -257,7 +257,8 @@ function startTestsD() {
         let iterCount = 0
         miner.sleep.callsFake(async () => {
             iterCount++
-            if (iterCount <= 2) clock.tick(60)
+            // The timers re-arm on the read after a mine, so the refire needs a third window
+            if (iterCount <= 3) clock.tick(60)
             if (iterCount >= 5) throw new Error('__LOOP_BREAK__')
         })
         try { await miner.start() } catch (e) {

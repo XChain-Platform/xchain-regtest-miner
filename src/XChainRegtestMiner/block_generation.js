@@ -76,35 +76,34 @@ async function runMineLoop(loop){
             await this.refreshWalletFunds()
         }
         // A running fill idles the loop exactly like a pause (see loopMayMine).
-        if (loopMayMine.call(this)){
-            if (timerMineDue.call(this, loop)){
-                // Re-read loopMayMine immediately before mining, with NO await
-                // between the check and the call. generateBlocks appends to
-                // _generateQueue synchronously, so a pause that lands after this
-                // check is already behind the barrier pauseMining()/fillMempool()
-                // await, and one that lands before it stops the mine outright.
-                // Nothing awaits between the loop's own loopMayMine check above and
-                // here today, so this guard changes no behavior at this site; it
-                // pins the invariant so inserting an await above cannot silently
-                // reopen the window the idle-mine site below actually had.
-                if (!loopMayMine.call(this)) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
-                if (!(await mineLoopBlock.call(this, loop, "generating a new block"))) continue
-                clearErrorStreak.call(this, loop, true)
-
-                loop.initialStartToMine = 0
-                loop.extendedStartToMine = 0
-                loop.lastRawMempoolLength = 0
-            }
-
+        if (!loopMayMine.call(this)){
+            // Drop timers armed before the pause, so a resumed loop re-arms them from
+            // a fresh mempool read instead of mining at once on their old timestamps.
+            resetMempoolTimers(loop)
+        } else {
+            // Read the mempool BEFORE any mine decision: txs mined or dropped since
+            // the last pass (by generate_blocks, a reorg) must clear their timers first.
             const read = await readLoopMempool.call(this, loop)
             if (!read.ok) continue
             clearErrorStreak.call(this, loop, false)
+            const mempoolEmpty = trackMempool.call(this, loop, read.rawMempool)
+
+            if (!mempoolEmpty && timerMineDue.call(this, loop)){
+                // Re-read loopMayMine with NO await before the mine. The mempool read
+                // above awaits, and a pause or fill landing during it has already
+                // cleared its _generateQueue barrier, so only this re-read stops a
+                // loop mine inside a section the caller was told is serialized.
+                if (!loopMayMine.call(this)) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
+                if (!(await mineLoopBlock.call(this, loop, "generating a new block"))) continue
+                clearErrorStreak.call(this, loop, true)
+                resetMempoolTimers(loop)
+            }
 
             // Mine-empty heartbeat (60000 ms under the API service unless
             // IDLE_MINE_INTERVAL_MS / set_idle_mine_interval set 0). Only on
             // the empty-mempool branch: a pending transaction has its own
             // timer above, and racing it would mine the block early.
-            if (trackMempool.call(this, loop, read.rawMempool) && this.idleMineDue(Date.now(), loop.watchingSince)){
+            if (mempoolEmpty && this.idleMineDue(Date.now(), loop.watchingSince)){
                 // The real window this guard closes. The loop's loopMayMine check
                 // sits above the `await this.connector.getRawMempool()` in readLoopMempool,
                 // so a pauseMining()/fillMempool() that flipped the flag
@@ -202,11 +201,16 @@ function trackMempool(loop, rawMempool){
         this._mempoolSize = rawMempool.length
         return false
     }
+    resetMempoolTimers(loop)
+    this._mempoolSize = 0
+    return true
+}
+
+// Disarms the pending-tx timers; the next non-empty read re-arms them from now.
+function resetMempoolTimers(loop){
     loop.initialStartToMine = 0
     loop.extendedStartToMine = 0
     loop.lastRawMempoolLength = 0
-    this._mempoolSize = 0
-    return true
 }
 
 module.exports = {

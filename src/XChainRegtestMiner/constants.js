@@ -55,9 +55,13 @@ const MINE_SETTLE_DEADLINE_MS = 5 * 60 * 1000
 const FUNDING_FEE_RATE_COINS_PER_KB = 0.001
 const FUNDING_FEE_RATE_SAT_PER_VB = 100
 
-// Coins whose daemons still implement the wallet-wide settxfee RPC. Bitcoin is
-// deliberately absent: Core 31 deleted settxfee, so BTC takes the per-call
-// fee_rate path instead.
+// Coins that skip settxfee and always pin funding sends per call via fee_rate
+// (Bitcoin Core 31 deleted settxfee). This list selects that path.
+const PER_CALL_FEE_RATE_COINS = ['bitcoin']
+
+// Coins whose daemons implement the wallet-wide settxfee RPC. One whose settxfee
+// stays unreachable pins per call unless it refuses fee_rate; one whose settxfee is
+// missing logs a daemon-release warning. A coin belongs here or in the list above.
 const SETTXFEE_COINS = ['litecoin', 'dogecoin']
 
 // Coins whose daemons refuse the per-call fee_rate argument: Dogecoin v1.14's
@@ -90,6 +94,7 @@ module.exports = {
     MINE_SETTLE_DEADLINE_MS,
     FUNDING_FEE_RATE_COINS_PER_KB,
     FUNDING_FEE_RATE_SAT_PER_VB,
+    PER_CALL_FEE_RATE_COINS,
     SETTXFEE_COINS,
     FEE_RATE_REFUSING_COINS,
     bip32,

@@ -24,10 +24,12 @@
 const {
     FUNDING_FEE_RATE_COINS_PER_KB,
     FUNDING_FEE_RATE_SAT_PER_VB,
+    PER_CALL_FEE_RATE_COINS,
     SETTXFEE_COINS,
     FEE_RATE_REFUSING_COINS,
     logger
 } = require('./constants.js')
+const { trySetTxFee } = require('./settxfee_probe.js')
 
 // The wallet-availability probe prepareWallet opens with. Resolves the probed
 // address, or null when every attempt failed and the load/create path must run.
@@ -111,31 +113,6 @@ const RPC_METHOD_NOT_FOUND = -32601
 // wallet was measured at about a minute, past the 60s RPC timeout).
 const WALLET_LOAD_MAX_ATTEMPTS = 30
 const WALLET_LOAD_RETRY_INTERVAL_MS = 5000
-
-// Bounds the retries of a settxfee that timed out, lost its transport or hit warmup.
-const RPC_IN_WARMUP = -28
-const SETTXFEE_MAX_ATTEMPTS = 3
-const SETTXFEE_RETRY_INTERVAL_MS = 2000
-
-// Asks the daemon to pin the wallet fee. Resolves true when pinned, 'missing' when
-// settxfee does not exist, and 'undecided' for a refusal or a failure that outlived
-// its retries. Never throws.
-async function trySetTxFee(){
-    for (let attempt = 1; attempt <= SETTXFEE_MAX_ATTEMPTS; attempt++) {
-        let err
-        try {
-            return (await this.connector.setTxFee(FUNDING_FEE_RATE_COINS_PER_KB)) === true ? true : 'undecided'
-        } catch (caught) {
-            err = caught || {}
-        }
-        if (err.rpcCode === RPC_METHOD_NOT_FOUND) return 'missing'
-        // Any other code is the daemon refusing the value, which repeats on every try.
-        const transient = err.timedOut || err.rpcCode == null || err.rpcCode === RPC_IN_WARMUP
-        if (!transient) return 'undecided'
-        if (attempt < SETTXFEE_MAX_ATTEMPTS) await this.sleep(SETTXFEE_RETRY_INTERVAL_MS)
-    }
-    return 'undecided'
-}
 
 // Creates the wallet loadwallet reported absent. Resolves true once it exists and
 // is loaded; throws when the node cannot create it.
@@ -310,13 +287,21 @@ module.exports = {
      * on exactly the chain that needs it. Core 0.21 added a per-call fee_rate
      * argument to sendtoaddress as the replacement, so BTC pins per call instead.
      * LTC v0.21 and DOGE v1.14 keep settxfee and pin wallet-wide; only DOGE v1.14
-     * lacks fee_rate, so an LTC daemon that drops settxfee moves to the per-call rate.
+     * lacks fee_rate, so an LTC daemon whose settxfee is missing, or stays
+     * unreachable through its retries, moves to the per-call rate.
+     *
+     * A refusal (any other RPC code, or a reply that is not true) stays on the
+     * positional no-rate form for every coin: the daemon rejected the rate itself,
+     * so the same rate per call is no ceiling to rely on and the estimate remains.
      *
      * The unknown-coin case is neither: NETWORK may be a bare 'regtest' with no
      * coin half. Those try settxfee first and switch to the per-call rate only on
      * method-not-found, so a Core 31 node keeps a ceiling. A timeout or transport
-     * failure is retried, and one that outlives its retries, or any other refusal,
-     * stays on the positional no-rate form, since a DOGE node refuses fee_rate.
+     * failure is retried, and one that outlives its retries stays on the positional
+     * no-rate form, since a DOGE node refuses fee_rate.
+     *
+     * A re-pin after a wallet reload that cannot reach settxfee keeps a per-call
+     * rate already in force: only the wallet-wide settxfee pin is lost on reload.
      *
      * @returns {Promise<'fee_rate'|'settxfee'|'none'>} the mechanism in force
      */
@@ -330,7 +315,7 @@ module.exports = {
             return 'fee_rate'
         }
 
-        if (coin === 'bitcoin') {
+        if (PER_CALL_FEE_RATE_COINS.includes(coin)) {
             return useFeeRate()
         }
 
@@ -343,7 +328,18 @@ module.exports = {
                 '/kB via settxfee (regtest estimatesmartfee bypass)')
             return 'settxfee'
         }
-        if (answer === 'undecided') {
+        const takesFeeRate = SETTXFEE_COINS.includes(coin) && !FEE_RATE_REFUSING_COINS.includes(coin)
+        if (answer === 'unreachable' && takesFeeRate) {
+            // Nothing is known about the rate, and this daemon accepts fee_rate, so keep a ceiling.
+            logger.warn('settxfee could not be reached on this ' + coin + ' daemon; pinning fee_rate per call')
+            return useFeeRate()
+        }
+        if (answer === 'unreachable' && this.fundingFeeRateSatPerVb != null) {
+            // A re-pin after a wallet reload: the per-call rate holds no wallet state, so keep it.
+            logger.warn('settxfee could not be reached on re-pin; keeping the per-call fee_rate already in force')
+            return 'fee_rate'
+        }
+        if (answer === 'refused' || answer === 'unreachable') {
             // Stay on the positional no-rate form, which every supported daemon accepts.
             this.fundingFeeRateSatPerVb = null
             logger.warn('settxfee could not be confirmed on this daemon; funding sends use the fee estimate')
