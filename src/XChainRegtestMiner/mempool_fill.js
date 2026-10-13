@@ -35,13 +35,16 @@ const {
 } = require('./constants.js')
 const { confirmSplitTxs } = require('./split_confirmation.js')
 
+// Stress-tx output and fee floors (base units) where mining is stricter than relay: Dogecoin
+// 1.14 mines at 0.01 DOGE/kB with a 0.01 DOGE soft dust limit, so a 0.001 DOGE fee on the
+// ~192-byte tx drained one per block. 0.005 DOGE is ~0.026/kB, under bitcoinjs' fee cap.
+const STRESS_TX_POLICY_FLOOR_BY_COIN = { dogecoin: { amount: 1000000, fee: 500000 } }
+
 // Resolves the coin network, the per-output amounts and a fresh HD key tree: the
 // main address that collects the funding plus one derived key per stress tx.
 function deriveFillKeys(txQuantity){
-
     let OUTPUTS_QUANTITY_PER_TX = 2500
 
-    //Create a seed
     // Resolve coin-specific bitcoinjs params (P2PKH version byte, WIF,
     // bip32) from the coin-network identifier so DOGE/LTC addresses and
     // PSBTs encode correctly, not just Bitcoin. Falls back to Bitcoin
@@ -59,8 +62,10 @@ function deriveFillKeys(txQuantity){
     // form 'bitcoin-regtest' DOES define one (546), so this is 1000 there only
     // because 546 < 1000.
     const coinDust = (network && network.dustThreshold) ? network.dustThreshold : 1000
-    let AMOUNT_FOR_EACH_ADDRESS = Math.max(coinDust, 1000)
-    let FEE = Math.max(coinDust, 1000)
+    // Also clear the mining floor, or continue_mining never drains the stress txs.
+    const floor = STRESS_TX_POLICY_FLOOR_BY_COIN[String(this.network || '').split('-')[0].toLowerCase()] || {}
+    let AMOUNT_FOR_EACH_ADDRESS = Math.max(coinDust, 1000, floor.amount || 0)
+    let FEE = Math.max(coinDust, 1000, floor.fee || 0)
     // Per-output miner fee left on the intermediate 2500-output splitting tx.
     // Must also scale to the coin: a flat 50 sat/output is ~1.5 sat/byte on a
     // full split tx, below dogecoin-regtest's ~100 koinu/byte relay floor
