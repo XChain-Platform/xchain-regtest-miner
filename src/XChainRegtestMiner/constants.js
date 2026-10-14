@@ -35,6 +35,11 @@ const SATOSHI_UNIT = 100000000.0
 const DEFAULT_MAX_TIME_TO_MINE_TXS = 30000 //max 30 seconds to mine a block after the first tx is found in the mempool
 const DEFAULT_ADDED_TIME_TO_MINE_TXS = 5000 //5 seconds extra before mining a block every time a new tx appears in the mempool
 
+// Node flush after an idle block (see maybeFlushNode in node_flush.js): the
+// service default cadence and the bound on one gettxoutsetinfo call.
+const DEFAULT_NODE_FLUSH_INTERVAL_MS = 5 * 60 * 1000
+const NODE_FLUSH_TIMEOUT_MS = 15000
+
 const MAX_MINING_TIME = 3600000 //1 hour max for mining timers
 const MIN_MINING_TIME = 1000 //1 second minimum for mining timers
 const MAX_FILL_MEMPOOL_QUANTITY = 50000 //max number of transactions to fill the mempool with
@@ -84,6 +89,8 @@ module.exports = {
     SATOSHI_UNIT,
     DEFAULT_MAX_TIME_TO_MINE_TXS,
     DEFAULT_ADDED_TIME_TO_MINE_TXS,
+    DEFAULT_NODE_FLUSH_INTERVAL_MS,
+    NODE_FLUSH_TIMEOUT_MS,
     MAX_MINING_TIME,
     MIN_MINING_TIME,
     MAX_FILL_MEMPOOL_QUANTITY,

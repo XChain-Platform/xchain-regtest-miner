@@ -27,6 +27,7 @@ const {
     logger
 } = require('./constants.js')
 const { settleAfterMineTimeout } = require('./mine_settle.js')
+const { maybeFlushNode } = require('./node_flush.js')
 
 const MAX_BACKOFF_MS = 30000
 
@@ -115,6 +116,7 @@ async function runMineLoop(loop){
                 if (!loopMayMine.call(this)) { await this.sleep(CHECK_BLOCK_DELAY_MS); continue }
                 if (!(await mineLoopBlock.call(this, loop, "mining an idle block"))) continue
                 clearErrorStreak.call(this, loop, true)
+                maybeFlushNode.call(this, loop, Date.now())
             }
         }
         await this.sleep(CHECK_BLOCK_DELAY_MS)

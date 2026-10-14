@@ -74,6 +74,7 @@ const CONNECTOR_PROTOTYPE_ROWS = [
     ["buildSendToAddressData", false, true, true, "function", 3],
     ["constructor", false, true, true, "function", 4],
     ["createWallet", false, true, true, "function", 1],
+    ["flushNodeState", false, true, true, "function", 1],
     ["generateToAddress", false, true, true, "function", 2],
     ["getBalance", false, true, true, "function", 0],
     ["getBlock", false, true, true, "function", 1],

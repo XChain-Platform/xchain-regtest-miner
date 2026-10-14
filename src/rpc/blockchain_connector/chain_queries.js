@@ -54,6 +54,27 @@ module.exports = {
         }
     },
 
+    // Forces a disk write of the block index and coin database via
+    // gettxoutsetinfo; dogecoind otherwise flushes only hourly. Result discarded.
+    async flushNodeState(timeoutMs){
+        const data = {
+            jsonrpc: '2.0',
+            method: 'gettxoutsetinfo',
+            id: 1
+        }
+        try {
+            await axios.post(this.url, data, {
+                auth: {
+                    username: this.rpcUser,
+                    password: this.rpcPassword,
+                },
+                timeout: timeoutMs
+            })
+        } catch (error) {
+            throw new Error('Error flushing node state')
+        }
+    },
+
     async getBlockchainInfo(){
         try {
             const data = {

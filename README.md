@@ -87,6 +87,7 @@ npm run api
 | `NODE_RPC_TIMEOUT` | No | `60000` | HTTP timeout in milliseconds for coin node JSON-RPC calls; a value that is not a plain non-negative integer falls back to `60000`, and `0` disables the timeout |
 | `MINER_WALLET_GRACE_MS` | No | `60000` | Cold-start grace before `health` calls a not-yet-ready wallet a stall; keep the Docker `--start-period` at least this long |
 | `MINER_STALL_ERROR_THRESHOLD` | No | `5` | Consecutive failures, on either streak (`consecutive_errors` RPC/mempool reads, `mine_failures` block generations), before `health` answers 503 |
+| `NODE_FLUSH_INTERVAL_MS` | No | `300000` (5 min) | After an idle block, force the node to write its block index to disk (a `gettxoutsetinfo` call) at most this often, so a hard power-off loses minutes of blocks instead of up to an hour (dogecoind writes its index hourly); best-effort, never delays mining; `0` disables it |
 | `IDLE_MINE_INTERVAL_MS` | No | `60000` (on) | Mine one empty block after the mempool has been idle this long, so height-gated states can advance with no transactions in flight; `0` disables it (set that on a venue whose tests count blocks); also settable at runtime via `set_idle_mine_interval` |
 
 ## Scripts

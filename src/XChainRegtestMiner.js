@@ -41,6 +41,11 @@ const blockGeneration = require('./XChainRegtestMiner/block_generation.js')
 // blocks (reorg, confirmation depth) must set IDLE_MINE_INTERVAL_MS=0 itself.
 const DEFAULT_IDLE_MINE_INTERVAL_MS = 0 //0 = disabled; class fallback only, the API service boots with 60000
 
+// Node flush cadence after an idle block (maybeFlushNode in XChainRegtestMiner/node_flush.js).
+// Same split as the idle interval: 0 here is the class fallback, and the API
+// service boots it at DEFAULT_NODE_FLUSH_INTERVAL_MS unless NODE_FLUSH_INTERVAL_MS says otherwise.
+const DEFAULT_NODE_FLUSH_INTERVAL_MS_CLASS = 0
+
 // Mining-state generation, the shared reorg pause and the mine-vs-reorg holds:
 // the fields reconsiderBlock, pauseMining and generateBlocks coordinate through.
 // Runs with the new instance as `this`, from the constructor only.
@@ -145,6 +150,8 @@ class XChainRegtestMiner {
       this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
       this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
       this.idleMineIntervalMs = DEFAULT_IDLE_MINE_INTERVAL_MS
+      this.nodeFlushIntervalMs = DEFAULT_NODE_FLUSH_INTERVAL_MS_CLASS
+      this._nodeFlushInFlight = null
       this.fillMempoolRunning = false
       initMineExclusionState.call(this)
       initStatusFields.call(this)

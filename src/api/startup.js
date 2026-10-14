@@ -19,6 +19,7 @@ const cors = require('cors')
 const XChainRegtestMiner = require('../XChainRegtestMiner')
 const { installAuthentication } = require('./auth')
 const { createRpcMethods } = require('./rpc_methods')
+const { DEFAULT_NODE_FLUSH_INTERVAL_MS } = require('../XChainRegtestMiner/constants.js')
 
 const REQUIRED_ENV_VARS = ['NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER', 'NODE_PASSWORD', 'REGTEST_MINER_API_PORT']
 
@@ -32,6 +33,21 @@ const REQUIRED_ENV_VARS = ['NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER', 'NOD
 // well inside a 5-minute sync budget. An operator who sets IDLE_MINE_INTERVAL_MS
 // explicitly, including "0", still gets exactly that value.
 const DEFAULT_STARTUP_IDLE_MINE_INTERVAL_MS = 60000
+
+// Parses NODE_FLUSH_INTERVAL_MS: unset or blank gives the default, a plain
+// non-negative integer is honored (0 disables), anything else warns and keeps the
+// default, because the flush is best-effort and must not stop the miner booting.
+function parseNodeFlushInterval(value, logger) {
+    if (value === undefined || value === null || String(value).trim() === '') {
+        return DEFAULT_NODE_FLUSH_INTERVAL_MS
+    }
+    const text = String(value).trim()
+    if (!/^\d+$/.test(text)) {
+        logger.warn('Invalid NODE_FLUSH_INTERVAL_MS, using ' + DEFAULT_NODE_FLUSH_INTERVAL_MS + ': ' + text.slice(0, 40))
+        return DEFAULT_NODE_FLUSH_INTERVAL_MS
+    }
+    return parseInt(text, 10)
+}
 
 function validateEnvVars(environment, network, logger) {
     const missing = REQUIRED_ENV_VARS.filter(name => !environment[name] || environment[name].trim() === '')
@@ -153,6 +169,8 @@ function createStartApi({ config, environment, logger, createHealthController, m
             process.exit(1)
         }
 
+        miner.nodeFlushIntervalMs = parseNodeFlushInterval(environment.NODE_FLUSH_INTERVAL_MS, logger)
+
         startMinerDetached(miner, logger)
 
         const app = createApiApp()
@@ -165,4 +183,4 @@ function createStartApi({ config, environment, logger, createHealthController, m
     }
 }
 
-module.exports = { REQUIRED_ENV_VARS, chainMatchesNetwork, createApiApp, createMiner, createStartApi, listenApi, startMinerDetached, validateEnvVars, verifyNodeChain }
+module.exports = { REQUIRED_ENV_VARS, parseNodeFlushInterval, chainMatchesNetwork, createApiApp, createMiner, createStartApi, listenApi, startMinerDetached, validateEnvVars, verifyNodeChain }
