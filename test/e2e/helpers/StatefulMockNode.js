@@ -23,7 +23,8 @@
  * verbose) and has no walletname, starts with its one unnamed wallet loaded and
  * answers createwallet, loadwallet and listwallets with method-not-found as a
  * single-wallet daemon does, and 'core31' answers settxfee with
- * method-not-found as Bitcoin Core 31 does. It also picks the HTTP transport of
+ * method-not-found as Bitcoin Core 31 does, on the base URL and on any
+ * /wallet/<name> URI, loaded or not. It also picks the HTTP transport of
  * every RPC error reply (HTTP 500/404 on legacy and doge114, HTTP 200 on
  * core31); see test/helpers/rpcErrorReply.js.
  *
@@ -213,21 +214,26 @@ class StatefulMockNode {
         if (this.loadedWallets().length === 0) throw rpcError(-18, 'No wallet is loaded')
     }
 
+    // True for a wallet RPC the selected daemon deleted (Bitcoin Core 31 has no settxfee).
+    _lacksMethod(method) {
+        return this.daemon === 'core31' && method === 'settxfee'
+    }
+
     // Resolve the wallet a wallet RPC addresses: a /wallet/<name> URI needs that
     // wallet loaded, and the base URL reaches the one loaded wallet.
+    // A daemon looks a method up before it resolves any wallet, so a deleted one answers -32601 on every URI.
     _routeWallet(method, routed) {
-        if (!WALLET_METHODS.includes(method)) return undefined
-        if (!routed) return this._baseUrlWallet(method)
+        if (!WALLET_METHODS.includes(method) || this._lacksMethod(method)) return undefined
+        if (!routed) return this._baseUrlWallet()
         if (!this.hasLoadedWallet(routed)) throw rpcError(-18, 'Requested wallet does not exist or is not loaded')
         return routed
     }
 
     // The one loaded wallet a base-URL wallet RPC reaches; -19 while several are
-    // loaded, except for a method the daemon lacks, which answers -32601 first.
-    _baseUrlWallet(method) {
+    // loaded (a method the daemon lacks never gets here, see _routeWallet).
+    _baseUrlWallet() {
         const loaded = this.loadedWallets()
-        const lacksMethod = this.daemon === 'core31' && method === 'settxfee'
-        if (loaded.length > 1 && !lacksMethod) throw rpcError(-19, WALLET_NOT_SPECIFIED)
+        if (loaded.length > 1) throw rpcError(-19, WALLET_NOT_SPECIFIED)
         return loaded.length === 1 ? loaded[0] : undefined
     }
 
@@ -319,7 +325,7 @@ class StatefulMockNode {
     }
 
     // A subclass dispatcher passes no wallet, so a base-URL call is assumed.
-    _rpc_getwalletinfo(params, wallet = this._baseUrlWallet('getwalletinfo')) {
+    _rpc_getwalletinfo(params, wallet = this._baseUrlWallet()) {
         this._assertWalletLoaded()
         const info = { walletversion: 210000, balance: this.matureBalance / 100000000 }
         // Omit walletname on doge114: a single-wallet daemon predates the field.
