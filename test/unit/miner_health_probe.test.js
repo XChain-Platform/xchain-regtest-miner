@@ -44,10 +44,15 @@ const READY = {
 };
 
 describe('miner health probe verdict', function () {
+    // The baseline case every other verdict is measured against: READY carries every
+    // field a running miner reports, and ten minutes of uptime is well past the
+    // wallet cold-start grace, so nothing but the payload can change the answer.
     it('is healthy when the wallet is ready and the loop is not failing', function () {
         assert.strictEqual(evaluateMinerHealth({ status: READY, uptimeMs: 10 * 60000 }).healthy, true);
     });
 
+    // A streak at the threshold is a stall: the node is rejecting reads on every
+    // cycle, so the container should report unhealthy and let compose restart it.
     it('is unhealthy on a sustained run of mining failures', function () {
         const status = Object.assign({}, READY, { consecutive_errors: STALL_ERROR_THRESHOLD });
         const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
@@ -55,6 +60,8 @@ describe('miner health probe verdict', function () {
         assert.strictEqual(verdict.reason, 'consecutive_errors');
     });
 
+    // One below the threshold is the boundary the other side of the stall test pins,
+    // so a transient node hiccup does not flap the container.
     it('tolerates a short failure streak below the threshold', function () {
         const status = Object.assign({}, READY, { consecutive_errors: STALL_ERROR_THRESHOLD - 1 });
         assert.strictEqual(evaluateMinerHealth({ status, uptimeMs: 10 * 60000 }).healthy, true);
@@ -71,11 +78,16 @@ describe('miner health probe verdict', function () {
         assert.strictEqual(verdict.reason, 'mine_failures');
     });
 
+    // Same boundary as the read-failure streak, applied to the mine counter, so each
+    // counter trips at exactly STALL_ERROR_THRESHOLD and not one cycle earlier.
     it('tolerates a mine-failure streak below the threshold', function () {
         const status = Object.assign({}, READY, { mine_failures: STALL_ERROR_THRESHOLD - 1 });
         assert.strictEqual(evaluateMinerHealth({ status, uptimeMs: 10 * 60000 }).healthy, true);
     });
 
+    // A paused miner makes no mine attempts, so a stale failure count carried over from
+    // before the pause must not turn an operator-requested pause into an unhealthy
+    // container. The verdict reports the pause as its reason so logs stay readable.
     it('treats a deliberate pause as healthy even with a failing MINE streak', function () {
         const status = Object.assign({}, READY, { mine_failures: 99, mining_paused: true });
         const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
@@ -124,6 +136,8 @@ describe('miner health probe verdict', function () {
 });
 
 describe('miner health probe verdict', function () {
+    // A ready wallet with no started loop is a boot that stopped half way: nothing will
+    // ever mine, and the paused flag alone must not excuse it.
     it('is unhealthy when the wallet is ready but the mining loop never started', function () {
         const status = Object.assign({}, READY, { mining_started: false, mining_paused: true });
         const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
@@ -131,6 +145,8 @@ describe('miner health probe verdict', function () {
         assert.strictEqual(verdict.reason, 'not_started');
     });
 
+    // With no status at all the probe cannot tell a healthy miner from a dead one, so
+    // after the grace window it assumes the worse reading.
     it('fails closed on a missing status payload past the grace window', function () {
         assert.strictEqual(evaluateMinerHealth({ uptimeMs: WALLET_GRACE_MS + 1 }).healthy, false);
     });
@@ -142,6 +158,8 @@ describe('miner health probe verdict', function () {
         );
     });
 
+    // Calls the controller directly with a stub response so the status code the handler
+    // sets is observable without a socket; the wire-level case below covers the router.
     it('registers health on the JSON-RPC controller and 503s on the verdict', async function () {
         const miner = {
             getStatus: () => ({ wallet_ready: false, mining_paused: true, mining_started: false }),
