@@ -39,9 +39,9 @@
 
 'use strict';
 
-const fs   = require('fs');
+const fs = require('fs');
 const path = require('path');
-const cp   = require('child_process');
+const cp = require('child_process');
 
 const OWN_ROOT = path.resolve(__dirname, '..', '..');
 
@@ -52,8 +52,11 @@ function siblingsRequired(env = process.env) {
 
 /** A linked worktree carries a `.git` FILE pointing at its common dir. */
 function isLinkedWorktree(root) {
-    try { return fs.lstatSync(path.join(root, '.git')).isFile(); }
-    catch (e) { return false; }
+    try {
+        return fs.lstatSync(path.join(root, '.git')).isFile();
+    } catch (e) {
+        return false;
+    }
 }
 
 /** The nearest ancestor of `dir` (inclusive) that holds a `.git` entry, or null. */
@@ -66,22 +69,32 @@ function checkoutRootOf(dir) {
 
 function pinnedMainCheckout(root, name, env) {
     let pins;
-    try { pins = JSON.parse(env.XCHAIN_SIBLING_COMMITS || '{}'); }
-    catch (e) { return false; }
+    try {
+        pins = JSON.parse(env.XCHAIN_SIBLING_COMMITS || '{}');
+    } catch (e) {
+        return false;
+    }
     const expected = pins && pins[name];
     if (typeof expected !== 'string' || !/^[0-9a-f]{40}$/.test(expected)) return false;
 
     let actual;
     try {
-        actual = cp.execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], {
-            encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']
-        }).trim();
-    } catch (e) { return false; }
+        actual = cp
+            .execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], {
+                encoding: 'utf8',
+                stdio: ['ignore', 'pipe', 'ignore'],
+            })
+            .trim();
+    } catch (e) {
+        return false;
+    }
     if (actual !== expected) return false;
 
     const clean = (args) => cp.spawnSync('git', ['-C', root, ...args], { stdio: 'ignore' }).status === 0;
-    return clean(['diff', '--quiet', '--ignore-submodules', '--'])
-        && clean(['diff', '--cached', '--quiet', '--ignore-submodules', '--']);
+    return (
+        clean(['diff', '--quiet', '--ignore-submodules', '--']) &&
+        clean(['diff', '--cached', '--quiet', '--ignore-submodules', '--'])
+    );
 }
 
 /**
@@ -98,15 +111,13 @@ function siblingCheckout(fromDir, target, opts = {}) {
     const env = opts.env || process.env;
     const abs = path.resolve(fromDir, target);
 
-    if (!fs.existsSync(abs))
-        return { usable: false, path: abs, reason: 'sibling path absent: ' + abs };
+    if (!fs.existsSync(abs)) return { usable: false, path: abs, reason: 'sibling path absent: ' + abs };
 
     // Only the entry directly beside this checkout can be the lane symlink. A
     // path that does not pass through that parent is not a sibling reference.
     const parent = path.dirname(ownRoot);
     const rel = path.relative(parent, abs);
-    if (rel.startsWith('..') || path.isAbsolute(rel))
-        return { usable: true, path: abs, reason: null };
+    if (rel.startsWith('..') || path.isAbsolute(rel)) return { usable: true, path: abs, reason: null };
     const entry = path.join(parent, rel.split(path.sep)[0]);
 
     if (!isLinkedWorktree(ownRoot) || !fs.lstatSync(entry).isSymbolicLink())
@@ -114,15 +125,18 @@ function siblingCheckout(fromDir, target, opts = {}) {
 
     const real = fs.realpathSync(entry);
     const targetRoot = checkoutRootOf(real);
-    const targetIsMain = targetRoot !== null
-        && fs.lstatSync(path.join(targetRoot, '.git')).isDirectory();
+    const targetIsMain = targetRoot !== null && fs.lstatSync(path.join(targetRoot, '.git')).isDirectory();
     if (targetIsMain) {
-        if (pinnedMainCheckout(targetRoot, path.basename(entry), env))
-            return { usable: true, path: abs, reason: null };
+        if (pinnedMainCheckout(targetRoot, path.basename(entry), env)) return { usable: true, path: abs, reason: null };
         return {
-            usable: false, path: abs,
-            reason: 'sibling ' + path.basename(entry) + ' resolves through a symlink into the live main checkout '
-                + targetRoot + ', which no commit pins; cut a real sibling worktree to test against it',
+            usable: false,
+            path: abs,
+            reason:
+                'sibling ' +
+                path.basename(entry) +
+                ' resolves through a symlink into the live main checkout ' +
+                targetRoot +
+                ', which no commit pins; cut a real sibling worktree to test against it',
         };
     }
     return { usable: true, path: abs, reason: null };
@@ -139,8 +153,7 @@ function siblingCheckout(fromDir, target, opts = {}) {
  */
 function skipOrFail(ctx, verdict, what) {
     if (verdict.usable) return true;
-    if (siblingsRequired())
-        throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but ' + what + ' cannot run: ' + verdict.reason);
+    if (siblingsRequired()) throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but ' + what + ' cannot run: ' + verdict.reason);
     ctx.skip();
     return false;
 }

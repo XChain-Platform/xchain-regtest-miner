@@ -20,115 +20,138 @@
 // against a loop body with the guard removed, so a green run here cannot be a
 // harness that never entered the path.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
 // Drive one pass of the auto-mine loop's idle-mine branch with a getRawMempool
 // that parks until released, pause mid-RPC, then let the loop continue. Returns
 // how many mines were issued after pauseMining() resolved.
 async function minesAfterBarrier(miner, { guarded }) {
-    let releaseMempool
-    const mempoolParked = new Promise((resolve) => { releaseMempool = resolve })
+    let releaseMempool;
+    const mempoolParked = new Promise((resolve) => {
+        releaseMempool = resolve;
+    });
 
-    let barrierResolved = false
-    const minesAfter = []
+    let barrierResolved = false;
+    const minesAfter = [];
 
-    miner.walletAddress = 'bcrt1qtest'
-    miner.walletReady = true
-    miner.keepMining = true
-    miner.idleMineIntervalMs = 1000
-    miner._lastMineAt = 0
+    miner.walletAddress = 'bcrt1qtest';
+    miner.walletReady = true;
+    miner.keepMining = true;
+    miner.idleMineIntervalMs = 1000;
+    miner._lastMineAt = 0;
 
     miner.connector = {
-        getRawMempool: async () => { await mempoolParked; return [] },
+        getRawMempool: async () => {
+            await mempoolParked;
+            return [];
+        },
         generateToAddress: async () => {
-            if (barrierResolved) minesAfter.push(Date.now())
-            return ['hash']
-        }
-    }
+            if (barrierResolved) minesAfter.push(Date.now());
+            return ['hash'];
+        },
+    };
 
     // One iteration of the real loop body's idle-mine path. `guarded` is the
     // fix under test: re-read keepMining immediately before the mine, with no
     // await between the check and the call.
     const iteration = (async () => {
-        if (!miner.keepMining) return
-        await miner.connector.getRawMempool()
+        if (!miner.keepMining) return;
+        await miner.connector.getRawMempool();
         if (miner.idleMineDue(Date.now(), 0)) {
-            if (guarded && !miner.keepMining) return
-            await miner.generateBlocks(1)
+            if (guarded && !miner.keepMining) return;
+            await miner.generateBlocks(1);
         }
-    })()
+    })();
 
     // Pause while the loop is parked inside getRawMempool: the flag flips and the
     // queue barrier finds nothing in flight, so the caller is told mining stopped.
-    const paused = miner.pauseMining().then(() => { barrierResolved = true })
-    await paused
-    releaseMempool()
-    await iteration
+    const paused = miner.pauseMining().then(() => {
+        barrierResolved = true;
+    });
+    await paused;
+    releaseMempool();
+    await iteration;
 
-    return minesAfter.length
+    return minesAfter.length;
 }
 
-let miner
+let miner;
 
 // Gives each test a fresh miner with console.log silenced, and drops the module cache after.
 function useFreshMiner() {
     beforeEach(function () {
-        const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        sinon.stub(console, 'log')
-    })
+        const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+        sinon.stub(console, 'log');
+    });
 
     afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+        sinon.restore();
+        delete require.cache[require.resolve('../../src/XChainRegtestMiner')];
+    });
 }
 
 describe('pauseMining barrier vs the auto-mine loop', function () {
-    useFreshMiner()
+    useFreshMiner();
 
     it('CONTROL: without the guard a block lands after pauseMining() resolved', async function () {
-        assert.strictEqual(await minesAfterBarrier(miner, { guarded: false }), 1,
-            'control must reproduce the original failure, or the guarded case proves nothing')
-    })
+        assert.strictEqual(
+            await minesAfterBarrier(miner, { guarded: false }),
+            1,
+            'control must reproduce the original failure, or the guarded case proves nothing',
+        );
+    });
 
     it('with the guard no block lands after pauseMining() resolved', async function () {
-        assert.strictEqual(await minesAfterBarrier(miner, { guarded: true }), 0)
-    })
+        assert.strictEqual(await minesAfterBarrier(miner, { guarded: true }), 0);
+    });
 
     it('an in-flight mine still holds the barrier open (the queue drain is unchanged)', async function () {
-        let releaseMine
-        const mineParked = new Promise((resolve) => { releaseMine = resolve })
-        miner.walletAddress = 'bcrt1qtest'
-        miner.connector = { generateToAddress: async () => { await mineParked; return ['hash'] } }
+        let releaseMine;
+        const mineParked = new Promise((resolve) => {
+            releaseMine = resolve;
+        });
+        miner.walletAddress = 'bcrt1qtest';
+        miner.connector = {
+            generateToAddress: async () => {
+                await mineParked;
+                return ['hash'];
+            },
+        };
 
-        const mining = miner.generateBlocks(1)
-        let barrierDone = false
-        const barrier = miner.pauseMining().then(() => { barrierDone = true })
+        const mining = miner.generateBlocks(1);
+        let barrierDone = false;
+        const barrier = miner.pauseMining().then(() => {
+            barrierDone = true;
+        });
 
-        await new Promise((resolve) => setImmediate(resolve))
-        assert.strictEqual(barrierDone, false, 'pauseMining must not resolve while a mine is in flight')
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.strictEqual(barrierDone, false, 'pauseMining must not resolve while a mine is in flight');
 
-        releaseMine()
-        await mining
-        await barrier
-        assert.strictEqual(barrierDone, true)
-    })
-})
+        releaseMine();
+        await mining;
+        await barrier;
+        assert.strictEqual(barrierDone, true);
+    });
+});
 
 describe('pauseMining barrier source guards in the auto-mine loop', function () {
     it('the shipped loop carries the guard at both auto-mine sites', function () {
-        const fs = require('fs')
-        const path = require('path')
-        const src = fs.readFileSync(path.join(__dirname, '../../src/XChainRegtestMiner/mine_loop.js'), 'utf8')
-        const body = src.slice(src.indexOf('async function mineLoopPass'))
-        const guard = /if \(!loopMayMine\.call\(this\)\) \{\s*await this\.sleep\(CHECK_BLOCK_DELAY_MS\);?\s*return;?\s*\}/g
-        const guards = (body.match(guard) || []).length
-        assert.strictEqual(guards, 2,
-            'both loop mine sites must re-read the mine gate immediately before generateBlocks')
+        const fs = require('fs');
+        const path = require('path');
+        const src = fs.readFileSync(path.join(__dirname, '../../src/XChainRegtestMiner/mine_loop.js'), 'utf8');
+        const body = src.slice(src.indexOf('async function mineLoopPass'));
+        const guard =
+            /if \(!loopMayMine\.call\(this\)\) \{\s*await this\.sleep\(CHECK_BLOCK_DELAY_MS\);?\s*return;?\s*\}/g;
+        const guards = (body.match(guard) || []).length;
+        assert.strictEqual(
+            guards,
+            2,
+            'both loop mine sites must re-read the mine gate immediately before generateBlocks',
+        );
         // The gate is the pause flag plus the fill mutex; losing keepMining reopens the pause window.
-        const gate = src.slice(src.indexOf('function loopMayMine'), src.indexOf('async function runMineLoop'))
-        assert.match(gate, /return this\.keepMining && !this\.fillMempoolRunning/)
-    })
-})
+        const gate = src.slice(src.indexOf('function loopMayMine'), src.indexOf('async function runMineLoop'));
+        assert.match(gate, /return this\.keepMining && !this\.fillMempoolRunning/);
+    });
+});

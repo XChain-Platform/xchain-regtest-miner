@@ -12,13 +12,13 @@
  *
  **********************************************************************/
 
-const assert = require('assert')
-const sinon = require('sinon')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let XChainRegtestMiner
-let miner
-let connectorStub
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
 
 function setUpMiner() {
     connectorStub = {
@@ -35,20 +35,20 @@ function setUpMiner() {
         setWalletName: sinon.stub(),
         getRawTransaction: sinon.stub().resolves('0200000001...'),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-    miner.connector = connectorStub
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 }
 
 function tearDownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -56,38 +56,44 @@ function tearDownMiner() {
 // ═══════════════════════════════════════════════════════════════════
 
 describe('T0 Regression: Critical Gate', function () {
-    beforeEach(setUpMiner)
-    afterEach(tearDownMiner)
+    beforeEach(setUpMiner);
+    afterEach(tearDownMiner);
 
     describe('REG-T0-006: fillMempool guards (W-3 bug prevention)', function () {
         it('rejects concurrent fillMempool calls', async function () {
-            miner.fillMempoolRunning = true
-            await assert.rejects(() => miner.fillMempool(10), /already running/)
-        })
+            miner.fillMempoolRunning = true;
+            await assert.rejects(() => miner.fillMempool(10), /already running/);
+        });
 
         it('leaves mining paused after fillMempool (resume is continue_mining)', async function () {
-            miner.keepMining = true
+            miner.keepMining = true;
             try {
-                await miner.fillMempool(1)
+                await miner.fillMempool(1);
             } catch (e) {
                 // May fail on crypto ops; that's fine for this test
             }
-            assert.strictEqual(miner.keepMining, false,
-                'fillMempool pauses mining so the stress txs stay in the mempool')
-            assert.strictEqual(miner.fillMempoolRunning, false,
-                'the fillMempool mutex must be released by the finally block')
-        })
+            assert.strictEqual(
+                miner.keepMining,
+                false,
+                'fillMempool pauses mining so the stress txs stay in the mempool',
+            );
+            assert.strictEqual(
+                miner.fillMempoolRunning,
+                false,
+                'the fillMempool mutex must be released by the finally block',
+            );
+        });
 
         it('rejects invalid txQuantity without changing keepMining', async function () {
-            miner.keepMining = true
-            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
-            assert.strictEqual(miner.keepMining, true)
-            await assert.rejects(() => miner.fillMempool(-1), /positive integer/)
-            assert.strictEqual(miner.keepMining, true)
-        })
+            miner.keepMining = true;
+            await assert.rejects(() => miner.fillMempool(0), /positive integer/);
+            assert.strictEqual(miner.keepMining, true);
+            await assert.rejects(() => miner.fillMempool(-1), /positive integer/);
+            assert.strictEqual(miner.keepMining, true);
+        });
 
         it('rejects txQuantity exceeding maximum', async function () {
-            await assert.rejects(() => miner.fillMempool(50001), /maximum/)
-        })
-    })
-})
+            await assert.rejects(() => miner.fillMempool(50001), /maximum/);
+        });
+    });
+});

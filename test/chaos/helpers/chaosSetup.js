@@ -17,7 +17,7 @@
  * established in test/e2e/mining_loop.test.js.
  */
 
-const XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
+const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
 
 /**
  * Create a miner pointed at a ChaosNode with fast sleep override.
@@ -25,18 +25,18 @@ const XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
  * @returns {XChainRegtestMiner}
  */
 function createMiner(node) {
-    const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+    const miner = new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass');
 
     // Fast polling: 10ms instead of 1000ms
-    const originalSleep = miner.sleep.bind(miner)
+    const originalSleep = miner.sleep.bind(miner);
     miner.sleep = async (ms) => {
         if (miner._shutdown) {
-            throw new Error('__E2E_SHUTDOWN__')
+            throw new Error('__E2E_SHUTDOWN__');
         }
-        await originalSleep(10)
-    }
+        await originalSleep(10);
+    };
 
-    return miner
+    return miner;
 }
 
 /**
@@ -45,9 +45,9 @@ function createMiner(node) {
  * @param {ChaosNode} node
  */
 function seedWallet(node) {
-    node._rpc_createwallet(['xchain_regtest_wallet'])
-    node._rpc_generatetoaddress([110, 'bcrt1qseed'])
-    node.calls = [] // Clear setup calls from tracking
+    node._rpc_createwallet(['xchain_regtest_wallet']);
+    node._rpc_generatetoaddress([110, 'bcrt1qseed']);
+    node.calls = []; // Clear setup calls from tracking
 }
 
 /**
@@ -57,10 +57,10 @@ function seedWallet(node) {
  * @returns {{ startPromise: Promise }}
  */
 function startMinerLoop(miner) {
-    const startPromise = miner.start().catch(e => {
-        if (e.message !== '__E2E_SHUTDOWN__') throw e
-    })
-    return { startPromise }
+    const startPromise = miner.start().catch((e) => {
+        if (e.message !== '__E2E_SHUTDOWN__') throw e;
+    });
+    return { startPromise };
 }
 
 /**
@@ -69,15 +69,17 @@ function startMinerLoop(miner) {
  * @param {Promise} startPromise
  */
 async function stopMinerLoop(miner, startPromise) {
-    miner._shutdown = true
+    miner._shutdown = true;
     if (startPromise) {
-        try { await startPromise } catch (e) {
-            if (e.message !== '__E2E_SHUTDOWN__') throw e
+        try {
+            await startPromise;
+        } catch (e) {
+            if (e.message !== '__E2E_SHUTDOWN__') throw e;
         }
     }
     // Clean up SIGTERM handler registered by start()
     if (miner._sigTermHandler) {
-        process.removeListener('SIGTERM', miner._sigTermHandler)
+        process.removeListener('SIGTERM', miner._sigTermHandler);
     }
 }
 
@@ -87,12 +89,12 @@ async function stopMinerLoop(miner, startPromise) {
  * @param {number} timeoutMs
  */
 async function waitFor(conditionFn, timeoutMs = 5000) {
-    const start = Date.now()
+    const start = Date.now();
     while (Date.now() - start < timeoutMs) {
-        if (conditionFn()) return true
-        await sleep(20)
+        if (conditionFn()) return true;
+        await sleep(20);
     }
-    throw new Error('waitFor timed out after ' + timeoutMs + 'ms')
+    throw new Error('waitFor timed out after ' + timeoutMs + 'ms');
 }
 
 /**
@@ -100,7 +102,7 @@ async function waitFor(conditionFn, timeoutMs = 5000) {
  * @param {number} ms
  */
 async function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms))
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 module.exports = {
@@ -110,4 +112,4 @@ module.exports = {
     stopMinerLoop,
     waitFor,
     sleep,
-}
+};

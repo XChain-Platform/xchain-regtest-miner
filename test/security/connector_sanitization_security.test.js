@@ -8,158 +8,177 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const { state, useConnectorFixtures, makeAxiosError, assertConsoleClean, expectCleanRejection, expectNoCredentialLogging } = require('../helpers/connector_sanitization_fixture')
+const assert = require('assert');
+const {
+    state,
+    useConnectorFixtures,
+    makeAxiosError,
+    assertConsoleClean,
+    expectCleanRejection,
+    expectNoCredentialLogging,
+} = require('../helpers/connector_sanitization_fixture');
 
 describe('Security: BlockchainConnector Error Sanitization', function () {
-    useConnectorFixtures()
+    useConnectorFixtures();
 
     // ─── Per-method error sanitization tests ──────────────────────────
 
     describe('getNetworkInfo', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.getNetworkInfo(), 'Error getting network info')
-        })
+            await expectCleanRejection(() => state.connector.getNetworkInfo(), 'Error getting network info');
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.getNetworkInfo())
-        })
-    })
+            await expectNoCredentialLogging(() => state.connector.getNetworkInfo());
+        });
+    });
 
     describe('getBlockchainInfo', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.getBlockchainInfo(), 'Error getting blockchain info')
-        })
+            await expectCleanRejection(() => state.connector.getBlockchainInfo(), 'Error getting blockchain info');
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.getBlockchainInfo())
-        })
-    })
+            await expectNoCredentialLogging(() => state.connector.getBlockchainInfo());
+        });
+    });
 
     describe('getBlockHash', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.getBlockHash(0), 'Error getting block hash')
-        })
+            await expectCleanRejection(() => state.connector.getBlockHash(0), 'Error getting block hash');
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.getBlockHash(0))
-        })
-    })
-})
+            await expectNoCredentialLogging(() => state.connector.getBlockHash(0));
+        });
+    });
+});
 
 describe('Security: BlockchainConnector Error Sanitization', function () {
-    useConnectorFixtures()
+    useConnectorFixtures();
     describe('getBlock', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.getBlock('abc123'), 'Error getting block')
-        })
+            await expectCleanRejection(() => state.connector.getBlock('abc123'), 'Error getting block');
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.getBlock('abc123'))
-        })
-    })
+            await expectNoCredentialLogging(() => state.connector.getBlock('abc123'));
+        });
+    });
 
     describe('getRawMempool', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.getRawMempool(), 'Error getting raw mempool')
-        })
+            await expectCleanRejection(() => state.connector.getRawMempool(), 'Error getting raw mempool');
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.getRawMempool())
-        })
-    })
+            await expectNoCredentialLogging(() => state.connector.getRawMempool());
+        });
+    });
 
     describe('getMempoolEntry', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.getMempoolEntry('txid123'), 'Error getting mempool entry')
-        })
+            await expectCleanRejection(() => state.connector.getMempoolEntry('txid123'), 'Error getting mempool entry');
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.getMempoolEntry('txid123'))
-        })
-    })
-})
+            await expectNoCredentialLogging(() => state.connector.getMempoolEntry('txid123'));
+        });
+    });
+});
 
 describe('Security: BlockchainConnector Error Sanitization', function () {
-    useConnectorFixtures()
+    useConnectorFixtures();
     describe('getRawTransaction', function () {
         it('returns null on error without logging credentials', async function () {
-            state.axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'))
-            const result = await state.connector.getRawTransaction('txid123')
-            assert.strictEqual(result, null)
-            assertConsoleClean()
-        })
-    })
+            state.axiosPostStub.rejects(makeAxiosError('connect ECONNREFUSED'));
+            const result = await state.connector.getRawTransaction('txid123');
+            assert.strictEqual(result, null);
+            assertConsoleClean();
+        });
+    });
 
     describe('createWallet', function () {
         it('throws clean error without credentials after retries', async function () {
-            await expectCleanRejection(() => state.connector.createWallet('test_wallet', 2), 'Error creating wallet')
-        })
+            await expectCleanRejection(() => state.connector.createWallet('test_wallet', 2), 'Error creating wallet');
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.createWallet('test_wallet', 2))
-        })
-    })
+            await expectNoCredentialLogging(() => state.connector.createWallet('test_wallet', 2));
+        });
+    });
 
     describe('getWalletInfo', function () {
         it('throws clean error without credentials after retries', async function () {
-            await expectCleanRejection(() => state.connector.getWalletInfo(2), 'Error getting wallet info: max retries exceeded')
-        })
+            await expectCleanRejection(
+                () => state.connector.getWalletInfo(2),
+                'Error getting wallet info: max retries exceeded',
+            );
+        });
         it('does not log credentials during retries', async function () {
-            await expectNoCredentialLogging(() => state.connector.getWalletInfo(2))
-        })
-    })
-})
+            await expectNoCredentialLogging(() => state.connector.getWalletInfo(2));
+        });
+    });
+});
 
 describe('Security: BlockchainConnector Error Sanitization', function () {
-    useConnectorFixtures()
+    useConnectorFixtures();
     describe('loadWallet', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.loadWallet('test_wallet'), 'Error loading wallet')
-        })
+            await expectCleanRejection(() => state.connector.loadWallet('test_wallet'), 'Error loading wallet');
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.loadWallet('test_wallet'))
-        })
-    })
+            await expectNoCredentialLogging(() => state.connector.loadWallet('test_wallet'));
+        });
+    });
 
     describe('getNewAddress', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.getNewAddress(), 'Error getting new address')
-        })
+            await expectCleanRejection(() => state.connector.getNewAddress(), 'Error getting new address');
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.getNewAddress())
-        })
-    })
+            await expectNoCredentialLogging(() => state.connector.getNewAddress());
+        });
+    });
 
     describe('generateToAddress', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.generateToAddress(1, 'bcrt1qtest'), 'Error generating to address')
-        })
+            await expectCleanRejection(
+                () => state.connector.generateToAddress(1, 'bcrt1qtest'),
+                'Error generating to address',
+            );
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.generateToAddress(1, 'bcrt1qtest'))
-        })
-    })
-})
+            await expectNoCredentialLogging(() => state.connector.generateToAddress(1, 'bcrt1qtest'));
+        });
+    });
+});
 
 describe('Security: BlockchainConnector Error Sanitization', function () {
-    useConnectorFixtures()
+    useConnectorFixtures();
     describe('getBalance', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.getBalance(), 'Error getting balance')
-        })
+            await expectCleanRejection(() => state.connector.getBalance(), 'Error getting balance');
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.getBalance())
-        })
-    })
+            await expectNoCredentialLogging(() => state.connector.getBalance());
+        });
+    });
 
     describe('sendToAddress', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.sendToAddress('bcrt1qtest', 1.0), 'Error sending funds to address')
-        })
+            await expectCleanRejection(
+                () => state.connector.sendToAddress('bcrt1qtest', 1.0),
+                'Error sending funds to address',
+            );
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.sendToAddress('bcrt1qtest', 1.0))
-        })
-    })
+            await expectNoCredentialLogging(() => state.connector.sendToAddress('bcrt1qtest', 1.0));
+        });
+    });
 
     describe('sendRawTransaction', function () {
         it('throws clean error without credentials', async function () {
-            await expectCleanRejection(() => state.connector.sendRawTransaction('deadbeef'), 'Error sending raw transaction')
-        })
+            await expectCleanRejection(
+                () => state.connector.sendRawTransaction('deadbeef'),
+                'Error sending raw transaction',
+            );
+        });
         it('does not log credentials', async function () {
-            await expectNoCredentialLogging(() => state.connector.sendRawTransaction('deadbeef'))
-        })
-    })
-})
+            await expectNoCredentialLogging(() => state.connector.sendRawTransaction('deadbeef'));
+        });
+    });
+});

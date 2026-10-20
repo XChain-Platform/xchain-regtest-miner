@@ -25,36 +25,34 @@
 // prepareWallet that hangs (wedged coin node, a wallet RPC that never returns) went
 // undetected forever. mining_started is what separates the two states, so the pause
 // shortcut is claimed only once the loop has actually run.
-function evaluateMinerHealth({ status = {}, uptimeMs = 0,
-                               errorThreshold = 5,
-                               walletGraceMs = 60000 } = {}) {
-    const consecutiveErrors = Number(status.consecutive_errors) || 0
+function evaluateMinerHealth({ status = {}, uptimeMs = 0, errorThreshold = 5, walletGraceMs = 60000 } = {}) {
+    const consecutiveErrors = Number(status.consecutive_errors) || 0;
     // Failed mines get their own streak because consecutive_errors cannot carry
     // them: the loop zeroes it on every successful getRawMempool(), which runs
     // immediately before the idle-mine heartbeat, so a generateToAddress failing
     // forever kept reporting 1 and this probe answered ok while height never moved.
-    const mineFailures      = Number(status.mine_failures) || 0
+    const mineFailures = Number(status.mine_failures) || 0;
     // Cold-start grace: nothing is a stall yet. This also swallows an error streak
     // inside the window, which costs nothing, because Docker's --start-period (kept
     // at the same 60s in the Dockerfile) already discards failing checks there.
-    if (uptimeMs <= walletGraceMs) return { healthy: true, reason: 'starting' }
+    if (uptimeMs <= walletGraceMs) return { healthy: true, reason: 'starting' };
     // Past the grace window, a wallet that never became ready IS the stall this probe
     // exists for, and it outranks the pause shortcut because an unprepared miner
     // reports mining_paused=true as well.
-    if (!status.wallet_ready) return { healthy: false, reason: 'wallet_not_ready' }
+    if (!status.wallet_ready) return { healthy: false, reason: 'wallet_not_ready' };
     // Wallet ready but the loop never entered (start() rejected between prepareWallet
     // and the loop): also a stall rather than a pause.
-    if (status.mining_started !== true) return { healthy: false, reason: 'not_started' }
+    if (status.mining_started !== true) return { healthy: false, reason: 'not_started' };
     // A pause is an operator action (fill_mempool, invalidate_block) that holds
     // keepMining=false until continue_mining; reporting it unhealthy would flap
     // every stack that pauses mining as part of a drill.
-    if (status.mining_paused === true) return { healthy: true, reason: 'paused' }
-    if (consecutiveErrors >= errorThreshold) return { healthy: false, reason: 'consecutive_errors' }
+    if (status.mining_paused === true) return { healthy: true, reason: 'paused' };
+    if (consecutiveErrors >= errorThreshold) return { healthy: false, reason: 'consecutive_errors' };
     // Same threshold, second streak. Kept below the pause shortcut on purpose: a
     // deliberate pause_mining / fill_mempool is never a stall whatever either
     // counter reads.
-    if (mineFailures >= errorThreshold) return { healthy: false, reason: 'mine_failures' }
-    return { healthy: true, reason: 'ok' }
+    if (mineFailures >= errorThreshold) return { healthy: false, reason: 'mine_failures' };
+    return { healthy: true, reason: 'ok' };
 }
 
 function formatMinerHealth(status, verdict) {
@@ -65,8 +63,8 @@ function formatMinerHealth(status, verdict) {
         consecutive_errors: status.consecutive_errors,
         mine_failures: status.mine_failures,
         mining_paused: !!status.mining_paused,
-        mining_started: !!status.mining_started
-    }
+        mining_started: !!status.mining_started,
+    };
 }
 
-module.exports = { evaluateMinerHealth, formatMinerHealth }
+module.exports = { evaluateMinerHealth, formatMinerHealth };

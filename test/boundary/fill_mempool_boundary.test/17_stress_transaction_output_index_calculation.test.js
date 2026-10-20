@@ -8,17 +8,17 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
-let XChainRegtestMiner
-let miner
-let connectorStub
-const OUTPUTS_QUANTITY_PER_TX = 2500
-const AMOUNT_FOR_EACH_ADDRESS = 1000
-const FEE = 1000
-const SATOSHI_UNIT = 100000000.0
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
+const OUTPUTS_QUANTITY_PER_TX = 2500;
+const AMOUNT_FOR_EACH_ADDRESS = 1000;
+const FEE = 1000;
+const SATOSHI_UNIT = 100000000.0;
 
 function setupMiner() {
     connectorStub = {
@@ -36,52 +36,52 @@ function setupMiner() {
         getRawTransaction: sinon.stub().resolves(null),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
         getNetworkInfo: sinon.stub().resolves({}),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 
-    miner.walletAddress = 'bcrt1qtest'
+    miner.walletAddress = 'bcrt1qtest';
 }
 
 function teardownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 function registerMinerHooks() {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 }
 
 describe('Boundary: fillMempool Chunking and Calculations', function () {
-    registerMinerHooks()
+    registerMinerHooks();
 
     // ─── Stress tx output index calculation ────────────────────────────
 
     describe('Stress transaction output index calculation', function () {
         it('output index wraps correctly within chunk', function () {
             // outputIndex = nextAddressIndex % OUTPUTS_QUANTITY_PER_TX
-            assert.strictEqual(0 % OUTPUTS_QUANTITY_PER_TX, 0)
-            assert.strictEqual(2499 % OUTPUTS_QUANTITY_PER_TX, 2499)
-            assert.strictEqual(2500 % OUTPUTS_QUANTITY_PER_TX, 0) // wraps
-            assert.strictEqual(2501 % OUTPUTS_QUANTITY_PER_TX, 1)
-        })
+            assert.strictEqual(0 % OUTPUTS_QUANTITY_PER_TX, 0);
+            assert.strictEqual(2499 % OUTPUTS_QUANTITY_PER_TX, 2499);
+            assert.strictEqual(2500 % OUTPUTS_QUANTITY_PER_TX, 0); // wraps
+            assert.strictEqual(2501 % OUTPUTS_QUANTITY_PER_TX, 1);
+        });
 
         it('utxo index selects correct chunk', function () {
             // utxoIndex = Math.floor(nextAddressIndex / OUTPUTS_QUANTITY_PER_TX)
-            assert.strictEqual(Math.floor(0 / OUTPUTS_QUANTITY_PER_TX), 0)
-            assert.strictEqual(Math.floor(2499 / OUTPUTS_QUANTITY_PER_TX), 0)
-            assert.strictEqual(Math.floor(2500 / OUTPUTS_QUANTITY_PER_TX), 1)
-            assert.strictEqual(Math.floor(4999 / OUTPUTS_QUANTITY_PER_TX), 1)
-            assert.strictEqual(Math.floor(5000 / OUTPUTS_QUANTITY_PER_TX), 2)
-        })
-    })
-})
+            assert.strictEqual(Math.floor(0 / OUTPUTS_QUANTITY_PER_TX), 0);
+            assert.strictEqual(Math.floor(2499 / OUTPUTS_QUANTITY_PER_TX), 0);
+            assert.strictEqual(Math.floor(2500 / OUTPUTS_QUANTITY_PER_TX), 1);
+            assert.strictEqual(Math.floor(4999 / OUTPUTS_QUANTITY_PER_TX), 1);
+            assert.strictEqual(Math.floor(5000 / OUTPUTS_QUANTITY_PER_TX), 2);
+        });
+    });
+});

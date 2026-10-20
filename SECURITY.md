@@ -33,11 +33,11 @@ We do not currently offer a paid bug bounty. We do offer public credit in releas
 
 ## Response timeline
 
-| Stage | Target |
-|---|---|
-| Initial acknowledgement | within 72 hours |
-| Triage + severity assignment | within 7 days |
-| Fix or mitigation in master | within 30 days for high/critical, 90 days for lower severities |
+| Stage                         | Target                                                                                        |
+| ----------------------------- | --------------------------------------------------------------------------------------------- |
+| Initial acknowledgement       | within 72 hours                                                                               |
+| Triage + severity assignment  | within 7 days                                                                                 |
+| Fix or mitigation in master   | within 30 days for high/critical, 90 days for lower severities                                |
 | Coordinated public disclosure | up to 90 days from initial report, or sooner if a fix has shipped and operators are protected |
 
 If we cannot meet a timeline, we will tell you why and propose a new one. We will not silently let a report age.

@@ -18,19 +18,19 @@ const { isTimeout, rejectedRpcErrorMessage } = require('./rpc_error');
 
 // Log the node's own error from a non-2xx reply; the thrown message stays static.
 function logRejectedRpcError(error, prefix) {
-    const nodeErr = rejectedRpcErrorMessage(error)
-    if (nodeErr !== null) logger.error(prefix + nodeErr)
+    const nodeErr = rejectedRpcErrorMessage(error);
+    if (nodeErr !== null) logger.error(prefix + nodeErr);
 }
 
 module.exports = {
-    async generateToAddress(count, address){
+    async generateToAddress(count, address) {
         try {
             const data = {
                 jsonrpc: '2.0',
                 method: 'generatetoaddress',
                 params: [count, address],
                 id: 1,
-            }
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
@@ -40,18 +40,24 @@ module.exports = {
                 // Inherit axios.defaults.timeout (NODE_RPC_TIMEOUT, default 60000)
                 // rather than hardcoding, so the mining RPC honors the same env knob
                 // as every other call on this connector.
-            })
+            });
 
             // Accept only one hash per requested block. An empty or short array is
             // truthy, yet it is how the node reports running out of maxtries at real
             // difficulty (testnet), so it must fail the mine rather than count as one.
-            const result = response.data ? response.data.result : undefined
+            const result = response.data ? response.data.result : undefined;
             if (Array.isArray(result) && result.length === count) {
                 return result;
             }
             if (Array.isArray(result)) {
-                logger.error('generatetoaddress returned ' + result.length + ' of ' + count + ' requested blocks (maxtries exhausted?)')
-                throw new Error('Error generating to address')
+                logger.error(
+                    'generatetoaddress returned ' +
+                        result.length +
+                        ' of ' +
+                        count +
+                        ' requested blocks (maxtries exhausted?)',
+                );
+                throw new Error('Error generating to address');
             }
             // Surface the node's own RPC error to the LOG so failures are debuggable
             // (e.g. LTC's "bad-txns-vin-empty" stall), but THROW a static message: the
@@ -59,17 +65,18 @@ module.exports = {
             // carries the internal RPC host:port (connect ECONNREFUSED host:18332). The
             // sanitization security suite and every other connector method require a
             // static thrown message with no host/port.
-            const nodeErr = response.data && response.data.error
-                ? (response.data.error.message || JSON.stringify(response.data.error))
-                : 'no result, no error'
-            logger.error('generatetoaddress returned no result: ' + nodeErr)
-            throw new Error('Error generating to address')
+            const nodeErr =
+                response.data && response.data.error
+                    ? response.data.error.message || JSON.stringify(response.data.error)
+                    : 'no result, no error';
+            logger.error('generatetoaddress returned no result: ' + nodeErr);
+            throw new Error('Error generating to address');
         } catch (error) {
-            logRejectedRpcError(error, 'generatetoaddress returned no result: ')
+            logRejectedRpcError(error, 'generatetoaddress returned no result: ');
             // Flag a client timeout as a primitive only: the node keeps mining after it.
-            const err = new Error('Error generating to address')
-            if (isTimeout(error)) err.timedOut = true
-            throw err
+            const err = new Error('Error generating to address');
+            if (isTimeout(error)) err.timedOut = true;
+            throw err;
         }
     },
 
@@ -84,18 +91,18 @@ module.exports = {
                 method: 'invalidateblock',
                 params: [blockHash],
                 id: 1,
-            }
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
             if (response.data && response.data.error) {
-                logger.error('invalidateblock RPC error: ' + response.data.error.message)
-                throw new Error('Error invalidating block')
+                logger.error('invalidateblock RPC error: ' + response.data.error.message);
+                throw new Error('Error invalidating block');
             }
             // Require the explicit JSON-RPC success result, not merely the absence of
             // an error member. invalidateblock answers result:null on success, so an empty
@@ -103,13 +110,13 @@ module.exports = {
             // never performed: the miner then reported "ok" for a rollback that did
             // not happen, which is exactly the determinism the harness exists to give.
             if (!response.data || response.data.result !== null) {
-                throw new Error('Error invalidating block')
+                throw new Error('Error invalidating block');
             }
-            return true
+            return true;
         } catch (error) {
-            logRejectedRpcError(error, 'invalidateblock RPC error: ')
+            logRejectedRpcError(error, 'invalidateblock RPC error: ');
             // Static message: a transport axios error.message leaks the RPC host:port.
-            throw new Error('Error invalidating block')
+            throw new Error('Error invalidating block');
         }
     },
 
@@ -123,18 +130,18 @@ module.exports = {
                 method: 'reconsiderblock',
                 params: [blockHash],
                 id: 1,
-            }
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
             if (response.data && response.data.error) {
-                logger.error('reconsiderblock RPC error: ' + response.data.error.message)
-                throw new Error('Error reconsidering block')
+                logger.error('reconsiderblock RPC error: ' + response.data.error.message);
+                throw new Error('Error reconsidering block');
             }
             // Require the explicit JSON-RPC success result, not merely the absence of
             // an error member. reconsiderblock answers result:null on success, so an empty
@@ -142,13 +149,13 @@ module.exports = {
             // never performed: the miner then reported "ok" for a rollback that did
             // not happen, which is exactly the determinism the harness exists to give.
             if (!response.data || response.data.result !== null) {
-                throw new Error('Error reconsidering block')
+                throw new Error('Error reconsidering block');
             }
-            return true
+            return true;
         } catch (error) {
-            logRejectedRpcError(error, 'reconsiderblock RPC error: ')
+            logRejectedRpcError(error, 'reconsiderblock RPC error: ');
             // Static message: a transport axios error.message leaks the RPC host:port.
-            throw new Error('Error reconsidering block')
+            throw new Error('Error reconsidering block');
         }
     },
 
@@ -160,62 +167,62 @@ module.exports = {
     // the stamped time equals the requested time exactly. Used by the multi-chain
     // parity harness to pin block timestamps for deterministic, cross-chain-
     // identical time-based expiries (ORDER_EXPIRE); never used on mainnet.
-    async setMockTime(timestamp){
+    async setMockTime(timestamp) {
         try {
             const data = {
                 jsonrpc: '2.0',
                 method: 'setmocktime',
                 params: [Number(timestamp)],
                 id: 1,
-            }
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
             if (response.data && response.data.error) {
-                logger.error('setmocktime RPC error: ' + response.data.error.message)
-                throw new Error('Error setting mock time')
+                logger.error('setmocktime RPC error: ' + response.data.error.message);
+                throw new Error('Error setting mock time');
             }
             // Require result:null, not just no error: an error-less 2xx would certify a
             // clock pin the node never applied, and the next block would stamp wall time.
             if (!response.data || response.data.result !== null) {
-                throw new Error('Error setting mock time')
+                throw new Error('Error setting mock time');
             }
-            return true
+            return true;
         } catch (error) {
-            logRejectedRpcError(error, 'setmocktime RPC error: ')
+            logRejectedRpcError(error, 'setmocktime RPC error: ');
             // Static message: a transport axios error.message leaks the RPC host:port.
-            throw new Error('Error setting mock time')
+            throw new Error('Error setting mock time');
         }
     },
 
-    async sendRawTransaction(txHex){
+    async sendRawTransaction(txHex) {
         try {
             const data = {
                 jsonrpc: '2.0',
                 method: 'sendrawtransaction',
                 params: [txHex],
                 id: 1,
-            }
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
-            if (response.data.result){
-                return response.data.result
+            if (response.data.result) {
+                return response.data.result;
             } else {
-                throw new Error('Error sending raw transaction')
+                throw new Error('Error sending raw transaction');
             }
         } catch (error) {
             throw new Error('Error sending raw transaction');
         }
     },
-}
+};

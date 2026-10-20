@@ -25,20 +25,20 @@ const config = require('../config');
 const chainQueries = require('./blockchain_connector/chain_queries.js');
 const walletRpc = require('./blockchain_connector/wallet_rpc.js');
 const blockControl = require('./blockchain_connector/block_control.js');
-axios.defaults.timeout = config.NODE_RPC_TIMEOUT_MS
+axios.defaults.timeout = config.NODE_RPC_TIMEOUT_MS;
 // axios has no top-level `keepAlive` config key; connection reuse must be
 // configured on the underlying http(s) Agent. The miner's auto-mine loop polls
 // the node RPC (getRawMempool) every CHECK_BLOCK_DELAY_MS (100ms), so reusing
 // TCP connections instead of opening a fresh socket per request is a real win.
-axios.defaults.httpAgent = new http.Agent({ keepAlive: true })
-axios.defaults.httpsAgent = new https.Agent({ keepAlive: true })
+axios.defaults.httpAgent = new http.Agent({ keepAlive: true });
+axios.defaults.httpsAgent = new https.Agent({ keepAlive: true });
 
 class BlockchainConnector {
     constructor(url, port, rpcUser, rpcPassword) {
-        this.url = "http://"+url+":"+port
-        this.port = port
-        this.rpcUser = rpcUser
-        this.rpcPassword = rpcPassword
+        this.url = 'http://' + url + ':' + port;
+        this.port = port;
+        this.rpcUser = rpcUser;
+        this.rpcPassword = rpcPassword;
         // walletName + walletUrl stay null until the miner confirms the
         // daemon supports named wallets (Bitcoin Core 0.17+ /wallet/<name>/
         // URI). With it set, wallet-context RPCs (sendtoaddress, getbalance,
@@ -47,8 +47,8 @@ class BlockchainConnector {
         // (bare RPC calls fail with -19 "Wallet file not specified").
         // Left null on legacy daemons (Dogecoin v1.14 etc.) that don't
         // implement /wallet/ URI routing; RPCs fall back to base URL.
-        this.walletName = null
-        this.walletUrl  = null
+        this.walletName = null;
+        this.walletUrl = null;
     }
 }
 
@@ -75,11 +75,6 @@ function installMethods(target, ...sources) {
     return target;
 }
 
-installMethods(
-    BlockchainConnector.prototype,
-    chainQueries,
-    walletRpc,
-    blockControl,
-)
+installMethods(BlockchainConnector.prototype, chainQueries, walletRpc, blockControl);
 
-module.exports = BlockchainConnector
+module.exports = BlockchainConnector;

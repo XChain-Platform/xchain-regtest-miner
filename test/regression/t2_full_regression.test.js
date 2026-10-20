@@ -22,16 +22,16 @@
  * Trigger: nightly; before releases; after dependency upgrades
  */
 
-const assert = require('assert')
-const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-const pipeline = require('./t2_full_regression.test/helpers/pipeline')
+const assert = require('assert');
+const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+const pipeline = require('./t2_full_regression.test/helpers/pipeline');
 
-let node
+let node;
 
-pipeline.registerFile()
+pipeline.registerFile();
 
 function createMiner() {
-    return new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+    return new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass');
 }
 
 function registerFreshWalletTests() {
@@ -41,26 +41,26 @@ function registerFreshWalletTests() {
 
     describe('REG-T2-001: Wallet lifecycle, fresh start', function () {
         beforeEach(function () {
-            node.reset()
-        })
+            node.reset();
+        });
 
         it('creates wallet and mines 101 blocks on fresh node', async function () {
-            const miner = createMiner()
-            await miner.prepareWallet()
+            const miner = createMiner();
+            await miner.prepareWallet();
 
-            assert.strictEqual(node.wallet.exists, true)
-            assert.strictEqual(node.wallet.loaded, true)
-            assert.strictEqual(node.wallet.name, 'xchain_regtest_wallet')
-            assert.strictEqual(node.height, 101)
-            assert.strictEqual(node.callsFor('createwallet').length, 1)
-            assert.deepStrictEqual(node.callsFor('generatetoaddress')[0].params[0], 101)
-            assert.ok(miner.walletAddress)
-            assert.ok(miner.walletAddress.startsWith('bcrt'))
+            assert.strictEqual(node.wallet.exists, true);
+            assert.strictEqual(node.wallet.loaded, true);
+            assert.strictEqual(node.wallet.name, 'xchain_regtest_wallet');
+            assert.strictEqual(node.height, 101);
+            assert.strictEqual(node.callsFor('createwallet').length, 1);
+            assert.deepStrictEqual(node.callsFor('generatetoaddress')[0].params[0], 101);
+            assert.ok(miner.walletAddress);
+            assert.ok(miner.walletAddress.startsWith('bcrt'));
 
-            const balance = await miner.connector.getBalance()
-            assert.ok(balance > 0)
-        })
-    })
+            const balance = await miner.connector.getBalance();
+            assert.ok(balance > 0);
+        });
+    });
 }
 
 function registerLoadedWalletTests() {
@@ -70,24 +70,24 @@ function registerLoadedWalletTests() {
 
     describe('REG-T2-002: Wallet lifecycle, restart', function () {
         beforeEach(function () {
-            node.reset()
-            node._rpc_createwallet(['xchain_regtest_wallet'])
-            node._rpc_generatetoaddress([110, 'bcrt1qseed'])
-            node.calls = []
-        })
+            node.reset();
+            node._rpc_createwallet(['xchain_regtest_wallet']);
+            node._rpc_generatetoaddress([110, 'bcrt1qseed']);
+            node.calls = [];
+        });
 
         it('skips creation when wallet is already loaded', async function () {
-            const heightBefore = node.height
-            const miner = createMiner()
-            await miner.prepareWallet()
+            const heightBefore = node.height;
+            const miner = createMiner();
+            await miner.prepareWallet();
 
-            assert.strictEqual(node.callsFor('createwallet').length, 0)
-            assert.strictEqual(node.callsFor('loadwallet').length, 0)
-            assert.strictEqual(node.height, heightBefore)
-            assert.strictEqual(node.callsFor('generatetoaddress').length, 0)
-            assert.ok(miner.walletAddress)
-        })
-    })
+            assert.strictEqual(node.callsFor('createwallet').length, 0);
+            assert.strictEqual(node.callsFor('loadwallet').length, 0);
+            assert.strictEqual(node.height, heightBefore);
+            assert.strictEqual(node.callsFor('generatetoaddress').length, 0);
+            assert.ok(miner.walletAddress);
+        });
+    });
 }
 
 function registerUnloadedWalletTests() {
@@ -97,39 +97,39 @@ function registerUnloadedWalletTests() {
 
     describe('REG-T2-003: Wallet lifecycle, exists but unloaded', function () {
         beforeEach(function () {
-            node.reset()
-            node.wallet = { exists: true, loaded: false, name: 'xchain_regtest_wallet' }
+            node.reset();
+            node.wallet = { exists: true, loaded: false, name: 'xchain_regtest_wallet' };
             // Seed blocks and balance
             for (let i = 0; i < 110; i++) {
-                node.height++
-                node.pendingRewards.push({ height: node.height, amount: 5000000000 })
-                node.blocks.push({ hash: node._generateHash(), height: node.height, txids: [], previousHash: '00' })
+                node.height++;
+                node.pendingRewards.push({ height: node.height, amount: 5000000000 });
+                node.blocks.push({ hash: node._generateHash(), height: node.height, txids: [], previousHash: '00' });
             }
-            node._matureCoinbases()
-            node.calls = []
-        })
+            node._matureCoinbases();
+            node.calls = [];
+        });
 
         it('loads wallet without creating it', async function () {
-            const miner = createMiner()
-            await miner.prepareWallet()
+            const miner = createMiner();
+            await miner.prepareWallet();
 
-            assert.strictEqual(node.callsFor('loadwallet').length, 1)
-            assert.strictEqual(node.callsFor('createwallet').length, 0)
-            assert.ok(miner.walletAddress)
-        })
-    })
+            assert.strictEqual(node.callsFor('loadwallet').length, 1);
+            assert.strictEqual(node.callsFor('createwallet').length, 0);
+            assert.ok(miner.walletAddress);
+        });
+    });
 }
 
 describe('T2 Regression: Full E2E Pipeline', function () {
     before(async function () {
-        node = await pipeline.start()
-    })
+        node = await pipeline.start();
+    });
 
     after(async function () {
-        await pipeline.finish()
-    })
+        await pipeline.finish();
+    });
 
-    registerFreshWalletTests()
-    registerLoadedWalletTests()
-    registerUnloadedWalletTests()
-})
+    registerFreshWalletTests();
+    registerLoadedWalletTests();
+    registerUnloadedWalletTests();
+});

@@ -22,28 +22,25 @@
 'use strict';
 
 const bitcoin = require('bitcoinjs-lib');
-const {
-    WALLET_BALANCE_REFRESH_MS,
-    MAX_FILL_MEMPOOL_QUANTITY,
-    logger,
-    ECPair
-} = require('./constants.js')
-const { deriveFillKeys, fundMainAddress, findFundingUtxos } = require('./fill_plan.js')
-const { confirmSplitTxs } = require('./split_confirmation.js')
+const { WALLET_BALANCE_REFRESH_MS, MAX_FILL_MEMPOOL_QUANTITY, logger, ECPair } = require('./constants.js');
+const { deriveFillKeys, fundMainAddress, findFundingUtxos } = require('./fill_plan.js');
+const { confirmSplitTxs } = require('./split_confirmation.js');
 
 // Spends each funding utxo into one output per derived address, recording the
 // signed tx and its txid on the utxo entry for the stress loop to spend.
-async function splitFundingUtxos(utxos, { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_ADDRESS, FEE, network, address, addresses }){
-    for (let nextUtxoIndex in utxos){
-        let nextUtxo = utxos[nextUtxoIndex]
-        let utxoIndex = nextUtxo["utxoIndex"]
-        let txid = nextUtxo["txid"]
-        let rawTransaction = nextUtxo["rawTransaction"]
-        let transaction = bitcoin.Transaction.fromHex(rawTransaction)
+async function splitFundingUtxos(
+    utxos,
+    { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_ADDRESS, FEE, network, address, addresses },
+) {
+    for (let nextUtxoIndex in utxos) {
+        let nextUtxo = utxos[nextUtxoIndex];
+        let utxoIndex = nextUtxo['utxoIndex'];
+        let txid = nextUtxo['txid'];
+        let rawTransaction = nextUtxo['rawTransaction'];
+        let transaction = bitcoin.Transaction.fromHex(rawTransaction);
 
         //Create a single transaction with txQuantity outputs
-        let psbt = new bitcoin.Psbt({ network: network})
-
+        let psbt = new bitcoin.Psbt({ network: network });
 
         psbt.addInput({
             hash: txid,
@@ -54,77 +51,80 @@ async function splitFundingUtxos(utxos, { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EA
             // signalling but also rejecting some nodes). Use the standard
             // final-sequence value instead.
             sequence: 0xffffffff,
-            nonWitnessUtxo: Buffer.from(rawTransaction, 'hex')
-        })
+            nonWitnessUtxo: Buffer.from(rawTransaction, 'hex'),
+        });
 
+        let total = 0;
 
-        let total = 0
+        for (
+            let nextAddressIndex = nextUtxoIndex * OUTPUTS_QUANTITY_PER_TX;
+            nextAddressIndex < (parseInt(nextUtxoIndex) + 1) * OUTPUTS_QUANTITY_PER_TX &&
+            nextAddressIndex < addresses.length;
+            nextAddressIndex++
+        ) {
+            let nextAddress = addresses[nextAddressIndex];
+            let nextAddressPayment = bitcoin.payments.p2pkh({ pubkey: nextAddress.publicKey, network }).address;
+            let paymentAmount = AMOUNT_FOR_EACH_ADDRESS + FEE;
 
-        for (let nextAddressIndex=nextUtxoIndex*OUTPUTS_QUANTITY_PER_TX
-             ;nextAddressIndex<((parseInt(nextUtxoIndex) +1)*OUTPUTS_QUANTITY_PER_TX) && (nextAddressIndex<addresses.length)
-             ;nextAddressIndex++)
-        {
-            let nextAddress = addresses[nextAddressIndex]
-            let nextAddressPayment = bitcoin.payments.p2pkh({ pubkey: nextAddress.publicKey, network }).address
-            let paymentAmount = AMOUNT_FOR_EACH_ADDRESS + FEE
-
-            total = total + paymentAmount
+            total = total + paymentAmount;
 
             psbt.addOutput({
                 address: nextAddressPayment,
-                value: paymentAmount
-            })
+                value: paymentAmount,
+            });
         }
 
-        let keyToSign = ECPair.fromPrivateKey(address.privateKey, { network })
+        let keyToSign = ECPair.fromPrivateKey(address.privateKey, { network });
 
-        for (let nextInputIndex=0;nextInputIndex < psbt.data.inputs.length;nextInputIndex++){
-            psbt.signInput(parseInt(nextInputIndex), keyToSign)
+        for (let nextInputIndex = 0; nextInputIndex < psbt.data.inputs.length; nextInputIndex++) {
+            psbt.signInput(parseInt(nextInputIndex), keyToSign);
         }
 
-        psbt.finalizeAllInputs()
-        let extractedTransaction = psbt.extractTransaction()
-        let txHex = extractedTransaction.toHex()
+        psbt.finalizeAllInputs();
+        let extractedTransaction = psbt.extractTransaction();
+        let txHex = extractedTransaction.toHex();
 
-        nextUtxo["txHex"] = txHex
-        nextUtxo["txIdSource"] = await this.connector.sendRawTransaction(txHex)
+        nextUtxo['txHex'] = txHex;
+        nextUtxo['txIdSource'] = await this.connector.sendRawTransaction(txHex);
     }
 }
 
-async function stressMempool(utxos, { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_ADDRESS, network, mainAddress, addresses }){
+async function stressMempool(
+    utxos,
+    { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_ADDRESS, network, mainAddress, addresses },
+) {
     // Creates txQuantity transactions to stress the mempool.
-    for (let nextAddressIndex in addresses){
-        let nextAddress = addresses[nextAddressIndex]
-        let psbt = new bitcoin.Psbt({ network: network })
-        let paymentAmount = AMOUNT_FOR_EACH_ADDRESS
+    for (let nextAddressIndex in addresses) {
+        let nextAddress = addresses[nextAddressIndex];
+        let psbt = new bitcoin.Psbt({ network: network });
+        let paymentAmount = AMOUNT_FOR_EACH_ADDRESS;
 
-        let utxoIndex = Math.floor(nextAddressIndex/OUTPUTS_QUANTITY_PER_TX)
+        let utxoIndex = Math.floor(nextAddressIndex / OUTPUTS_QUANTITY_PER_TX);
 
-        let txIdSource = utxos[utxoIndex]["txIdSource"]
-        let txHex = utxos[utxoIndex]["txHex"]
-        let outputIndex = nextAddressIndex % OUTPUTS_QUANTITY_PER_TX
+        let txIdSource = utxos[utxoIndex]['txIdSource'];
+        let txHex = utxos[utxoIndex]['txHex'];
+        let outputIndex = nextAddressIndex % OUTPUTS_QUANTITY_PER_TX;
 
         psbt.addInput({
             hash: txIdSource,
             index: outputIndex,
             sequence: 0xffffffff,
-            nonWitnessUtxo: Buffer.from(txHex, 'hex')
-        })
+            nonWitnessUtxo: Buffer.from(txHex, 'hex'),
+        });
 
         psbt.addOutput({
             address: mainAddress,
-            value: paymentAmount
-        })
+            value: paymentAmount,
+        });
 
-        logger.info("Stressing the mempool with the transaction number "+nextAddressIndex)
+        logger.info('Stressing the mempool with the transaction number ' + nextAddressIndex);
 
-        let keyToSign = ECPair.fromPrivateKey(nextAddress.privateKey, { network })
-        psbt.signInput(0, keyToSign)
-        psbt.finalizeAllInputs()
-        let outputTxHex = psbt.extractTransaction().toHex()
+        let keyToSign = ECPair.fromPrivateKey(nextAddress.privateKey, { network });
+        psbt.signInput(0, keyToSign);
+        psbt.finalizeAllInputs();
+        let outputTxHex = psbt.extractTransaction().toHex();
 
-
-        await this.connector.sendRawTransaction(outputTxHex)
+        await this.connector.sendRawTransaction(outputTxHex);
     }
 }
 
@@ -132,74 +132,77 @@ async function stressMempool(utxos, { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_A
 // BACKGROUND: ensureWalletLoaded can retry for minutes, and refreshWalletFunds is awaited
 // inline by the auto-mine loop, so awaiting it would stall mining on a wallet that will not load.
 // Single-flight, at most one start per WALLET_BALANCE_REFRESH_MS, and never rejects.
-function startWalletReload(){
-    if (this.walletReloadInFlight) return this.walletReloadInFlight
-    const now = Date.now()
-    if (this.walletReloadStartedAt != null && (now - this.walletReloadStartedAt) < WALLET_BALANCE_REFRESH_MS) return null
-    this.walletReloadStartedAt = now
-    logger.info('Wallet is no longer loaded on the node (restarted?); reloading it from the balance read')
+function startWalletReload() {
+    if (this.walletReloadInFlight) return this.walletReloadInFlight;
+    const now = Date.now();
+    if (this.walletReloadStartedAt != null && now - this.walletReloadStartedAt < WALLET_BALANCE_REFRESH_MS) return null;
+    this.walletReloadStartedAt = now;
+    logger.info('Wallet is no longer loaded on the node (restarted?); reloading it from the balance read');
     this.walletReloadInFlight = (async () => {
         try {
-            await this.ensureWalletLoaded()
+            await this.ensureWalletLoaded();
             // Re-pin after the reload: settxfee is in-memory wallet state on LTC/DOGE.
-            await this.pinFundingFeeRate()
+            await this.pinFundingFeeRate();
         } catch (err) {
-            logger.info('Could not reload the wallet: ' + (err && err.message ? err.message : err))
+            logger.info('Could not reload the wallet: ' + (err && err.message ? err.message : err));
         } finally {
-            this.walletReloadInFlight = null
+            this.walletReloadInFlight = null;
         }
-    })()
-    return this.walletReloadInFlight
+    })();
+    return this.walletReloadInFlight;
 }
 
 module.exports = {
-    async fillMempool(txQuantity){
-            if (this.fillMempoolRunning) {
-                logger.info("fillMempool is already running, rejecting concurrent call")
-                throw new Error("fillMempool is already running")
-            }
+    async fillMempool(txQuantity) {
+        if (this.fillMempoolRunning) {
+            logger.info('fillMempool is already running, rejecting concurrent call');
+            throw new Error('fillMempool is already running');
+        }
 
-            if (!Number.isInteger(txQuantity) || txQuantity < 1) {
-                try { logger.info("INVALID txQuantity: "+txQuantity+". Must be a positive integer.") } catch(e) { logger.info("INVALID txQuantity (non-printable value). Must be a positive integer.") }
-                throw new Error("txQuantity must be a positive integer")
-            }
-
-            if (txQuantity > MAX_FILL_MEMPOOL_QUANTITY) {
-                logger.info("txQuantity "+txQuantity+" exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY)
-                throw new Error("txQuantity exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY)
-            }
-
-            // Claim the mutex synchronously, before the first await below. The
-            // fillMempoolRunning guard at the top of this method and this assignment
-            // must not straddle an await, or the guard is a no-op under real
-            // concurrency: two fill_mempool RPCs arriving in the same tick would both
-            // pass the guard (flag still false) while parked on the _generateQueue
-            // barrier, then both run the stress body at once.
-            this.fillMempoolRunning = true
-            this.keepMining = false //Stop the mining so the txs stay in mempool
-            this._miningStateGeneration++
-            this._operatorMiningGeneration++
+        if (!Number.isInteger(txQuantity) || txQuantity < 1) {
             try {
+                logger.info('INVALID txQuantity: ' + txQuantity + '. Must be a positive integer.');
+            } catch (e) {
+                logger.info('INVALID txQuantity (non-printable value). Must be a positive integer.');
+            }
+            throw new Error('txQuantity must be a positive integer');
+        }
+
+        if (txQuantity > MAX_FILL_MEMPOOL_QUANTITY) {
+            logger.info('txQuantity ' + txQuantity + ' exceeds maximum of ' + MAX_FILL_MEMPOOL_QUANTITY);
+            throw new Error('txQuantity exceeds maximum of ' + MAX_FILL_MEMPOOL_QUANTITY);
+        }
+
+        // Claim the mutex synchronously, before the first await below. The
+        // fillMempoolRunning guard at the top of this method and this assignment
+        // must not straddle an await, or the guard is a no-op under real
+        // concurrency: two fill_mempool RPCs arriving in the same tick would both
+        // pass the guard (flag still false) while parked on the _generateQueue
+        // barrier, then both run the stress body at once.
+        this.fillMempoolRunning = true;
+        this.keepMining = false; //Stop the mining so the txs stay in mempool
+        this._miningStateGeneration++;
+        this._operatorMiningGeneration++;
+        try {
             // Mirror pauseMining's barrier: wait for any in-flight generateBlocks(1)
             // to settle before proceeding, so a mine that started just before the
             // flag flip can't land a new block while fillMempool is running.
-            await this._generateQueue
-            logger.info("Filling mempool with "+txQuantity+" transactions")
-            const plan = deriveFillKeys.call(this, txQuantity)
+            await this._generateQueue;
+            logger.info('Filling mempool with ' + txQuantity + ' transactions');
+            const plan = deriveFillKeys.call(this, txQuantity);
 
-            logger.info("Sending funds to the main address")
-            const chunksTxids = await fundMainAddress.call(this, txQuantity, plan)
-            const utxos = await findFundingUtxos.call(this, chunksTxids, plan)
+            logger.info('Sending funds to the main address');
+            const chunksTxids = await fundMainAddress.call(this, txQuantity, plan);
+            const utxos = await findFundingUtxos.call(this, chunksTxids, plan);
 
-            logger.info("Creating the transactions to send funds to those addresses")
-            await splitFundingUtxos.call(this, utxos, plan)
-            await confirmSplitTxs.call(this, utxos)
+            logger.info('Creating the transactions to send funds to those addresses');
+            await splitFundingUtxos.call(this, utxos, plan);
+            await confirmSplitTxs.call(this, utxos);
 
-            await stressMempool.call(this, utxos, plan)
-
-            } finally {
-                this.fillMempoolRunning = false
-            }
+            await stressMempool.call(this, utxos, plan);
+        } finally {
+            this.fillMempoolRunning = false;
+        }
     },
 
     // Re-reads the spendable balance so a reorg that disconnected the matured
@@ -218,17 +221,17 @@ module.exports = {
     // RPC on every 100ms loop tick.
     async refreshWalletFunds() {
         try {
-            const observed = await this.connector.getBalance()
-            this.balance = typeof observed === 'number' ? observed : null
+            const observed = await this.connector.getBalance();
+            this.balance = typeof observed === 'number' ? observed : null;
         } catch (err) {
-            logger.info("Could not re-read the wallet balance: "+(err && err.message ? err.message : err))
-            this.balance = null
+            logger.info('Could not re-read the wallet balance: ' + (err && err.message ? err.message : err));
+            this.balance = null;
             // A lost wallet is reloaded in the background, so the next read (one interval on) can
             // succeed: without it wallet_funded stayed false until a send happened to reload it.
-            if (err && err.walletMissing) startWalletReload.call(this)
+            if (err && err.walletMissing) startWalletReload.call(this);
         }
-        this._balanceReadAt = Date.now()
-        return this.balance
+        this._balanceReadAt = Date.now();
+        return this.balance;
     },
 
     // True when the auto-mine loop owes a balance refresh. Split out as a
@@ -236,7 +239,7 @@ module.exports = {
     // load-bearing part: the loop wakes every CHECK_BLOCK_DELAY_MS, so a guard
     // that mis-answers turns one RPC per 5s into ten per second.
     walletRefreshDue(now) {
-        if (this._balanceReadAt == null) return true
-        return (now - this._balanceReadAt) >= WALLET_BALANCE_REFRESH_MS
-    }
-}
+        if (this._balanceReadAt == null) return true;
+        return now - this._balanceReadAt >= WALLET_BALANCE_REFRESH_MS;
+    },
+};

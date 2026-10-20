@@ -12,13 +12,13 @@
  *
  **********************************************************************/
 
-const assert = require('assert')
-const sinon = require('sinon')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let XChainRegtestMiner
-let miner
-let connectorStub
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
 
 function setUpMiner() {
     connectorStub = {
@@ -35,20 +35,20 @@ function setUpMiner() {
         setWalletName: sinon.stub(),
         getRawTransaction: sinon.stub().resolves('0200000001...'),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-    miner.connector = connectorStub
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 }
 
 function tearDownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -56,39 +56,39 @@ function tearDownMiner() {
 // ═══════════════════════════════════════════════════════════════════
 
 describe('T0 Regression: Critical Gate', function () {
-    beforeEach(setUpMiner)
-    afterEach(tearDownMiner)
+    beforeEach(setUpMiner);
+    afterEach(tearDownMiner);
 
     describe('REG-T0-007: sendFundsToAddress input validation', function () {
         it('rejects non-string address', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress(12345, 1.0), /Invalid address/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress(12345, 1.0), /Invalid address/);
+        });
 
         it('rejects empty string address', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('', 1.0), /Invalid address/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress('', 1.0), /Invalid address/);
+        });
 
         it('rejects non-number amount', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('addr', 'abc'), /Invalid amount/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress('addr', 'abc'), /Invalid amount/);
+        });
 
         it('rejects zero amount', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('addr', 0), /Invalid amount/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress('addr', 0), /Invalid amount/);
+        });
 
         it('rejects negative amount', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('addr', -1), /Invalid amount/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress('addr', -1), /Invalid amount/);
+        });
 
         it('rejects Infinity amount', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('addr', Infinity), /Invalid amount/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress('addr', Infinity), /Invalid amount/);
+        });
 
         it('delegates valid inputs to connector', async function () {
-            connectorStub.sendToAddress.resolves('txid123')
-            const result = await miner.sendFundsToAddress('bcrt1qaddr', 1.5)
-            assert.strictEqual(result, 'txid123')
-            assert(connectorStub.sendToAddress.calledWith('bcrt1qaddr', 1.5))
-        })
-    })
-})
+            connectorStub.sendToAddress.resolves('txid123');
+            const result = await miner.sendFundsToAddress('bcrt1qaddr', 1.5);
+            assert.strictEqual(result, 'txid123');
+            assert(connectorStub.sendToAddress.calledWith('bcrt1qaddr', 1.5));
+        });
+    });
+});

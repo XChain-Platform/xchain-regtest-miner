@@ -22,7 +22,10 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const jsonRouter = require('express-json-rpc-router');
 
-const GUARD = (req, res, next) => { if (req.body === undefined) req.body = {}; next(); };
+const GUARD = (req, res, next) => {
+    if (req.body === undefined) req.body = {};
+    next();
+};
 const METHODS = { ping: () => 'pong' };
 
 function buildApp(withGuard) {
@@ -32,7 +35,9 @@ function buildApp(withGuard) {
     app.use(jsonRouter({ methods: METHODS }));
     // Silence Express's default error-handler stack dump so the control case
     // (unguarded -> 500) doesn't spew to stderr; the 500 status is what we assert.
-    app.use((err, req, res, next) => { res.status(500).json({ error: 'internal' }); }); // eslint-disable-line no-unused-vars
+    app.use((err, req, res, next) => {
+        res.status(500).json({ error: 'internal' });
+    }); // eslint-disable-line no-unused-vars
     return app;
 }
 
@@ -70,7 +75,7 @@ describe('JSON-RPC body guard (Express 5 / body-parser 2.x regression)', functio
         const r = await request(buildApp(true), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' })
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
         });
         assert.strictEqual(r.status, 200);
         assert.strictEqual(JSON.parse(r.text).result, 'pong');

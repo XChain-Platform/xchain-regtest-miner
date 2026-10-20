@@ -16,33 +16,33 @@ const axios = require('axios');
 
 module.exports = {
     setWalletName(walletName) {
-        this.walletName = walletName
-        this.walletUrl  = walletName ? (this.url + "/wallet/" + walletName) : null
+        this.walletName = walletName;
+        this.walletUrl = walletName ? this.url + '/wallet/' + walletName : null;
     },
 
     // URL for wallet-context RPCs. Falls back to base URL on legacy daemons.
     walletEndpoint() {
-        return this.walletUrl || this.url
+        return this.walletUrl || this.url;
     },
 
     async sleep(ms) {
         return new Promise((resolve) => setTimeout(resolve, ms));
     },
 
-    async getNetworkInfo(){
+    async getNetworkInfo() {
         try {
             const data = {
                 jsonrpc: '2.0',
                 method: 'getnetworkinfo',
-                id: 1
-            }
+                id: 1,
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
             if (response.data.result) {
                 return response.data.result;
@@ -56,39 +56,39 @@ module.exports = {
 
     // Forces a disk write of the block index and coin database via
     // gettxoutsetinfo; dogecoind otherwise flushes only hourly. Result discarded.
-    async flushNodeState(timeoutMs){
+    async flushNodeState(timeoutMs) {
         const data = {
             jsonrpc: '2.0',
             method: 'gettxoutsetinfo',
-            id: 1
-        }
+            id: 1,
+        };
         try {
             await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
                 },
-                timeout: timeoutMs
-            })
+                timeout: timeoutMs,
+            });
         } catch (error) {
-            throw new Error('Error flushing node state')
+            throw new Error('Error flushing node state');
         }
     },
 
-    async getBlockchainInfo(){
+    async getBlockchainInfo() {
         try {
             const data = {
                 jsonrpc: '2.0',
                 method: 'getblockchaininfo',
-                id: 1
-            }
+                id: 1,
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
             if (response.data.result) {
                 return response.data.result;
@@ -107,14 +107,14 @@ module.exports = {
                 method: 'getblockhash',
                 params: [blockindex],
                 id: 1,
-            }
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
             if (response.data.result) {
                 return response.data.result;
@@ -126,21 +126,21 @@ module.exports = {
         }
     },
 
-    async getBlock(blockhash, hexFormat=true) {
+    async getBlock(blockhash, hexFormat = true) {
         try {
             const data = {
                 jsonrpc: '2.0',
                 method: 'getblock',
-                params: [blockhash, !hexFormat],  // getblock verbose is a boolean (false=hex, true=json); Dogecoin 1.14 rejects integer verbosity. Bitcoin Core coerces the boolean, so this is safe cross-node
+                params: [blockhash, !hexFormat], // getblock verbose is a boolean (false=hex, true=json); Dogecoin 1.14 rejects integer verbosity. Bitcoin Core coerces the boolean, so this is safe cross-node
                 id: 1,
-            }
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
             if (response.data.result) {
                 return response.data.result;
@@ -152,20 +152,20 @@ module.exports = {
         }
     },
 
-    async getRawMempool(){
+    async getRawMempool() {
         try {
             const data = {
                 jsonrpc: '2.0',
                 method: 'getrawmempool',
-                id: 1
-            }
+                id: 1,
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
             // Verify the result is an array (empty mempool returns [])
             if (Array.isArray(response.data.result)) {
@@ -173,60 +173,60 @@ module.exports = {
             } else {
                 throw new Error('Error getting raw mempool');
             }
-        } catch (error){
+        } catch (error) {
             throw new Error('Error getting raw mempool');
         }
     },
 
-    async getMempoolEntry(txid){
+    async getMempoolEntry(txid) {
         try {
             const data = {
                 jsonrpc: '2.0',
                 method: 'getmempoolentry',
                 params: [txid],
-                id: 1
-            }
+                id: 1,
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
             if (response.data.result) {
                 return response.data.result;
             } else {
                 throw new Error('Error getting mempool entry');
             }
-        } catch (error){
+        } catch (error) {
             throw new Error('Error getting mempool entry');
         }
     },
 
-    async getRawTransaction(txid){
+    async getRawTransaction(txid) {
         try {
             const data = {
                 jsonrpc: '2.0',
                 method: 'getrawtransaction',
                 params: [txid],
-                id: 1
-            }
+                id: 1,
+            };
 
             const response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
             if (response.data.result) {
                 return response.data.result;
             } else {
                 throw new Error('Error getting raw transaction');
             }
-        } catch (error){
-            return null
+        } catch (error) {
+            return null;
         }
     },
-}
+};

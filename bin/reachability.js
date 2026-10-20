@@ -67,7 +67,7 @@
 
 'use strict';
 
-const fs   = require('fs');
+const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
@@ -107,7 +107,11 @@ function toolingSweepDirs(siblingsRoot) {
     for (const rel of TOP_LEVEL_TOOLING) if (present(rel)) dirs.push(rel);
 
     let entries;
-    try { entries = fs.readdirSync(siblingsRoot, { withFileTypes: true }); } catch (e) { return dirs; }
+    try {
+        entries = fs.readdirSync(siblingsRoot, { withFileTypes: true });
+    } catch (e) {
+        return dirs;
+    }
     for (const entry of entries) {
         if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name.startsWith('xchain-')) continue;
         if (!present(path.join(entry.name, 'bin', TWIN_COPIER))) continue;
@@ -149,9 +153,11 @@ const DYNAMIC_EDGES = [];
 function assertDynamicEdgesResolve(fileSet) {
     for (const edge of DYNAMIC_EDGES) {
         if (!fileSet.has(edge.from)) {
-            throw new Error(`DYNAMIC_EDGES declares an edge from '${edge.from}', which is not in this `
-                + `repo's tracked tree, so it can never apply and would otherwise pass as one of `
-                + `${DYNAMIC_EDGES.length} declared edges. Fix or remove it in bin/reachability.js (${edge.why}).`);
+            throw new Error(
+                `DYNAMIC_EDGES declares an edge from '${edge.from}', which is not in this ` +
+                    `repo's tracked tree, so it can never apply and would otherwise pass as one of ` +
+                    `${DYNAMIC_EDGES.length} declared edges. Fix or remove it in bin/reachability.js (${edge.why}).`,
+            );
         }
     }
 }
@@ -184,7 +190,11 @@ const REQUIRE_LITERAL = /require\(\s*(['"])([^'"]+)\1\s*\)/g;
 function edgesFrom(rel, fileSet) {
     const abs = path.join(REPO_ROOT, rel);
     let text;
-    try { text = fs.readFileSync(abs, 'utf8'); } catch (e) { return []; }
+    try {
+        text = fs.readFileSync(abs, 'utf8');
+    } catch (e) {
+        return [];
+    }
     const out = new Set();
     REQUIRE_LITERAL.lastIndex = 0;
     let m;
@@ -285,7 +295,8 @@ function twinCopies(sources, siblingsRoot) {
     const out = {};
     let repos = [];
     try {
-        repos = fs.readdirSync(siblingsRoot, { withFileTypes: true })
+        repos = fs
+            .readdirSync(siblingsRoot, { withFileTypes: true })
             .filter((e) => e.name.startsWith('xchain-') && e.name !== 'xchain-indexer')
             .map((e) => e.name)
             .sort();
@@ -295,12 +306,20 @@ function twinCopies(sources, siblingsRoot) {
     for (const rel of sources) {
         const mine = path.join(REPO_ROOT, rel);
         let mineText = null;
-        try { mineText = fs.readFileSync(mine, 'utf8'); } catch (e) { mineText = null; }
+        try {
+            mineText = fs.readFileSync(mine, 'utf8');
+        } catch (e) {
+            mineText = null;
+        }
         const found = [];
         for (const repo of repos) {
             const other = path.join(siblingsRoot, repo, rel);
             let otherText;
-            try { otherText = fs.readFileSync(other, 'utf8'); } catch (e) { continue; }
+            try {
+                otherText = fs.readFileSync(other, 'utf8');
+            } catch (e) {
+                continue;
+            }
             found.push({ path: `${repo}/${rel}`, byteIdentical: mineText !== null && otherText === mineText });
         }
         if (found.length) out[rel] = found;
@@ -310,7 +329,9 @@ function twinCopies(sources, siblingsRoot) {
 
 /** Every .js directly under a directory tree, as entry points in their own right. */
 function entriesUnder(prefixes, fileSet) {
-    return Array.from(fileSet).filter((f) => prefixes.some((p) => f.startsWith(p)) && f.endsWith('.js')).sort();
+    return Array.from(fileSet)
+        .filter((f) => prefixes.some((p) => f.startsWith(p)) && f.endsWith('.js'))
+        .sort();
 }
 
 /**
@@ -321,7 +342,9 @@ function analyse(opts) {
     const all = trackedFiles();
     const fileSet = new Set(all.filter((f) => f.endsWith('.js')));
     assertDynamicEdgesResolve(fileSet);
-    const sources = Array.from(fileSet).filter((f) => f.startsWith('src/')).sort();
+    const sources = Array.from(fileSet)
+        .filter((f) => f.startsWith('src/'))
+        .sort();
 
     const runtimeEntryList = runtimeEntries(fileSet);
     const toolingEntryList = entriesUnder(['bin/', 'scripts/', 'tools/'], fileSet);
@@ -362,8 +385,12 @@ function analyse(opts) {
             // reads a suite over an otherwise unreachable module as evidence the
             // module is dead, and the suite is deleted with it. Everything else
             // that can hold a file counts.
-            unreferencedAcrossPlatform: !reachableFromIndexerRuntime && !reachableFromTooling
-                && !sibling && !twins[rel] && !(back[rel] || []).length,
+            unreferencedAcrossPlatform:
+                !reachableFromIndexerRuntime &&
+                !reachableFromTooling &&
+                !sibling &&
+                !twins[rel] &&
+                !(back[rel] || []).length,
         };
     }
 
@@ -391,8 +418,10 @@ function parseArgs(argv) {
     for (let i = 0; i < argv.length; i += 1) {
         if (argv[i] === '--json') opts.json = true;
         else if (argv[i] === '--no-siblings') opts.siblings = false;
-        else if (argv[i] === '--siblings') { opts.siblingsRoot = path.resolve(argv[i + 1]); i += 1; }
-        else if (argv[i] === '--help' || argv[i] === '-h') opts.help = true;
+        else if (argv[i] === '--siblings') {
+            opts.siblingsRoot = path.resolve(argv[i + 1]);
+            i += 1;
+        } else if (argv[i] === '--help' || argv[i] === '-h') opts.help = true;
     }
     return opts;
 }
@@ -433,12 +462,20 @@ function main() {
             holds.push(`twin in ${f.twinCopies.map((t) => t.path.split('/')[0]).join('+')}`);
         }
         if (f.requiredByInRepo.length) holds.push(`required by ${f.requiredByInRepo.join(', ')}`);
-        console.log(`  ${rel.padEnd(48)} ${holds.length ? holds.join(', ') : 'NOTHING: unreferenced across the platform'}`);
+        console.log(
+            `  ${rel.padEnd(48)} ${holds.length ? holds.join(', ') : 'NOTHING: unreferenced across the platform'}`,
+        );
     }
 }
 
 if (require.main === module) main();
 
 module.exports = {
-    analyse, closure, runtimeEntries, resolveRequire, toolingSweepDirs, DYNAMIC_EDGES, assertDynamicEdgesResolve,
+    analyse,
+    closure,
+    runtimeEntries,
+    resolveRequire,
+    toolingSweepDirs,
+    DYNAMIC_EDGES,
+    assertDynamicEdgesResolve,
 };

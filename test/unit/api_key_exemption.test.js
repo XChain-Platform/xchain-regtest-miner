@@ -19,8 +19,10 @@ const { UNAUTHENTICATED_METHODS } = require('../../src/api');
 
 describe('MINER_API_KEY exemption contract @regression', function () {
     it('exempts the healthcheck `ping` method', function () {
-        assert.ok(UNAUTHENTICATED_METHODS.has('ping'),
-            'ping must bypass the API-key gate or the Docker healthcheck 401s and the container goes permanently unhealthy');
+        assert.ok(
+            UNAUTHENTICATED_METHODS.has('ping'),
+            'ping must bypass the API-key gate or the Docker healthcheck 401s and the container goes permanently unhealthy',
+        );
     });
 
     it('exempts the read-only `status` method', function () {
@@ -28,8 +30,10 @@ describe('MINER_API_KEY exemption contract @regression', function () {
     });
 
     it('exempts the `health` readiness probe the container healthcheck POSTs', function () {
-        assert.ok(UNAUTHENTICATED_METHODS.has('health'),
-            'health must bypass the API-key gate or the Docker HEALTHCHECK 401s on every interval');
+        assert.ok(
+            UNAUTHENTICATED_METHODS.has('health'),
+            'health must bypass the API-key gate or the Docker HEALTHCHECK 401s on every interval',
+        );
     });
 
     it('does NOT exempt mutating/spend methods (the gate still protects them)', function () {

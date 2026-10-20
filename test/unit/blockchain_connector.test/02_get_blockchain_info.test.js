@@ -8,64 +8,64 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const axios = require('axios')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const axios = require('axios');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let connector
-let axiosPostStub
+let connector;
+let axiosPostStub;
 
 function setup() {
-    connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass')
-    axiosPostStub = sinon.stub(axios, 'post')
-    sinon.stub(connector, 'sleep').resolves()
-    sinon.stub(console, 'error')
-    sinon.stub(console, 'log')
+    connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass');
+    axiosPostStub = sinon.stub(axios, 'post');
+    sinon.stub(connector, 'sleep').resolves();
+    sinon.stub(console, 'error');
+    sinon.stub(console, 'log');
 }
 
 function teardown() {
-    sinon.restore()
+    sinon.restore();
 }
 
 function assertRpcCall(expectedMethod, expectedParams) {
-    const [url, data, config] = axiosPostStub.firstCall.args
-    assert.strictEqual(url, 'http://localhost:18332')
-    assert.strictEqual(data.jsonrpc, '2.0')
-    assert.strictEqual(data.method, expectedMethod)
-    assert.strictEqual(data.id, 1)
+    const [url, data, config] = axiosPostStub.firstCall.args;
+    assert.strictEqual(url, 'http://localhost:18332');
+    assert.strictEqual(data.jsonrpc, '2.0');
+    assert.strictEqual(data.method, expectedMethod);
+    assert.strictEqual(data.id, 1);
     if (expectedParams !== undefined) {
-        assert.deepStrictEqual(data.params, expectedParams)
+        assert.deepStrictEqual(data.params, expectedParams);
     }
-    assert.deepStrictEqual(config.auth, { username: 'rpcuser', password: 'rpcpass' })
+    assert.deepStrictEqual(config.auth, { username: 'rpcuser', password: 'rpcpass' });
 }
 
 function rpcSuccess(result) {
-    return { data: { result, error: null, id: 1 } }
+    return { data: { result, error: null, id: 1 } };
 }
 
 function rpcNoResult() {
-    return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } }
+    return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } };
 }
 
 describe('BlockchainConnector', function () {
-    beforeEach(setup)
-    afterEach(teardown)
+    beforeEach(setup);
+    afterEach(teardown);
 
     // ─── getBlockchainInfo ──────────────────────────────────────────────
 
     describe('getBlockchainInfo', function () {
         it('returns blockchain info on success', async function () {
-            const expected = { blocks: 200, chain: 'regtest' }
-            axiosPostStub.resolves(rpcSuccess(expected))
-            const result = await connector.getBlockchainInfo()
-            assert.deepStrictEqual(result, expected)
-            assertRpcCall('getblockchaininfo')
-        })
+            const expected = { blocks: 200, chain: 'regtest' };
+            axiosPostStub.resolves(rpcSuccess(expected));
+            const result = await connector.getBlockchainInfo();
+            assert.deepStrictEqual(result, expected);
+            assertRpcCall('getblockchaininfo');
+        });
 
         it('throws when result is falsy', async function () {
-            axiosPostStub.resolves(rpcNoResult())
-            await assert.rejects(() => connector.getBlockchainInfo(), /Error getting blockchain info/)
-        })
-    })
-})
+            axiosPostStub.resolves(rpcNoResult());
+            await assert.rejects(() => connector.getBlockchainInfo(), /Error getting blockchain info/);
+        });
+    });
+});

@@ -22,16 +22,16 @@
  * Trigger: nightly; before releases; after dependency upgrades
  */
 
-const assert = require('assert')
-const XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-const pipeline = require('./helpers/pipeline')
+const assert = require('assert');
+const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+const pipeline = require('./helpers/pipeline');
 
-let node
+let node;
 
-pipeline.registerFile()
+pipeline.registerFile();
 
 function createMiner() {
-    return new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+    return new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass');
 }
 
 function registerChainStateTests() {
@@ -40,35 +40,35 @@ function registerChainStateTests() {
     // ═══════════════════════════════════════════════════════════════════
     describe('REG-T2-009: Chain state progresses correctly', function () {
         beforeEach(function () {
-            node.reset()
-        })
+            node.reset();
+        });
 
         it('blockchain height and balance increase after mining', async function () {
-            const miner = createMiner()
-            await miner.prepareWallet()
+            const miner = createMiner();
+            await miner.prepareWallet();
 
-            const heightAfterSetup = node.height
-            assert.strictEqual(heightAfterSetup, 101)
+            const heightAfterSetup = node.height;
+            assert.strictEqual(heightAfterSetup, 101);
 
             // Mine additional blocks
-            await miner.generateBlocks(10)
-            assert.strictEqual(node.height, 111)
+            await miner.generateBlocks(10);
+            assert.strictEqual(node.height, 111);
 
             // Balance should have increased
-            const balance = await miner.connector.getBalance()
-            assert.ok(balance > 0)
-        })
-    })
+            const balance = await miner.connector.getBalance();
+            assert.ok(balance > 0);
+        });
+    });
 }
 
 describe('T2 Regression: Full E2E Pipeline', function () {
     before(async function () {
-        node = await pipeline.start()
-    })
+        node = await pipeline.start();
+    });
 
     after(async function () {
-        await pipeline.finish()
-    })
+        await pipeline.finish();
+    });
 
-    registerChainStateTests()
-})
+    registerChainStateTests();
+});

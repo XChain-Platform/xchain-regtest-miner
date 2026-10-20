@@ -21,33 +21,30 @@
 
 'use strict';
 
-const {
-    MAX_GENERATE_BLOCKS,
-    logger
-} = require('./constants.js')
-const { settleAfterMineTimeout } = require('./mine_settle.js')
-const { runMineLoop } = require('./mine_loop.js')
+const { MAX_GENERATE_BLOCKS, logger } = require('./constants.js');
+const { settleAfterMineTimeout } = require('./mine_settle.js');
+const { runMineLoop } = require('./mine_loop.js');
 
 // Graceful shutdown on SIGTERM/SIGINT: stop the mining loop, close the API
 // server, then exit. Merely flipping this._shutdown is not enough: registering
 // a signal listener suppresses Node's default terminate, and the listening
 // Express server keeps the event loop alive, so the process would hang until
 // docker's stop-grace SIGKILL. Close the server (thread in via api.js) and exit.
-function installShutdownHandlers(){
+function installShutdownHandlers() {
     this._sigTermHandler = (signal) => {
-        logger.info("Received " + (signal || "SIGTERM") + ", shutting down gracefully...")
-        this._shutdown = true
-        const done = () => process.exit(0)
-        if (this.apiServer && typeof this.apiServer.close === "function") {
-            this.apiServer.close(done)
+        logger.info('Received ' + (signal || 'SIGTERM') + ', shutting down gracefully...');
+        this._shutdown = true;
+        const done = () => process.exit(0);
+        if (this.apiServer && typeof this.apiServer.close === 'function') {
+            this.apiServer.close(done);
             // Failsafe: force exit if lingering keep-alive sockets stall close().
-            setTimeout(done, 2000).unref()
+            setTimeout(done, 2000).unref();
         } else {
-            done()
+            done();
         }
-    }
-    process.on('SIGTERM', () => this._sigTermHandler('SIGTERM'))
-    process.on('SIGINT',  () => this._sigTermHandler('SIGINT'))
+    };
+    process.on('SIGTERM', () => this._sigTermHandler('SIGTERM'));
+    process.on('SIGINT', () => this._sigTermHandler('SIGINT'));
 }
 
 module.exports = {
@@ -71,9 +68,9 @@ module.exports = {
         // call, and fillMempool sets that flag before its first await. Re-reading
         // keepMining alone would not do, since continue_mining can set it mid-fill.
         if (this.fillMempoolRunning) {
-            throw new Error("mining is disabled while fill_mempool is running")
+            throw new Error('mining is disabled while fill_mempool is running');
         }
-        return this.generateBlocksQueued(count)
+        return this.generateBlocksQueued(count);
     },
 
     // The mine itself, reachable while a fill holds the public entry point shut.
@@ -83,7 +80,7 @@ module.exports = {
     // throw on itself.
     async generateBlocksQueued(count) {
         if (!Number.isInteger(count) || count <= 0) {
-            throw new Error("count must be a positive integer")
+            throw new Error('count must be a positive integer');
         }
         // Cap the per-call block count. generatetoaddress mines synchronously on the
         // node, so an unbounded count (e.g. from the unauthenticated-by-default
@@ -93,7 +90,7 @@ module.exports = {
         // it. fillMempool is already capped the same way (MAX_FILL_MEMPOOL_QUANTITY);
         // this closes the sibling gap on the block-generation path.
         if (count > MAX_GENERATE_BLOCKS) {
-            throw new Error("count exceeds maximum of " + MAX_GENERATE_BLOCKS)
+            throw new Error('count exceeds maximum of ' + MAX_GENERATE_BLOCKS);
         }
         // Serialize all callers (auto-mine loop + generate_blocks RPC) behind a
         // single promise chain so concurrent calls never issue overlapping
@@ -104,21 +101,21 @@ module.exports = {
         // Snapshot the reorgs in flight at APPEND time. A reorg raised later
         // captured the queue tail this append is joining, so it already waits for
         // this mine; making this mine wait for it too is the deadlock.
-        const heldBy = [...this._reorgMineHolds.values()].map((hold) => hold.held)
-        const run = this._generateQueue.then(() => this.mineWhenReorgIdle(count, heldBy))
-        this._generateQueue = run.catch(() => {})
-        return run
+        const heldBy = [...this._reorgMineHolds.values()].map((hold) => hold.held);
+        const run = this._generateQueue.then(() => this.mineWhenReorgIdle(count, heldBy));
+        this._generateQueue = run.catch(() => {});
+        return run;
     },
 
-    async generateBlocksRaw(numberOfBlocks){
-        let hashes
+    async generateBlocksRaw(numberOfBlocks) {
+        let hashes;
         try {
-            hashes = await this.connector.generateToAddress(numberOfBlocks, this.walletAddress)
+            hashes = await this.connector.generateToAddress(numberOfBlocks, this.walletAddress);
         } catch (err) {
             // The node keeps mining after the client times out; hold this queue
             // slot, and every barrier awaiting it, until the node stops.
-            if (err && err.timedOut) await settleAfterMineTimeout.call(this)
-            throw err
+            if (err && err.timedOut) await settleAfterMineTimeout.call(this);
+            throw err;
         }
 
         // Count every mine that flows through this serialized chokepoint (auto-mine
@@ -127,30 +124,30 @@ module.exports = {
         // performed), not chain height: it intentionally does NOT decrement after an
         // invalidate_block rollback. Credit the hashes the node returned, not the
         // count requested, so the counter never reports a block that was not mined.
-        this._blocksMined += hashes.length
-        this._lastMineAt = Date.now()
+        this._blocksMined += hashes.length;
+        this._lastMineAt = Date.now();
 
-        if (numberOfBlocks > 1){
-            logger.info(numberOfBlocks+" new blocks have been generated")
-        } else if (numberOfBlocks > 0){
-            logger.info("A new block has been generated")
+        if (numberOfBlocks > 1) {
+            logger.info(numberOfBlocks + ' new blocks have been generated');
+        } else if (numberOfBlocks > 0) {
+            logger.info('A new block has been generated');
         }
-        return hashes
+        return hashes;
     },
 
-    async start(){
+    async start() {
         // Snapshot operator intent first: the API listens during preparation, so a
         // pause, fill or continue can land before the loop exists.
-        const operatorGeneration = this._operatorMiningGeneration
+        const operatorGeneration = this._operatorMiningGeneration;
         //Prepare the wallet
-        await this.prepareWallet()
+        await this.prepareWallet();
 
         //Loop to check if there are transactions in the mempool, if there are, then
         //Wait some time for new txs, if there is a new tx in that time, then extended the waiting time again
         //If there are no new tx in that time, then mine a block
-        logger.info("Ready. Checking for new txs")
+        logger.info('Ready. Checking for new txs');
 
-        installShutdownHandlers.call(this)
+        installShutdownHandlers.call(this);
 
         const loop = {
             lastRawMempoolLength: 0,
@@ -159,29 +156,29 @@ module.exports = {
             consecutiveErrors: 0,
             // Baseline for the mine-empty heartbeat on a miner that has not mined yet,
             // so enabling it never fires a block the instant the loop starts.
-            watchingSince: Date.now()
-        }
+            watchingSince: Date.now(),
+        };
         // Switch mining on only if no operator control landed during preparation;
         // otherwise its "ok" stands, as it would after ready.
-        if (this._operatorMiningGeneration === operatorGeneration){
-            if (this._reorgPauseDepth > 0){
+        if (this._operatorMiningGeneration === operatorGeneration) {
+            if (this._reorgPauseDepth > 0) {
                 // A reconsider_block is mid-reorg: hand the resume to its last exit,
                 // and leave the generation alone so that exit still owns the restore.
-                this._reorgPauseWasMining = true
+                this._reorgPauseWasMining = true;
             } else {
-                this.keepMining = true
-                this._miningStateGeneration++
+                this.keepMining = true;
+                this._miningStateGeneration++;
             }
         }
         // Reached only after prepareWallet() resolved, so from here a keepMining=false
         // is an operator pause rather than startup. Never reset: pauseMining() only
         // clears keepMining, and a paused loop has still started.
-        this.miningStarted = true
+        this.miningStarted = true;
 
-        await runMineLoop.call(this, loop)
+        await runMineLoop.call(this, loop);
     },
 
-    getStatus(){
+    getStatus() {
         return {
             wallet_ready: this.walletReady,
             // Fund-capability, read at startup, at both reorg termini, and by the
@@ -220,7 +217,7 @@ module.exports = {
             // Distinguishes the identical keepMining=false of a miner still preparing
             // its wallet from that of a paused one, so a probe can call the first a
             // stall and the second healthy.
-            mining_started: this.miningStarted
-        }
-    }
-}
+            mining_started: this.miningStarted,
+        };
+    },
+};

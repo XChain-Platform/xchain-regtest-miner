@@ -8,9 +8,9 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const BlockchainConnector = require('../../src/rpc/blockchain_connector');
 
 function createMinerContext() {
     const connectorStub = {
@@ -27,143 +27,145 @@ function createMinerContext() {
         setWalletName: sinon.stub(),
         getRawTransaction: sinon.stub().resolves('0200000001...'),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
-    const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-    const miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-    miner.connector = connectorStub
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
-    return { XChainRegtestMiner, miner, connectorStub }
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
+    const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+    const miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
+    return { XChainRegtestMiner, miner, connectorStub };
 }
 
 function restoreMinerContext() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')];
 }
 
 // Runs fillMempool and swallows the rejection, for tests that only inspect the state it leaves.
 async function fillMempoolIgnoringFailure(miner, quantity) {
-    try { await miner.fillMempool(quantity) } catch (e) {}
+    try {
+        await miner.fillMempool(quantity);
+    } catch (e) {}
 }
 
 describe('Security: Resource Exhaustion & DoS Prevention', function () {
-    let miner
-    let connectorStub
+    let miner;
+    let connectorStub;
 
     beforeEach(function () {
-        ({ miner, connectorStub } = createMinerContext())
-    })
+        ({ miner, connectorStub } = createMinerContext());
+    });
 
     afterEach(function () {
-        restoreMinerContext()
-    })
+        restoreMinerContext();
+    });
 
     // ─── SEC-001: sendFundsToAddress retry limit in fillMempool ────────
 
     describe('fillMempool sendFundsToAddress retry limit (SEC-001)', function () {
         it('throws after MAX_SEND_RETRIES when sendFundsToAddress always fails', async function () {
-            miner.walletAddress = 'bcrt1qtest'
-            connectorStub.sendToAddress.rejects(new Error('RPC unavailable'))
+            miner.walletAddress = 'bcrt1qtest';
+            connectorStub.sendToAddress.rejects(new Error('RPC unavailable'));
 
-            await assert.rejects(
-                () => miner.fillMempool(1),
-                /Failed to send funds after 50 retries/
-            )
-        })
+            await assert.rejects(() => miner.fillMempool(1), /Failed to send funds after 50 retries/);
+        });
 
         it('retries exactly 50 times before throwing', async function () {
-            miner.walletAddress = 'bcrt1qtest'
-            connectorStub.sendToAddress.rejects(new Error('RPC unavailable'))
+            miner.walletAddress = 'bcrt1qtest';
+            connectorStub.sendToAddress.rejects(new Error('RPC unavailable'));
 
             try {
-                await miner.fillMempool(1)
-            } catch(e) {
+                await miner.fillMempool(1);
+            } catch (e) {
                 // Expected
             }
 
-            assert.strictEqual(connectorStub.sendToAddress.callCount, 50)
-        })
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 50);
+        });
 
         it('succeeds if sendFundsToAddress recovers within retry limit', async function () {
-            miner.walletAddress = 'bcrt1qtest'
+            miner.walletAddress = 'bcrt1qtest';
             // Fail 3 times, then succeed
             connectorStub.sendToAddress
-                .onCall(0).rejects(new Error('temporary'))
-                .onCall(1).rejects(new Error('temporary'))
-                .onCall(2).rejects(new Error('temporary'))
-                .onCall(3).resolves('txid_ok')
+                .onCall(0)
+                .rejects(new Error('temporary'))
+                .onCall(1)
+                .rejects(new Error('temporary'))
+                .onCall(2)
+                .rejects(new Error('temporary'))
+                .onCall(3)
+                .resolves('txid_ok');
 
             // Will still fail later in the pipeline (getRawTransaction returns non-hex), but
             // the point is it gets past the send retry loop
             try {
-                await miner.fillMempool(1)
-            } catch(e) {
+                await miner.fillMempool(1);
+            } catch (e) {
                 // Expected: fails at transaction parsing stage
             }
 
-            assert.strictEqual(connectorStub.sendToAddress.callCount, 4)
-        })
-    })
-})
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 4);
+        });
+    });
+});
 
 describe('Security: Resource Exhaustion & DoS Prevention', function () {
-    let miner
-    let connectorStub
+    let miner;
+    let connectorStub;
 
     beforeEach(function () {
-        ({ miner, connectorStub } = createMinerContext())
-    })
+        ({ miner, connectorStub } = createMinerContext());
+    });
 
     afterEach(function () {
-        restoreMinerContext()
-    })
+        restoreMinerContext();
+    });
 
     describe('fillMempool sendFundsToAddress retry limit (SEC-001)', function () {
-
         it('does not hang indefinitely when RPC is permanently down', async function () {
-            this.timeout(5000)
-            miner.walletAddress = 'bcrt1qtest'
-            connectorStub.sendToAddress.rejects(new Error('connection refused'))
+            this.timeout(5000);
+            miner.walletAddress = 'bcrt1qtest';
+            connectorStub.sendToAddress.rejects(new Error('connection refused'));
 
-            const startTime = Date.now()
+            const startTime = Date.now();
             try {
-                await miner.fillMempool(1)
-            } catch(e) {
+                await miner.fillMempool(1);
+            } catch (e) {
                 // Expected
             }
             // Should complete quickly (sleep is stubbed to resolve immediately)
-            assert.ok(Date.now() - startTime < 3000)
-        })
+            assert.ok(Date.now() - startTime < 3000);
+        });
 
         it('resets fillMempoolRunning after retry failure', async function () {
-            miner.walletAddress = 'bcrt1qtest'
-            connectorStub.sendToAddress.rejects(new Error('RPC unavailable'))
+            miner.walletAddress = 'bcrt1qtest';
+            connectorStub.sendToAddress.rejects(new Error('RPC unavailable'));
 
             try {
-                await miner.fillMempool(1)
-            } catch(e) {
+                await miner.fillMempool(1);
+            } catch (e) {
                 // Expected
             }
 
-            assert.strictEqual(miner.fillMempoolRunning, false)
-        })
-    })
-})
+            assert.strictEqual(miner.fillMempoolRunning, false);
+        });
+    });
+});
 
 describe('Security: Resource Exhaustion & DoS Prevention', function () {
-    let miner
-    let connectorStub
+    let miner;
+    let connectorStub;
 
     beforeEach(function () {
-        ({ miner, connectorStub } = createMinerContext())
-    })
+        ({ miner, connectorStub } = createMinerContext());
+    });
 
     afterEach(function () {
-        restoreMinerContext()
-    })
+        restoreMinerContext();
+    });
 
     // ─── SEC-006: fillMempool mutex ────────────────────────────────────
 
@@ -171,109 +173,108 @@ describe('Security: Resource Exhaustion & DoS Prevention', function () {
         // fillMempool THROWS on rejection (api.js catches and maps to {error}); it does
         // not return an {error} object. Assert the rejection.
         it('rejects concurrent call when fillMempool is already running', async function () {
-            miner.fillMempoolRunning = true
-            await assert.rejects(() => miner.fillMempool(10), /already running/)
-        })
+            miner.fillMempoolRunning = true;
+            await assert.rejects(() => miner.fillMempool(10), /already running/);
+        });
 
         it('does not modify keepMining when rejected for concurrency', async function () {
-            miner.keepMining = true
-            miner.fillMempoolRunning = true
-            await assert.rejects(() => miner.fillMempool(10), /already running/)
-            assert.strictEqual(miner.keepMining, true)
-        })
+            miner.keepMining = true;
+            miner.fillMempoolRunning = true;
+            await assert.rejects(() => miner.fillMempool(10), /already running/);
+            assert.strictEqual(miner.keepMining, true);
+        });
 
         it('sets fillMempoolRunning to true during execution', async function () {
-            miner.walletAddress = 'bcrt1qtest'
-            let wasRunning = false
+            miner.walletAddress = 'bcrt1qtest';
+            let wasRunning = false;
 
             // Capture the flag state during sendToAddress call
             connectorStub.sendToAddress.callsFake(async () => {
-                wasRunning = miner.fillMempoolRunning
-                return 'txid_ok'
-            })
-            connectorStub.getRawTransaction.resolves(null) // Will trigger retry limit
+                wasRunning = miner.fillMempoolRunning;
+                return 'txid_ok';
+            });
+            connectorStub.getRawTransaction.resolves(null); // Will trigger retry limit
 
             try {
-                await miner.fillMempool(1)
-            } catch(e) {
+                await miner.fillMempool(1);
+            } catch (e) {
                 // Expected
             }
 
-            assert.strictEqual(wasRunning, true)
-        })
-    })
-})
+            assert.strictEqual(wasRunning, true);
+        });
+    });
+});
 
 describe('Security: Resource Exhaustion & DoS Prevention', function () {
-    let XChainRegtestMiner
-    let miner
-    let connectorStub
+    let XChainRegtestMiner;
+    let miner;
+    let connectorStub;
 
     beforeEach(function () {
-        ({ XChainRegtestMiner, miner, connectorStub } = createMinerContext())
-    })
+        ({ XChainRegtestMiner, miner, connectorStub } = createMinerContext());
+    });
 
     afterEach(function () {
-        restoreMinerContext()
-    })
+        restoreMinerContext();
+    });
 
     describe('fillMempool concurrent access protection (SEC-006)', function () {
-
         it('resets fillMempoolRunning to false after success path', async function () {
             // We can't easily test a full success path without real crypto,
             // but we can verify the finally block works on error
-            miner.walletAddress = 'bcrt1qtest'
-            connectorStub.sendToAddress.rejects(new Error('fail'))
+            miner.walletAddress = 'bcrt1qtest';
+            connectorStub.sendToAddress.rejects(new Error('fail'));
 
             try {
-                await miner.fillMempool(1)
-            } catch(e) {
+                await miner.fillMempool(1);
+            } catch (e) {
                 // Expected
             }
 
-            assert.strictEqual(miner.fillMempoolRunning, false)
-        })
+            assert.strictEqual(miner.fillMempoolRunning, false);
+        });
 
         it('resets fillMempoolRunning to false after quantity cap rejection', async function () {
-            await assert.rejects(() => miner.fillMempool(50001), /exceeds maximum/)
-            assert.strictEqual(miner.fillMempoolRunning, false)
-        })
+            await assert.rejects(() => miner.fillMempool(50001), /exceeds maximum/);
+            assert.strictEqual(miner.fillMempoolRunning, false);
+        });
 
         it('allows new fillMempool call after previous one completes', async function () {
-            miner.walletAddress = 'bcrt1qtest'
-            connectorStub.sendToAddress.rejects(new Error('fail'))
+            miner.walletAddress = 'bcrt1qtest';
+            connectorStub.sendToAddress.rejects(new Error('fail'));
 
             // First call
-            await fillMempoolIgnoringFailure(miner, 1)
-            assert.strictEqual(miner.fillMempoolRunning, false)
+            await fillMempoolIgnoringFailure(miner, 1);
+            assert.strictEqual(miner.fillMempoolRunning, false);
 
             // Second call should not be rejected for concurrency
-            connectorStub.sendToAddress.rejects(new Error('fail again'))
-            await fillMempoolIgnoringFailure(miner, 1)
-            assert.strictEqual(miner.fillMempoolRunning, false)
+            connectorStub.sendToAddress.rejects(new Error('fail again'));
+            await fillMempoolIgnoringFailure(miner, 1);
+            assert.strictEqual(miner.fillMempoolRunning, false);
 
             // sendToAddress called in both runs
-            assert.ok(connectorStub.sendToAddress.callCount > 50)
-        })
+            assert.ok(connectorStub.sendToAddress.callCount > 50);
+        });
 
         it('initializes fillMempoolRunning to false', function () {
-            const fresh = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-            assert.strictEqual(fresh.fillMempoolRunning, false)
-        })
-    })
-})
+            const fresh = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+            assert.strictEqual(fresh.fillMempoolRunning, false);
+        });
+    });
+});
 
 describe('Security: Resource Exhaustion & DoS Prevention', function () {
-    let miner
-    let connectorStub
+    let miner;
+    let connectorStub;
 
     beforeEach(function () {
-        ({ miner, connectorStub } = createMinerContext())
-    })
+        ({ miner, connectorStub } = createMinerContext());
+    });
 
     afterEach(function () {
-        restoreMinerContext()
-    })
+        restoreMinerContext();
+    });
 
     // ─── SEC-002: Memory exhaustion via large txQuantity ───────────────
 
@@ -281,18 +282,18 @@ describe('Security: Resource Exhaustion & DoS Prevention', function () {
         // fillMempool THROWS on an over-cap quantity before allocating anything (api.js
         // maps the throw to an {error} response). Assert rejection + no work started.
         it('rejects 50001 without allocating addresses', async function () {
-            await assert.rejects(() => miner.fillMempool(50001), /exceeds maximum/)
+            await assert.rejects(() => miner.fillMempool(50001), /exceeds maximum/);
             // sendToAddress should never be called
-            assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
-        })
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 0);
+        });
 
         it('rejects 1000000 without allocating addresses', async function () {
-            await assert.rejects(() => miner.fillMempool(1000000), /exceeds maximum/)
-            assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
-        })
+            await assert.rejects(() => miner.fillMempool(1000000), /exceeds maximum/);
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 0);
+        });
 
         it('rejects Number.MAX_SAFE_INTEGER', async function () {
-            await assert.rejects(() => miner.fillMempool(Number.MAX_SAFE_INTEGER), /exceeds maximum/)
-        })
-    })
-})
+            await assert.rejects(() => miner.fillMempool(Number.MAX_SAFE_INTEGER), /exceeds maximum/);
+        });
+    });
+});

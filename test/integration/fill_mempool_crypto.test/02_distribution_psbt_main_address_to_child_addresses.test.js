@@ -18,116 +18,123 @@
  * A fixed mnemonic makes all keys and addresses deterministic.
  */
 
-const assert = require('assert')
+const assert = require('assert');
 const {
-    network, mainKeyNode, MAIN_ADDRESS, AMOUNT_FOR_EACH_ADDRESS, FEE,
-    deriveChildAddress, createFundingTx, bitcoin, ecc,
-} = require('../helpers/fixtures')
-const { ECPairFactory } = require('ecpair')
+    network,
+    mainKeyNode,
+    MAIN_ADDRESS,
+    AMOUNT_FOR_EACH_ADDRESS,
+    FEE,
+    deriveChildAddress,
+    createFundingTx,
+    bitcoin,
+    ecc,
+} = require('../helpers/fixtures');
+const { ECPairFactory } = require('ecpair');
 
-let fundingTx, psbt
+let fundingTx, psbt;
 
 function createFundingTransaction() {
     // Create a funding tx with enough value for 3 child addresses
-    const amountSats = (AMOUNT_FOR_EACH_ADDRESS + FEE) * 3 + 50 * 3 // 6150
-    fundingTx = createFundingTx(MAIN_ADDRESS, amountSats)
+    const amountSats = (AMOUNT_FOR_EACH_ADDRESS + FEE) * 3 + 50 * 3; // 6150
+    fundingTx = createFundingTx(MAIN_ADDRESS, amountSats);
 }
 
 describe('Seam C: fillMempool ↔ bitcoinjs-lib crypto pipeline', function () {
     // ─── PSBT Construction and Signing ──────────────────────────────────
 
     describe('distribution PSBT (main address → child addresses)', function () {
-        beforeEach(createFundingTransaction)
+        beforeEach(createFundingTransaction);
 
         it('constructs a valid PSBT with correct input', function () {
-            psbt = new bitcoin.Psbt({ network })
+            psbt = new bitcoin.Psbt({ network });
             psbt.addInput({
                 hash: fundingTx.txid,
                 index: 0,
                 nonWitnessUtxo: Buffer.from(fundingTx.hex, 'hex'),
-            })
+            });
 
-            assert.strictEqual(psbt.data.inputs.length, 1)
-        })
+            assert.strictEqual(psbt.data.inputs.length, 1);
+        });
 
         it('adds correct number of outputs with correct values', function () {
-            psbt = new bitcoin.Psbt({ network })
+            psbt = new bitcoin.Psbt({ network });
             psbt.addInput({
                 hash: fundingTx.txid,
                 index: 0,
                 nonWitnessUtxo: Buffer.from(fundingTx.hex, 'hex'),
-            })
+            });
 
             for (let i = 0; i < 3; i++) {
-                const childAddr = deriveChildAddress(i)
+                const childAddr = deriveChildAddress(i);
                 psbt.addOutput({
                     address: childAddr,
                     value: AMOUNT_FOR_EACH_ADDRESS + FEE, // 2000
-                })
+                });
             }
 
-            assert.strictEqual(psbt.data.outputs.length, 3)
-        })
-    })
-})
+            assert.strictEqual(psbt.data.outputs.length, 3);
+        });
+    });
+});
 
 describe('Seam C: fillMempool ↔ bitcoinjs-lib crypto pipeline', function () {
     describe('distribution PSBT (main address → child addresses)', function () {
-        beforeEach(createFundingTransaction)
+        beforeEach(createFundingTransaction);
 
         it('signs and finalizes successfully with the main key', function () {
-            psbt = new bitcoin.Psbt({ network })
+            psbt = new bitcoin.Psbt({ network });
             psbt.addInput({
                 hash: fundingTx.txid,
                 index: 0,
                 nonWitnessUtxo: Buffer.from(fundingTx.hex, 'hex'),
-            })
+            });
 
             for (let i = 0; i < 3; i++) {
                 psbt.addOutput({
                     address: deriveChildAddress(i),
                     value: AMOUNT_FOR_EACH_ADDRESS + FEE,
-                })
+                });
             }
 
-            const ECPair = ECPairFactory(ecc)
-            const keyToSign = ECPair.fromPrivateKey(mainKeyNode.privateKey, { network })
-            psbt.signInput(0, keyToSign)
-            psbt.finalizeAllInputs()
+            const ECPair = ECPairFactory(ecc);
+            const keyToSign = ECPair.fromPrivateKey(mainKeyNode.privateKey, { network });
+            psbt.signInput(0, keyToSign);
+            psbt.finalizeAllInputs();
 
-            const extractedTx = psbt.extractTransaction()
-            assert.ok(extractedTx, 'Should extract a transaction')
-        })
+            const extractedTx = psbt.extractTransaction();
+            assert.ok(extractedTx, 'Should extract a transaction');
+        });
 
         it('produces valid serializable transaction hex', function () {
-            psbt = new bitcoin.Psbt({ network })
+            psbt = new bitcoin.Psbt({ network });
             psbt.addInput({
                 hash: fundingTx.txid,
                 index: 0,
                 nonWitnessUtxo: Buffer.from(fundingTx.hex, 'hex'),
-            })
+            });
 
             for (let i = 0; i < 3; i++) {
                 psbt.addOutput({
                     address: deriveChildAddress(i),
                     value: AMOUNT_FOR_EACH_ADDRESS + FEE,
-                })
+                });
             }
 
-            const ECPair = ECPairFactory(ecc)
-            const keyToSign = ECPair.fromPrivateKey(mainKeyNode.privateKey, { network })
-            psbt.signInput(0, keyToSign)
-            psbt.finalizeAllInputs()
+            const ECPair = ECPairFactory(ecc);
+            const keyToSign = ECPair.fromPrivateKey(mainKeyNode.privateKey, { network });
+            psbt.signInput(0, keyToSign);
+            psbt.finalizeAllInputs();
 
-            const hex = psbt.extractTransaction().toHex()
+            const hex = psbt.extractTransaction().toHex();
             // Round-trip: parse the hex back
-            const parsed = bitcoin.Transaction.fromHex(hex)
-            assert.strictEqual(parsed.ins.length, 1)
-            assert.strictEqual(parsed.outs.length, 3)
+            const parsed = bitcoin.Transaction.fromHex(hex);
+            assert.strictEqual(parsed.ins.length, 1);
+            assert.strictEqual(parsed.outs.length, 3);
             // Each output should have value 2000
             for (const out of parsed.outs) {
-                assert.strictEqual(out.value, 2000)
+                assert.strictEqual(out.value, 2000);
             }
-        })
-    })
-})
+        });
+    });
+});

@@ -8,21 +8,21 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const fc = require('fast-check')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const fc = require('fast-check');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let XChainRegtestMiner
-let miner
-let connectorStub
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
 
 // Runs the start loop until the sleep stub throws the break sentinel; any other error is real.
 async function startUntilLoopBreak() {
     try {
-        await miner.start()
+        await miner.start();
     } catch (e) {
-        if (e.message !== '__LOOP_BREAK__') throw e
+        if (e.message !== '__LOOP_BREAK__') throw e;
     }
 }
 
@@ -41,27 +41,27 @@ function setUpMiner() {
         setWalletName: sinon.stub(),
         getRawTransaction: sinon.stub().resolves('0200000001'),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 }
 
 function tearDownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 describe('Fuzz: mining loop state machine', function () {
-    beforeEach(setUpMiner)
-    afterEach(tearDownMiner)
+    beforeEach(setUpMiner);
+    afterEach(tearDownMiner);
 
     // ─── Property: loop never exits on its own ──────────────────────
 
@@ -71,44 +71,50 @@ describe('Fuzz: mining loop state machine', function () {
                 fc.asyncProperty(
                     fc.array(
                         fc.oneof(
-                            fc.constant('empty'),      // empty mempool
-                            fc.constant('has_txs'),    // mempool with txs
-                            fc.constant('error'),      // getRawMempool throws
-                            fc.constant('null')        // returns null
+                            fc.constant('empty'), // empty mempool
+                            fc.constant('has_txs'), // mempool with txs
+                            fc.constant('error'), // getRawMempool throws
+                            fc.constant('null'), // returns null
                         ),
-                        { minLength: 3, maxLength: 15 }
+                        { minLength: 3, maxLength: 15 },
                     ),
                     async (events) => {
-                        let eventIdx = 0
+                        let eventIdx = 0;
                         connectorStub.getRawMempool.callsFake(async () => {
-                            const event = events[eventIdx % events.length]
-                            eventIdx++
+                            const event = events[eventIdx % events.length];
+                            eventIdx++;
                             switch (event) {
-                                case 'empty': return []
-                                case 'has_txs': return ['txid1', 'txid2']
-                                case 'error': throw new Error('rpc error')
-                                case 'null': return null
+                                case 'empty':
+                                    return [];
+                                case 'has_txs':
+                                    return ['txid1', 'txid2'];
+                                case 'error':
+                                    throw new Error('rpc error');
+                                case 'null':
+                                    return null;
                             }
-                        })
+                        });
 
-                        let loopCount = 0
+                        let loopCount = 0;
                         miner.sleep.callsFake(async () => {
-                            loopCount++
+                            loopCount++;
                             if (loopCount >= events.length + 1) {
-                                miner.keepMining = false
-                                throw new Error('__LOOP_BREAK__')
+                                miner.keepMining = false;
+                                throw new Error('__LOOP_BREAK__');
                             }
-                        })
+                        });
 
-                        await startUntilLoopBreak()
+                        await startUntilLoopBreak();
 
                         // Loop should have run through all events
-                        assert.ok(loopCount >= events.length,
-                            `Loop should survive all events, ran ${loopCount}/${events.length}`)
-                    }
+                        assert.ok(
+                            loopCount >= events.length,
+                            `Loop should survive all events, ran ${loopCount}/${events.length}`,
+                        );
+                    },
                 ),
-                { numRuns: 200 }
-            )
-        })
-    })
-})
+                { numRuns: 200 },
+            );
+        });
+    });
+});

@@ -8,13 +8,13 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let XChainRegtestMiner
-let miner
-let connectorStub
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
 
 function setUpMiner() {
     connectorStub = {
@@ -31,60 +31,60 @@ function setUpMiner() {
         setWalletName: sinon.stub(),
         getRawTransaction: sinon.stub().resolves('0200000001'),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 }
 
 function tearDownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 describe('Fuzz: RPC response handling', function () {
-    beforeEach(setUpMiner)
-    afterEach(tearDownMiner)
+    beforeEach(setUpMiner);
+    afterEach(tearDownMiner);
 
     // ─── getWalletInfo / wallet setup fuzzing ───────────────────────
 
     describe('wallet setup with fuzzed responses', function () {
         it('handles probe failing then loadWallet succeeding', async function () {
-            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
-            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
-            connectorStub.loadWallet.resolves({ name: 'test' })
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'));
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest');
+            connectorStub.loadWallet.resolves({ name: 'test' });
 
-            await miner.prepareWallet()
+            await miner.prepareWallet();
 
-            assert.ok(connectorStub.loadWallet.calledOnce)
-            assert.ok(connectorStub.createWallet.notCalled)
-        })
+            assert.ok(connectorStub.loadWallet.calledOnce);
+            assert.ok(connectorStub.createWallet.notCalled);
+        });
 
         it('handles probe failing and loadWallet throwing', async function () {
-            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
-            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
-            connectorStub.loadWallet.rejects(Object.assign(new Error('no file'), { rpcCode: -18 }))
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'));
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest');
+            connectorStub.loadWallet.rejects(Object.assign(new Error('no file'), { rpcCode: -18 }));
 
-            await miner.prepareWallet()
+            await miner.prepareWallet();
 
-            assert.ok(connectorStub.createWallet.calledOnce)
-        })
+            assert.ok(connectorStub.createWallet.calledOnce);
+        });
 
         it('handles probe returning no usable address', async function () {
-            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'))
-            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest')
+            connectorStub.getNewAddress.rejects(new Error('no wallet loaded'));
+            connectorStub.getNewAddress.onCall(10).resolves('bcrt1qtest');
 
-            await miner.prepareWallet()
+            await miner.prepareWallet();
 
             // A failed probe triggers the wallet load/create path
-            assert.ok(connectorStub.loadWallet.called || connectorStub.createWallet.called)
-        })
-    })
-})
+            assert.ok(connectorStub.loadWallet.called || connectorStub.createWallet.called);
+        });
+    });
+});

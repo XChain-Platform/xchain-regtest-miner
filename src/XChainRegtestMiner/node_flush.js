@@ -20,7 +20,7 @@
 
 'use strict';
 
-const { NODE_FLUSH_TIMEOUT_MS, logger } = require('./constants.js')
+const { NODE_FLUSH_TIMEOUT_MS, logger } = require('./constants.js');
 
 // Forces the node to write its block index to disk, at most once per
 // nodeFlushIntervalMs, after an idle block. dogecoind writes the block index only
@@ -31,23 +31,36 @@ const { NODE_FLUSH_TIMEOUT_MS, logger } = require('./constants.js')
 // taken before the call, so a failing or slow flush is not retried inside the
 // interval, and an in-flight guard keeps two from overlapping. Only called from
 // the idle branch, after its loopMayMine check, so it never runs while paused.
-function maybeFlushNode(loop, now){
-    const interval = this.nodeFlushIntervalMs
-    if (!interval || this._nodeFlushInFlight) return
-    if (loop.lastFlushAt == null) loop.lastFlushAt = loop.watchingSince
-    if ((now - loop.lastFlushAt) < interval) return
-    loop.lastFlushAt = now
-    let pending
+function maybeFlushNode(loop, now) {
+    const interval = this.nodeFlushIntervalMs;
+    if (!interval || this._nodeFlushInFlight) return;
+    if (loop.lastFlushAt == null) loop.lastFlushAt = loop.watchingSince;
+    if (now - loop.lastFlushAt < interval) return;
+    loop.lastFlushAt = now;
+    let pending;
     try {
-        pending = Promise.resolve(this.connector.flushNodeState(NODE_FLUSH_TIMEOUT_MS))
-    } catch (err){
-        pending = Promise.reject(err)
+        pending = Promise.resolve(this.connector.flushNodeState(NODE_FLUSH_TIMEOUT_MS));
+    } catch (err) {
+        pending = Promise.reject(err);
     }
-    this._nodeFlushInFlight = pending.then(() => {
-        logger.debug("Flushed the node state to disk")
-    }, (err) => {
-        logger.info("Node flush failed: "+(err && err.message ? err.message : err)+"; next attempt in "+interval+"ms.")
-    }).then(() => { this._nodeFlushInFlight = null })
+    this._nodeFlushInFlight = pending
+        .then(
+            () => {
+                logger.debug('Flushed the node state to disk');
+            },
+            (err) => {
+                logger.info(
+                    'Node flush failed: ' +
+                        (err && err.message ? err.message : err) +
+                        '; next attempt in ' +
+                        interval +
+                        'ms.',
+                );
+            },
+        )
+        .then(() => {
+            this._nodeFlushInFlight = null;
+        });
 }
 
-module.exports = { maybeFlushNode }
+module.exports = { maybeFlushNode };

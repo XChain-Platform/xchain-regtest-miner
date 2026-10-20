@@ -22,14 +22,14 @@
 // stays true across the invalidate. A run that flipped it would mean the
 // semantics call had been made without the operator, not that the fix improved.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const BlockchainConnector = require('../../src/rpc/blockchain_connector');
 
-let XChainRegtestMiner
-let miner
-let connectorStub
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
 
 function setupMiner() {
     connectorStub = {
@@ -44,89 +44,89 @@ function setupMiner() {
         setTxFee: sinon.stub().resolves(true),
         invalidateBlock: sinon.stub().resolves('invalidated'),
         reconsiderBlock: sinon.stub().resolves('reconsidered'),
-    }
+    };
 
-    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
 
     // Post-startup state: prepared wallet, observed funds, mining running.
-    miner.walletAddress = 'bcrt1qtest'
-    miner.walletReady = true
-    miner.balance = 50.0
-    miner.keepMining = true
+    miner.walletAddress = 'bcrt1qtest';
+    miner.walletReady = true;
+    miner.balance = 50.0;
+    miner.keepMining = true;
 }
 
 function teardownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')];
 }
 
 describe('reorg wallet-funds refresh', function () {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 
     it('reports the wallet unfunded once an invalidate strands the balance at 0', async function () {
-        connectorStub.getBalance.resolves(0)
+        connectorStub.getBalance.resolves(0);
 
-        const result = await miner.invalidateBlock('deadbeef')
+        const result = await miner.invalidateBlock('deadbeef');
 
-        assert.strictEqual(result, 'invalidated')
-        assert.strictEqual(miner.getStatus().wallet_balance, 0)
-        assert.strictEqual(miner.getStatus().wallet_funded, false)
-    })
+        assert.strictEqual(result, 'invalidated');
+        assert.strictEqual(miner.getStatus().wallet_balance, 0);
+        assert.strictEqual(miner.getStatus().wallet_funded, false);
+    });
 
     it('leaves wallet_ready true across the invalidate (the health probe reads it as startup-completion)', async function () {
-        connectorStub.getBalance.resolves(0)
+        connectorStub.getBalance.resolves(0);
 
-        await miner.invalidateBlock('deadbeef')
+        await miner.invalidateBlock('deadbeef');
 
-        assert.strictEqual(miner.getStatus().wallet_ready, true)
-    })
+        assert.strictEqual(miner.getStatus().wallet_ready, true);
+    });
 
     it('reports the wallet funded again once reconsider re-settles the chain', async function () {
-        connectorStub.getBalance.resolves(0)
-        await miner.invalidateBlock('deadbeef')
-        assert.strictEqual(miner.getStatus().wallet_funded, false)
+        connectorStub.getBalance.resolves(0);
+        await miner.invalidateBlock('deadbeef');
+        assert.strictEqual(miner.getStatus().wallet_funded, false);
 
-        connectorStub.getBalance.resolves(50.0)
-        const result = await miner.reconsiderBlock('deadbeef')
+        connectorStub.getBalance.resolves(50.0);
+        const result = await miner.reconsiderBlock('deadbeef');
 
-        assert.strictEqual(result, 'reconsidered')
-        assert.strictEqual(miner.getStatus().wallet_balance, 50.0)
-        assert.strictEqual(miner.getStatus().wallet_funded, true)
-    })
-})
+        assert.strictEqual(result, 'reconsidered');
+        assert.strictEqual(miner.getStatus().wallet_balance, 50.0);
+        assert.strictEqual(miner.getStatus().wallet_funded, true);
+    });
+});
 
 describe('reorg wallet-funds refresh', function () {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 
     it('still resolves the reorg RPC when the balance re-read throws', async function () {
-        connectorStub.getBalance.rejects(new Error('node unreachable'))
+        connectorStub.getBalance.rejects(new Error('node unreachable'));
 
-        const result = await miner.invalidateBlock('deadbeef')
+        const result = await miner.invalidateBlock('deadbeef');
 
-        assert.strictEqual(result, 'invalidated')
+        assert.strictEqual(result, 'invalidated');
         // Unknown is not funded: a failed read must not read as a healthy wallet.
-        assert.strictEqual(miner.getStatus().wallet_balance, null)
-        assert.strictEqual(miner.getStatus().wallet_funded, false)
-    })
+        assert.strictEqual(miner.getStatus().wallet_balance, null);
+        assert.strictEqual(miner.getStatus().wallet_funded, false);
+    });
 
     it('restores prior auto-mining state after reconsider, refresh included', async function () {
-        connectorStub.getBalance.resolves(50.0)
+        connectorStub.getBalance.resolves(50.0);
 
-        await miner.reconsiderBlock('deadbeef')
+        await miner.reconsiderBlock('deadbeef');
 
-        assert.strictEqual(miner.keepMining, true)
-    })
+        assert.strictEqual(miner.keepMining, true);
+    });
 
     it('reports unfunded before prepareWallet has ever read a balance', function () {
-        const fresh = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        assert.strictEqual(fresh.getStatus().wallet_balance, null)
-        assert.strictEqual(fresh.getStatus().wallet_funded, false)
-    })
-})
+        const fresh = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+        assert.strictEqual(fresh.getStatus().wallet_balance, null);
+        assert.strictEqual(fresh.getStatus().wallet_funded, false);
+    });
+});

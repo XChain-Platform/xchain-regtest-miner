@@ -20,23 +20,23 @@
  * Inheritance: StatefulMockNode -> LatencyMockNode -> ChaosNode
  */
 
-const LatencyMockNode = require('../../performance/helpers/LatencyMockNode')
+const LatencyMockNode = require('../../performance/helpers/LatencyMockNode');
 
 class ChaosNode extends LatencyMockNode {
     constructor() {
-        super()
+        super();
 
-        this._offline = false
-        this._failRates = {}        // { methodName: 0.0-1.0 }
+        this._offline = false;
+        this._failRates = {}; // { methodName: 0.0-1.0 }
         // Maps, not plain objects: `method` comes straight off the request body,
         // and an object lookup would also resolve inherited members (constructor,
         // toString) and call whatever it found. A Map has no prototype chain to
         // walk, so an unknown method simply misses.
-        this._corruptors = new Map()       // methodName -> (result) => alteredResult
-        this._interceptors = new Map()     // methodName -> (params, res, id) => void
-        this._authOverride = null   // null | { user, pass }
+        this._corruptors = new Map(); // methodName -> (result) => alteredResult
+        this._interceptors = new Map(); // methodName -> (params, res, id) => void
+        this._authOverride = null; // null | { user, pass }
 
-        this._reinstallChaosHandler()
+        this._reinstallChaosHandler();
     }
 
     // ── Chaos handler installation ──────────────────────────────────
@@ -45,111 +45,115 @@ class ChaosNode extends LatencyMockNode {
         // Remove LatencyMockNode's handler (the last POST / route)
         // Express 5 renamed app._router to app.router; support both so the
         // helper works across the 4->5 dependency bump.
-        const stack = (this.app.router || this.app._router).stack
+        const stack = (this.app.router || this.app._router).stack;
         // StatefulMockNode registers one layer for ['/', '/wallet/:walletName'],
         // so route.path can be a string or an array; match both shapes.
-        const handlesRoot = (p) => p === '/' || (Array.isArray(p) && p.includes('/'))
+        const handlesRoot = (p) => p === '/' || (Array.isArray(p) && p.includes('/'));
         for (let i = stack.length - 1; i >= 0; i--) {
             if (stack[i].route && handlesRoot(stack[i].route.path)) {
-                stack.splice(i, 1)
-                break
+                stack.splice(i, 1);
+                break;
             }
         }
 
         this.app.post(['/', '/wallet/:walletName'], async (req, res) => {
             // 1. Offline: destroy socket (simulates ECONNRESET)
             if (this._offline) {
-                req.socket.destroy()
-                return
+                req.socket.destroy();
+                return;
             }
 
-            const { method, params, id } = req.body
+            const { method, params, id } = req.body;
 
             // 2. Auth enforcement
             if (this._authOverride) {
-                const authHeader = req.headers.authorization || ''
-                const expected = 'Basic ' +
-                    Buffer.from(this._authOverride.user + ':' + this._authOverride.pass).toString('base64')
+                const authHeader = req.headers.authorization || '';
+                const expected =
+                    'Basic ' + Buffer.from(this._authOverride.user + ':' + this._authOverride.pass).toString('base64');
                 if (authHeader !== expected) {
-                    return res.status(401).json({ error: 'Unauthorized' })
+                    return res.status(401).json({ error: 'Unauthorized' });
                 }
             }
 
             // 3. Record call (same as StatefulMockNode)
-            this.calls.push({ method, params, id })
+            this.calls.push({ method, params, id });
 
             // 4. Timestamp start (same as LatencyMockNode)
-            const startedAt = Date.now()
+            const startedAt = Date.now();
 
             // 5. Method interceptor: full override
-            const interceptor = this._interceptors.get(method)
+            const interceptor = this._interceptors.get(method);
             if (typeof interceptor === 'function') {
-                return interceptor(params, res, id)
+                return interceptor(params, res, id);
             }
 
             // 6. Apply latency (from LatencyMockNode config)
-            const delay = this._methodDelays[method] !== undefined
-                ? this._methodDelays[method]
-                : this._globalDelay
+            const delay = this._methodDelays[method] !== undefined ? this._methodDelays[method] : this._globalDelay;
             if (delay > 0) {
-                await new Promise(r => setTimeout(r, delay))
+                await new Promise((r) => setTimeout(r, delay));
             }
 
             // 7. Random failure injection
             if (this._failRates[method] !== undefined && Math.random() < this._failRates[method]) {
-                const completedAt = Date.now()
-                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt })
+                const completedAt = Date.now();
+                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt });
                 return res.json({
-                    jsonrpc: '2.0', result: null,
-                    error: { code: -1, message: 'Chaos: injected random failure for ' + method }, id,
-                })
+                    jsonrpc: '2.0',
+                    result: null,
+                    error: { code: -1, message: 'Chaos: injected random failure for ' + method },
+                    id,
+                });
             }
 
             // 8. Dispatch to _rpc_* handler
-            const handler = this['_rpc_' + method]
+            const handler = this['_rpc_' + method];
             if (!handler) {
-                const completedAt = Date.now()
-                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt })
+                const completedAt = Date.now();
+                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt });
                 return res.json({
-                    jsonrpc: '2.0', result: null,
-                    error: { code: -32601, message: `Method "${method}" not found` }, id,
-                })
+                    jsonrpc: '2.0',
+                    result: null,
+                    error: { code: -32601, message: `Method "${method}" not found` },
+                    id,
+                });
             }
 
-            let result
+            let result;
             try {
-                result = handler.call(this, params)
+                result = handler.call(this, params);
             } catch (err) {
-                const completedAt = Date.now()
-                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt })
+                const completedAt = Date.now();
+                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt });
                 return res.json({
-                    jsonrpc: '2.0', result: null,
-                    error: { code: err.rpcCode || -1, message: err.message }, id,
-                })
+                    jsonrpc: '2.0',
+                    result: null,
+                    error: { code: err.rpcCode || -1, message: err.message },
+                    id,
+                });
             }
 
             // 9. Response corruption
-            const corruptor = this._corruptors.get(method)
+            const corruptor = this._corruptors.get(method);
             if (typeof corruptor === 'function') {
-                result = corruptor(result)
+                result = corruptor(result);
             }
 
-            const completedAt = Date.now()
-            this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt })
-            res.json({ jsonrpc: '2.0', result, error: null, id })
-        })
+            const completedAt = Date.now();
+            this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt });
+            res.json({ jsonrpc: '2.0', result, error: null, id });
+        });
     }
 
     // ── Offline simulation ──────────────────────────────────────────
 
     /** Simulate node going down. All connections get their socket destroyed. */
     goOffline() {
-        this._offline = true
+        this._offline = true;
     }
 
     /** Bring node back online. */
     goOnline() {
-        this._offline = false
+        this._offline = false;
     }
 
     // ── Per-method random failure ───────────────────────────────────
@@ -160,12 +164,12 @@ class ChaosNode extends LatencyMockNode {
      * @param {number} rate - failure probability 0.0-1.0
      */
     setFailRate(method, rate) {
-        this._failRates[method] = rate
-        return this
+        this._failRates[method] = rate;
+        return this;
     }
 
     clearFailRates() {
-        this._failRates = {}
+        this._failRates = {};
     }
 
     // ── Response corruption ─────────────────────────────────────────
@@ -176,12 +180,12 @@ class ChaosNode extends LatencyMockNode {
      * @param {function} corruptorFn - (result) => corrupted result
      */
     corruptResponse(method, corruptorFn) {
-        this._corruptors.set(method, corruptorFn)
-        return this
+        this._corruptors.set(method, corruptorFn);
+        return this;
     }
 
     clearCorruptors() {
-        this._corruptors.clear()
+        this._corruptors.clear();
     }
 
     // ── Method interception ─────────────────────────────────────────
@@ -192,16 +196,16 @@ class ChaosNode extends LatencyMockNode {
      * @param {function} handlerFn - (params, res, id) => void
      */
     interceptMethod(method, handlerFn) {
-        this._interceptors.set(method, handlerFn)
-        return this
+        this._interceptors.set(method, handlerFn);
+        return this;
     }
 
     clearInterceptor(method) {
-        this._interceptors.delete(method)
+        this._interceptors.delete(method);
     }
 
     clearInterceptors() {
-        this._interceptors.clear()
+        this._interceptors.clear();
     }
 
     // ── Authentication enforcement ──────────────────────────────────
@@ -212,23 +216,23 @@ class ChaosNode extends LatencyMockNode {
      * @param {string} pass
      */
     setAuthRequired(user, pass) {
-        this._authOverride = { user, pass }
+        this._authOverride = { user, pass };
     }
 
     clearAuthRequired() {
-        this._authOverride = null
+        this._authOverride = null;
     }
 
     // ── Reset ───────────────────────────────────────────────────────
 
     reset() {
-        super.reset()
-        this._offline = false
-        this._failRates = {}
-        this._corruptors.clear()
-        this._interceptors.clear()
-        this._authOverride = null
+        super.reset();
+        this._offline = false;
+        this._failRates = {};
+        this._corruptors.clear();
+        this._interceptors.clear();
+        this._authOverride = null;
     }
 }
 
-module.exports = ChaosNode
+module.exports = ChaosNode;

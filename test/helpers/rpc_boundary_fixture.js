@@ -15,34 +15,34 @@
  * stubbed axios and the two RPC reply shapes the suites feed it. The live
  * connector and stub sit on `state`, replaced before each test.
  */
-'use strict'
+'use strict';
 
-const sinon = require('sinon')
-const axios = require('axios')
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const sinon = require('sinon');
+const axios = require('axios');
+const BlockchainConnector = require('../../src/rpc/blockchain_connector');
 
-const state = {}
+const state = {};
 
 function setupConnector() {
-    state.connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass')
-    state.axiosPostStub = sinon.stub(axios, 'post')
-    sinon.stub(state.connector, 'sleep').resolves()
-    sinon.stub(console, 'error')
-    sinon.stub(console, 'log')
+    state.connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass');
+    state.axiosPostStub = sinon.stub(axios, 'post');
+    sinon.stub(state.connector, 'sleep').resolves();
+    sinon.stub(console, 'error');
+    sinon.stub(console, 'log');
 }
 function teardownConnector() {
-    sinon.restore()
+    sinon.restore();
 }
 function registerConnectorHooks() {
-    beforeEach(setupConnector)
-    afterEach(teardownConnector)
+    beforeEach(setupConnector);
+    afterEach(teardownConnector);
 }
 function rpcSuccess(result) {
-    return { data: { result, error: null, id: 1 } }
+    return { data: { result, error: null, id: 1 } };
 }
 
 function rpcNoResult() {
-    return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } }
+    return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } };
 }
 
-module.exports = { state, registerConnectorHooks, rpcSuccess, rpcNoResult }
+module.exports = { state, registerConnectorHooks, rpcSuccess, rpcNoResult };

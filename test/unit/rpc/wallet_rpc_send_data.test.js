@@ -25,13 +25,19 @@ const { buildSendToAddressData } = require('../../../src/rpc/blockchain_connecto
 describe('buildSendToAddressData', function () {
     it('sends positional [address, amount] when no fee rate is given', function () {
         assert.deepStrictEqual(buildSendToAddressData('addr1', 1.5), {
-            jsonrpc: '2.0', method: 'sendtoaddress', params: ['addr1', 1.5], id: 1,
+            jsonrpc: '2.0',
+            method: 'sendtoaddress',
+            params: ['addr1', 1.5],
+            id: 1,
         });
     });
 
     it('sends named params with fee_rate for a positive finite rate', function () {
         assert.deepStrictEqual(buildSendToAddressData('addr1', 1.5, 12), {
-            jsonrpc: '2.0', method: 'sendtoaddress', params: { address: 'addr1', amount: 1.5, fee_rate: 12 }, id: 1,
+            jsonrpc: '2.0',
+            method: 'sendtoaddress',
+            params: { address: 'addr1', amount: 1.5, fee_rate: 12 },
+            id: 1,
         });
     });
 

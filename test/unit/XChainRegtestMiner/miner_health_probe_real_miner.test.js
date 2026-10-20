@@ -11,7 +11,7 @@
 'use strict';
 
 const assert = require('assert');
-const axios  = require('axios');
+const axios = require('axios');
 const { evaluateMinerHealth, STALL_ERROR_THRESHOLD, WALLET_GRACE_MS } = require('../../../src/api');
 const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
 
@@ -33,11 +33,11 @@ function dropSignalListenersAddedSince(before) {
 // giving up after 20000 yields so a broken loop fails the assertions instead of hanging.
 async function spinUntilMineFailureStall(miner) {
     for (let spins = 0; miner.getStatus().mine_failures < STALL_ERROR_THRESHOLD && spins < 20000; spins++) {
-        await new Promise(resolve => setImmediate(resolve));
+        await new Promise((resolve) => setImmediate(resolve));
     }
 }
 
-function newMiner () {
+function newMiner() {
     return new XChainRegtestMiner('bitcoin-regtest', 'localhost', '18443', 'user', 'pass');
 }
 
@@ -49,7 +49,7 @@ function realMinerBasics() {
     it('reports a wedged wallet preparation as stalled, not as paused', function () {
         const status = newMiner().getStatus();
         assert.strictEqual(status.wallet_ready, false);
-        assert.strictEqual(status.mining_paused, true,  'precondition: an unprepared miner also looks paused');
+        assert.strictEqual(status.mining_paused, true, 'precondition: an unprepared miner also looks paused');
         assert.strictEqual(status.mining_started, false);
 
         const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
@@ -69,7 +69,9 @@ function realMinerLifecycle() {
         // Mirror prepareWallet()'s last statement (walletReady = true) and answer the
         // mempool poll locally; start()'s own ordering of keepMining / miningStarted
         // is left untouched, which is the ordering under test.
-        miner.prepareWallet = async function () { this.walletReady = true; };
+        miner.prepareWallet = async function () {
+            this.walletReady = true;
+        };
         miner.connector.getRawMempool = async () => [];
 
         const sigBefore = snapshotSignalListeners();
@@ -82,7 +84,7 @@ function realMinerLifecycle() {
             // await between them, so mining_started implies mining_paused.
             const readyBy = Date.now() + 3000;
             while (!miner.getStatus().mining_started && Date.now() < readyBy) {
-                await new Promise(resolve => setTimeout(resolve, 10));
+                await new Promise((resolve) => setTimeout(resolve, 10));
             }
 
             const running = miner.getStatus();
@@ -121,13 +123,21 @@ function realMinerFailures() {
         let nowMs = 1e9;
         const realNow = Date.now;
         Date.now = () => nowMs;
-        miner.sleep = async (ms) => { nowMs += (Number(ms) || 0); await new Promise(r => setImmediate(r)); };
+        miner.sleep = async (ms) => {
+            nowMs += Number(ms) || 0;
+            await new Promise((r) => setImmediate(r));
+        };
 
-        miner.prepareWallet = async function () { this.walletAddress = 'bcrt1qtest'; this.walletReady = true; };
+        miner.prepareWallet = async function () {
+            this.walletAddress = 'bcrt1qtest';
+            this.walletReady = true;
+        };
         // The only stubs are the network boundary. getRawMempool SUCCEEDS, which
         // is the whole point: it is what keeps consecutive_errors pinned at 1.
-        miner.connector.getRawMempool     = async () => [];
-        miner.connector.generateToAddress = async () => { throw new Error('node refused the mine'); };
+        miner.connector.getRawMempool = async () => [];
+        miner.connector.generateToAddress = async () => {
+            throw new Error('node refused the mine');
+        };
         await miner.setIdleMineInterval(1000);
 
         const sigBefore = snapshotSignalListeners();
@@ -135,12 +145,16 @@ function realMinerFailures() {
         try {
             await spinUntilMineFailureStall(miner);
             const status = miner.getStatus();
-            assert.ok(status.mine_failures >= STALL_ERROR_THRESHOLD,
-                'the mine-failure streak must survive the successful mempool reads between mines, got '
-                + status.mine_failures);
-            assert.ok(status.consecutive_errors <= 1,
-                'precondition: the shared counter is still being zeroed by the mempool read, got '
-                + status.consecutive_errors);
+            assert.ok(
+                status.mine_failures >= STALL_ERROR_THRESHOLD,
+                'the mine-failure streak must survive the successful mempool reads between mines, got ' +
+                    status.mine_failures,
+            );
+            assert.ok(
+                status.consecutive_errors <= 1,
+                'precondition: the shared counter is still being zeroed by the mempool read, got ' +
+                    status.consecutive_errors,
+            );
             const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
             assert.strictEqual(verdict.healthy, false, 'a miner that cannot mine must not read healthy');
             assert.strictEqual(verdict.reason, 'mine_failures');
@@ -164,8 +178,14 @@ function realMinerEmptyMines() {
         const realPost = axios.post;
         const realConsoleError = console.error;
         Date.now = () => nowMs;
-        miner.sleep = async (ms) => { nowMs += (Number(ms) || 0); await new Promise(r => setImmediate(r)); };
-        miner.prepareWallet = async function () { this.walletAddress = 'bcrt1qtest'; this.walletReady = true; };
+        miner.sleep = async (ms) => {
+            nowMs += Number(ms) || 0;
+            await new Promise((r) => setImmediate(r));
+        };
+        miner.prepareWallet = async function () {
+            this.walletAddress = 'bcrt1qtest';
+            this.walletReady = true;
+        };
         miner.connector.getRawMempool = async () => [];
         axios.post = async (url, body) => {
             if (body && body.method === 'generatetoaddress') return { data: { result: [], error: null, id: 1 } };
@@ -181,8 +201,10 @@ function realMinerEmptyMines() {
             const status = miner.getStatus();
             assert.strictEqual(status.blocks_mined, 0, 'an empty hash list mined nothing and must not be credited');
             assert.strictEqual(status.last_mine_at, null, 'an empty hash list must not stamp a fresh last_mine_at');
-            assert.ok(status.mine_failures >= STALL_ERROR_THRESHOLD,
-                'an empty generatetoaddress answer must extend the mine-failure streak, got ' + status.mine_failures);
+            assert.ok(
+                status.mine_failures >= STALL_ERROR_THRESHOLD,
+                'an empty generatetoaddress answer must extend the mine-failure streak, got ' + status.mine_failures,
+            );
             const verdict = evaluateMinerHealth({ status, uptimeMs: 10 * 60000 });
             assert.strictEqual(verdict.healthy, false);
             assert.strictEqual(verdict.reason, 'mine_failures');
@@ -196,7 +218,6 @@ function realMinerEmptyMines() {
         }
     });
 }
-
 
 describe('miner health probe verdict', function () {
     describe('against a real XChainRegtestMiner', realMinerBasics);

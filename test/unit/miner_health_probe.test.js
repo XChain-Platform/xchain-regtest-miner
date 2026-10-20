@@ -15,10 +15,15 @@
 'use strict';
 
 const assert = require('assert');
-const fs     = require('fs');
-const path   = require('path');
-const { createHealthController, evaluateMinerHealth, UNAUTHENTICATED_METHODS,
-        STALL_ERROR_THRESHOLD, WALLET_GRACE_MS } = require('../../src/api');
+const fs = require('fs');
+const path = require('path');
+const {
+    createHealthController,
+    evaluateMinerHealth,
+    UNAUTHENTICATED_METHODS,
+    STALL_ERROR_THRESHOLD,
+    WALLET_GRACE_MS,
+} = require('../../src/api');
 const { createRpcMethods } = require('../../src/api/rpc_methods');
 
 function createJsonRpcController(miner, options) {
@@ -30,10 +35,15 @@ function createJsonRpcController(miner, options) {
 // belongs here: a payload that omits it is one the real miner cannot produce, and
 // synthetic-only payloads are how the first cut of this probe certified a branch
 // production never reached.
-const READY = { wallet_ready: true, consecutive_errors: 0, mine_failures: 0, mining_paused: false, mining_started: true };
+const READY = {
+    wallet_ready: true,
+    consecutive_errors: 0,
+    mine_failures: 0,
+    mining_paused: false,
+    mining_started: true,
+};
 
 describe('miner health probe verdict', function () {
-
     it('is healthy when the wallet is ready and the loop is not failing', function () {
         assert.strictEqual(evaluateMinerHealth({ status: READY, uptimeMs: 10 * 60000 }).healthy, true);
     });
@@ -126,17 +136,28 @@ describe('miner health probe verdict', function () {
     });
 
     it('exempts health from the MINER_API_KEY gate, as the probe sends no key', function () {
-        assert.ok(UNAUTHENTICATED_METHODS.has('health'),
-            'health must bypass the API-key gate or the Docker healthcheck 401s forever');
+        assert.ok(
+            UNAUTHENTICATED_METHODS.has('health'),
+            'health must bypass the API-key gate or the Docker healthcheck 401s forever',
+        );
     });
 
     it('registers health on the JSON-RPC controller and 503s on the verdict', async function () {
         const miner = {
-            getStatus: () => ({ wallet_ready: false, mining_paused: true, mining_started: false })
+            getStatus: () => ({ wallet_ready: false, mining_paused: true, mining_started: false }),
         };
         const controller = createJsonRpcController(miner, { uptime: () => 10 * 60 });
         let responseStatus = 200;
-        const result = await controller.health({}, { res: { status: code => { responseStatus = code; } } });
+        const result = await controller.health(
+            {},
+            {
+                res: {
+                    status: (code) => {
+                        responseStatus = code;
+                    },
+                },
+            },
+        );
 
         assert.strictEqual(typeof controller.health, 'function', 'health method not registered');
         assert.strictEqual(result.reason, 'wallet_not_ready', 'health does not consult the verdict');
@@ -150,32 +171,35 @@ describe('miner health probe verdict', function () {
     // result in a JSON-RPC envelope. Asserted over a real socket rather than trusted:
     // a router that always answered 200 would make the verdict decorative.
     it('lets a handler 503 reach the wire through express-json-rpc-router', async function () {
-        const express    = require('express');
+        const express = require('express');
         const bodyParser = require('body-parser');
         const jsonRouter = require('express-json-rpc-router');
 
         const app = express();
         app.use(bodyParser.json());
-        app.use((req, res, next) => { if (req.body === undefined) req.body = {}; next(); });
+        app.use((req, res, next) => {
+            if (req.body === undefined) req.body = {};
+            next();
+        });
         const miner = {
-            getStatus: () => ({ wallet_ready: false, mining_paused: true, mining_started: false })
+            getStatus: () => ({ wallet_ready: false, mining_paused: true, mining_started: false }),
         };
         const controller = createJsonRpcController(miner, { uptime: () => 10 * 60 });
         app.use(jsonRouter({ methods: controller }));
 
         const server = app.listen(0);
         try {
-            await new Promise(resolve => server.once('listening', resolve));
+            await new Promise((resolve) => server.once('listening', resolve));
             const response = await fetch('http://127.0.0.1:' + server.address().port + '/', {
-                method:  'POST',
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ jsonrpc: '2.0', method: 'health', id: 1 })
+                body: JSON.stringify({ jsonrpc: '2.0', method: 'health', id: 1 }),
             });
             assert.strictEqual(response.status, 503, 'a stalled miner must answer non-200 or the probe passes');
             const body = await response.json();
             assert.strictEqual(body.result.reason, 'wallet_not_ready');
         } finally {
-            await new Promise(resolve => server.close(resolve));
+            await new Promise((resolve) => server.close(resolve));
         }
     });
 

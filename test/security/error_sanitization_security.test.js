@@ -8,29 +8,29 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const axios = require('axios')
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const axios = require('axios');
+const BlockchainConnector = require('../../src/rpc/blockchain_connector');
 
-let connector
-let axiosPostStub
+let connector;
+let axiosPostStub;
 
 function setupConnector() {
-    connector = new BlockchainConnector('localhost', '18332', 'secretuser', 'secretpass')
-    axiosPostStub = sinon.stub(axios, 'post')
-    sinon.stub(connector, 'sleep').resolves()
-    sinon.stub(console, 'error')
-    sinon.stub(console, 'log')
+    connector = new BlockchainConnector('localhost', '18332', 'secretuser', 'secretpass');
+    axiosPostStub = sinon.stub(axios, 'post');
+    sinon.stub(connector, 'sleep').resolves();
+    sinon.stub(console, 'error');
+    sinon.stub(console, 'log');
 }
 
 function teardownConnector() {
-    sinon.restore()
+    sinon.restore();
 }
 
 function useConnectorFixtures() {
-    beforeEach(setupConnector)
-    afterEach(teardownConnector)
+    beforeEach(setupConnector);
+    afterEach(teardownConnector);
 }
 
 // Asserts nothing written to console.error or console.log carries the stubbed credentials.
@@ -38,98 +38,104 @@ function assertConsoleOmitsCredentials() {
     for (const method of ['error', 'log']) {
         for (const call of console[method].getCalls()) {
             for (const arg of call.args) {
-                const str = typeof arg === 'string' ? arg : JSON.stringify(arg)
-                assert.ok(!str.includes('secretuser'), `console.${method} leaked username`)
-                assert.ok(!str.includes('secretpass'), `console.${method} leaked password`)
+                const str = typeof arg === 'string' ? arg : JSON.stringify(arg);
+                assert.ok(!str.includes('secretuser'), `console.${method} leaked username`);
+                assert.ok(!str.includes('secretpass'), `console.${method} leaked password`);
             }
         }
     }
 }
 
 describe('Security: Error Sanitization & Information Disclosure', function () {
-    useConnectorFixtures()
+    useConnectorFixtures();
 
     // ─── SEC-004: RPC credential leakage ───────────────────────────────
 
     describe('sendToAddress error sanitization (SEC-004)', function () {
         it('does not expose RPC URL in thrown error', async function () {
-            const axiosError = new Error('connect ECONNREFUSED http://localhost:18332')
-            axiosError.config = { url: 'http://localhost:18332', auth: { username: 'secretuser', password: 'secretpass' } }
-            axiosPostStub.rejects(axiosError)
+            const axiosError = new Error('connect ECONNREFUSED http://localhost:18332');
+            axiosError.config = {
+                url: 'http://localhost:18332',
+                auth: { username: 'secretuser', password: 'secretpass' },
+            };
+            axiosPostStub.rejects(axiosError);
 
             try {
-                await connector.sendToAddress('bcrt1qtest', 1.0)
-                assert.fail('should have thrown')
-            } catch(err) {
-                assert.ok(!err.message.includes('secretuser'))
-                assert.ok(!err.message.includes('secretpass'))
-                assert.ok(!err.message.includes('18332'))
-                assert.ok(!err.message.includes('ECONNREFUSED'))
+                await connector.sendToAddress('bcrt1qtest', 1.0);
+                assert.fail('should have thrown');
+            } catch (err) {
+                assert.ok(!err.message.includes('secretuser'));
+                assert.ok(!err.message.includes('secretpass'));
+                assert.ok(!err.message.includes('18332'));
+                assert.ok(!err.message.includes('ECONNREFUSED'));
             }
-        })
+        });
 
         it('throws a clean error message for sendToAddress', async function () {
-            axiosPostStub.rejects(new Error('Network Error'))
+            axiosPostStub.rejects(new Error('Network Error'));
 
             try {
-                await connector.sendToAddress('bcrt1qtest', 1.0)
-                assert.fail('should have thrown')
-            } catch(err) {
-                assert.strictEqual(err.message, 'Error sending funds to address')
+                await connector.sendToAddress('bcrt1qtest', 1.0);
+                assert.fail('should have thrown');
+            } catch (err) {
+                assert.strictEqual(err.message, 'Error sending funds to address');
             }
-        })
+        });
 
         it('does not log RPC credentials on sendToAddress failure', async function () {
-            const axiosError = new Error('Request failed')
-            axiosError.config = { auth: { username: 'secretuser', password: 'secretpass' } }
-            axiosPostStub.rejects(axiosError)
+            const axiosError = new Error('Request failed');
+            axiosError.config = { auth: { username: 'secretuser', password: 'secretpass' } };
+            axiosPostStub.rejects(axiosError);
 
             try {
-                await connector.sendToAddress('bcrt1qtest', 1.0)
-            } catch(e) {}
+                await connector.sendToAddress('bcrt1qtest', 1.0);
+            } catch (e) {}
 
             // Check that no console output contains credentials
-            assertConsoleOmitsCredentials()
-        })
-    })
-})
+            assertConsoleOmitsCredentials();
+        });
+    });
+});
 
 describe('Security: Error Sanitization & Information Disclosure', function () {
-    useConnectorFixtures()
+    useConnectorFixtures();
     describe('sendRawTransaction error sanitization (SEC-004)', function () {
         it('throws a clean error message', async function () {
-            const axiosError = new Error('connect ECONNREFUSED http://localhost:18332')
-            axiosError.config = { url: 'http://localhost:18332', auth: { username: 'secretuser', password: 'secretpass' } }
-            axiosPostStub.rejects(axiosError)
+            const axiosError = new Error('connect ECONNREFUSED http://localhost:18332');
+            axiosError.config = {
+                url: 'http://localhost:18332',
+                auth: { username: 'secretuser', password: 'secretpass' },
+            };
+            axiosPostStub.rejects(axiosError);
 
             try {
-                await connector.sendRawTransaction('deadbeef')
-                assert.fail('should have thrown')
-            } catch(err) {
-                assert.strictEqual(err.message, 'Error sending raw transaction')
-                assert.ok(!err.message.includes('secretuser'))
-                assert.ok(!err.message.includes('secretpass'))
+                await connector.sendRawTransaction('deadbeef');
+                assert.fail('should have thrown');
+            } catch (err) {
+                assert.strictEqual(err.message, 'Error sending raw transaction');
+                assert.ok(!err.message.includes('secretuser'));
+                assert.ok(!err.message.includes('secretpass'));
             }
-        })
+        });
 
         it('does not log credentials on sendRawTransaction failure', async function () {
-            const axiosError = new Error('Request failed')
-            axiosError.config = { auth: { username: 'secretuser', password: 'secretpass' } }
-            axiosPostStub.rejects(axiosError)
+            const axiosError = new Error('Request failed');
+            axiosError.config = { auth: { username: 'secretuser', password: 'secretpass' } };
+            axiosPostStub.rejects(axiosError);
 
             try {
-                await connector.sendRawTransaction('deadbeef')
-            } catch(e) {}
+                await connector.sendRawTransaction('deadbeef');
+            } catch (e) {}
 
             for (const call of console.error.getCalls()) {
                 for (const arg of call.args) {
-                    const str = typeof arg === 'string' ? arg : JSON.stringify(arg)
-                    assert.ok(!str.includes('secretuser'), 'console.error leaked username')
-                    assert.ok(!str.includes('secretpass'), 'console.error leaked password')
+                    const str = typeof arg === 'string' ? arg : JSON.stringify(arg);
+                    assert.ok(!str.includes('secretuser'), 'console.error leaked username');
+                    assert.ok(!str.includes('secretpass'), 'console.error leaked password');
                 }
             }
-        })
-    })
+        });
+    });
 
     describe('sendToAddress does not reflect RPC error data', function () {
         it('does not include RPC error response in thrown error', async function () {
@@ -137,28 +143,28 @@ describe('Security: Error Sanitization & Information Disclosure', function () {
                 data: {
                     result: null,
                     error: { code: -5, message: 'Invalid Bitcoin address: DROP TABLE wallets' },
-                    id: 1
-                }
-            })
+                    id: 1,
+                },
+            });
 
             try {
-                await connector.sendToAddress('DROP TABLE wallets', 1.0)
-                assert.fail('should have thrown')
-            } catch(err) {
-                assert.ok(!err.message.includes('DROP TABLE'))
-                assert.ok(!err.message.includes('Invalid Bitcoin'))
+                await connector.sendToAddress('DROP TABLE wallets', 1.0);
+                assert.fail('should have thrown');
+            } catch (err) {
+                assert.ok(!err.message.includes('DROP TABLE'));
+                assert.ok(!err.message.includes('Invalid Bitcoin'));
             }
-        })
-    })
-})
+        });
+    });
+});
 
 describe('Security: Error Sanitization & Information Disclosure', function () {
-    useConnectorFixtures()
+    useConnectorFixtures();
     // ─── SEC-012: API error message reflection ─────────────────────────
     describe('API error messages do not reflect user input (SEC-012)', function () {
-        let XChainRegtestMiner
-        let minerInstance
-        let minerConnectorStub
+        let XChainRegtestMiner;
+        let minerInstance;
+        let minerConnectorStub;
 
         beforeEach(function () {
             minerConnectorStub = {
@@ -175,40 +181,40 @@ describe('Security: Error Sanitization & Information Disclosure', function () {
                 getRawMempool: sinon.stub().resolves([]),
                 getRawTransaction: sinon.stub().resolves(null),
                 sendRawTransaction: sinon.stub().resolves('txid'),
-            }
+            };
 
-            sinon.stub(BlockchainConnector.prototype, 'constructor')
-            XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-            minerInstance = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-            minerInstance.connector = minerConnectorStub
-            sinon.stub(minerInstance, 'sleep').resolves()
-        })
+            sinon.stub(BlockchainConnector.prototype, 'constructor');
+            XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+            minerInstance = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+            minerInstance.connector = minerConnectorStub;
+            sinon.stub(minerInstance, 'sleep').resolves();
+        });
 
         afterEach(function () {
-            delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-        })
+            delete require.cache[require.resolve('../../src/XChainRegtestMiner')];
+        });
 
         it('sendFundsToAddress error does not include the address', async function () {
-            const maliciousAddress = '<script>alert("xss")</script>'
+            const maliciousAddress = '<script>alert("xss")</script>';
             try {
-                await minerInstance.sendFundsToAddress(maliciousAddress, 1.0)
-            } catch(err) {
+                await minerInstance.sendFundsToAddress(maliciousAddress, 1.0);
+            } catch (err) {
                 // The error message should be generic, not containing the address
                 // Even the validation error message is generic
-                assert.ok(!err.message.includes('<script>'))
+                assert.ok(!err.message.includes('<script>'));
             }
-        })
+        });
 
         it('setMiningTime error does not include raw values', async function () {
             // Non-printable objects should not cause crashes; setMiningTime now
             // throws rather than returning a sentinel {error} object (uuid:24c35056)
             try {
-                await minerInstance.setMiningTime({toString: 0}, {toString: 0})
-                assert.fail('expected setMiningTime to throw')
+                await minerInstance.setMiningTime({ toString: 0 }, { toString: 0 });
+                assert.fail('expected setMiningTime to throw');
             } catch (err) {
-                assert.ok(err && err.message)
-                assert.ok(!err.message.includes('[object'))
+                assert.ok(err && err.message);
+                assert.ok(!err.message.includes('[object'));
             }
-        })
-    })
-})
+        });
+    });
+});

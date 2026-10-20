@@ -20,25 +20,33 @@
 
 'use strict';
 
-const { logger } = require('./constants.js')
+const { logger } = require('./constants.js');
 
 // Mines through the fill's private queue until no split tx is left in the mempool.
 // (A 50000 fill is 20 splits of ~85 KB, more than one default block holds; a child
 // of an unconfirmed split hits the node's descendant limit after a few dozen.)
-async function confirmSplitTxs(utxos){
-    const splitTxids = utxos.map((u) => u.txIdSource)
-    const maxMines = utxos.length + 1
+async function confirmSplitTxs(utxos) {
+    const splitTxids = utxos.map((u) => u.txIdSource);
+    const maxMines = utxos.length + 1;
     for (let mines = 1; ; mines++) {
-        await this.generateBlocksQueued(1)
-        const inMempool = new Set(await this.connector.getRawMempool())
-        const pending = splitTxids.filter((id) => inMempool.has(id))
-        if (pending.length === 0) return mines
+        await this.generateBlocksQueued(1);
+        const inMempool = new Set(await this.connector.getRawMempool());
+        const pending = splitTxids.filter((id) => inMempool.has(id));
+        if (pending.length === 0) return mines;
         // Stop at the cap: every block fits at least one split, so a miss means the node is not confirming them.
         if (mines >= maxMines) {
-            throw new Error('fill_mempool: ' + pending.length + ' split transaction(s) still unconfirmed after ' + mines + ' blocks')
+            throw new Error(
+                'fill_mempool: ' +
+                    pending.length +
+                    ' split transaction(s) still unconfirmed after ' +
+                    mines +
+                    ' blocks',
+            );
         }
-        logger.info(pending.length + ' split transaction(s) still unconfirmed after ' + mines + ' block(s); mining another')
+        logger.info(
+            pending.length + ' split transaction(s) still unconfirmed after ' + mines + ' block(s); mining another',
+        );
     }
 }
 
-module.exports = { confirmSplitTxs }
+module.exports = { confirmSplitTxs };

@@ -26,12 +26,12 @@
  * @returns {string|null}
  */
 function rejectedRpcErrorMessage(error) {
-    const body = error && error.response ? error.response.data : null
-    if (!body || typeof body !== 'object') return null
-    const rpcErr = body.error
-    if (!rpcErr) return null
-    if (typeof rpcErr.message === 'string') return rpcErr.message
-    return JSON.stringify(rpcErr)
+    const body = error && error.response ? error.response.data : null;
+    if (!body || typeof body !== 'object') return null;
+    const rpcErr = body.error;
+    if (!rpcErr) return null;
+    if (typeof rpcErr.message === 'string') return rpcErr.message;
+    return JSON.stringify(rpcErr);
 }
 
 /**
@@ -43,9 +43,9 @@ function rejectedRpcErrorMessage(error) {
  * @returns {number|null}
  */
 function rpcErrorCode(body) {
-    if (!body || typeof body !== 'object' || !body.error) return null
-    const code = body.error.code
-    return Number.isInteger(code) ? code : null
+    if (!body || typeof body !== 'object' || !body.error) return null;
+    const code = body.error.code;
+    return Number.isInteger(code) ? code : null;
 }
 
 /**
@@ -58,15 +58,15 @@ function rpcErrorCode(body) {
  * @returns {boolean}
  */
 function isWalletMissingMessage(nodeErr) {
-    return /wallet does not exist or is not loaded|no wallet is loaded/i.test(String(nodeErr))
+    return /wallet does not exist or is not loaded|no wallet is loaded/i.test(String(nodeErr));
 }
 
 // Codes axios sets on a call that hit its timeout.
-const TIMEOUT_ERROR_CODES = ['ECONNABORTED', 'ETIMEDOUT']
+const TIMEOUT_ERROR_CODES = ['ECONNABORTED', 'ETIMEDOUT'];
 
 // Whether an axios rejection is the client giving up on a call the node may still be running.
 function isTimeout(error) {
-    return Boolean(error && TIMEOUT_ERROR_CODES.includes(error.code))
+    return Boolean(error && TIMEOUT_ERROR_CODES.includes(error.code));
 }
 
-module.exports = { isTimeout, isWalletMissingMessage, rejectedRpcErrorMessage, rpcErrorCode }
+module.exports = { isTimeout, isWalletMissingMessage, rejectedRpcErrorMessage, rpcErrorCode };

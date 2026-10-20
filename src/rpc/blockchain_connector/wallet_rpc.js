@@ -51,18 +51,17 @@ function buildSendToAddressData(address, amount, feeRateSatPerVb) {
     //
     // Send NAMED params only with a rate (BTC, or a non-DOGE daemon that dropped settxfee):
     // fee_rate is argument 10, and padding the seven before it differs by version.
-    const feeRate = (typeof feeRateSatPerVb === 'number' && isFinite(feeRateSatPerVb) && feeRateSatPerVb > 0)
-        ? feeRateSatPerVb
-        : null
+    const feeRate =
+        typeof feeRateSatPerVb === 'number' && isFinite(feeRateSatPerVb) && feeRateSatPerVb > 0
+            ? feeRateSatPerVb
+            : null;
     const data = {
         jsonrpc: '2.0',
         method: 'sendtoaddress',
-        params: feeRate
-            ? { address, amount, fee_rate: feeRate }
-            : [address, amount],
+        params: feeRate ? { address, amount, fee_rate: feeRate } : [address, amount],
         id: 1,
-    }
-    return data
+    };
+    return data;
 }
 
 module.exports = {
@@ -76,60 +75,60 @@ module.exports = {
             method: 'createwallet',
             params: [walletName],
             id: 1,
-        }
+        };
 
-        while (tries > 0){
-            let rpcCode = null
-            try{
+        while (tries > 0) {
+            let rpcCode = null;
+            try {
                 const response = await axios.post(this.url, data, {
                     auth: {
                         username: this.rpcUser,
                         password: this.rpcPassword,
-                    }
-                })
+                    },
+                });
 
                 if (response.data && response.data.result) {
                     return response.data.result;
                 }
-                rpcCode = rpcErrorCode(response.data)
-            } catch (err){
-                rpcCode = rejectedRpcCode(err)
+                rpcCode = rpcErrorCode(response.data);
+            } catch (err) {
+                rpcCode = rejectedRpcCode(err);
             }
 
             if (rpcCode !== null && rpcCode !== RPC_IN_WARMUP) {
                 throw walletCallError('Error creating wallet', rpcCode, false);
             }
-            tries--
+            tries--;
 
-            await this.sleep(1000)
+            await this.sleep(1000);
         }
 
         throw new Error('Error creating wallet');
     },
 
-    async getWalletInfo(maxRetries = 50){
+    async getWalletInfo(maxRetries = 50) {
         const data = {
             jsonrpc: '2.0',
             method: 'getwalletinfo',
             params: [],
             id: 1,
-        }
+        };
 
-        let response = null
-        let attempts = 0
-        while (attempts < maxRetries){
-            attempts++
+        let response = null;
+        let attempts = 0;
+        while (attempts < maxRetries) {
+            attempts++;
             try {
                 response = await axios.post(this.walletEndpoint(), data, {
                     auth: {
                         username: this.rpcUser,
                         password: this.rpcPassword,
-                    }
-                })
+                    },
+                });
 
-                break
+                break;
             } catch (error) {
-                await this.sleep(1000)
+                await this.sleep(1000);
             }
         }
 
@@ -146,22 +145,22 @@ module.exports = {
 
     // One attempt. A failure keeps the fixed message and carries the node's rpcCode
     // and a timedOut flag, so the caller can tell "not found" from "already loaded".
-    async loadWallet(walletName){
+    async loadWallet(walletName) {
         const data = {
             jsonrpc: '2.0',
             method: 'loadwallet',
             params: [walletName],
             id: 1,
-        }
+        };
 
-        let response
+        let response;
         try {
             response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
         } catch (error) {
             throw walletCallError('Error loading wallet', rejectedRpcCode(error), isTimeout(error));
         }
@@ -174,34 +173,34 @@ module.exports = {
 
     // Names of the wallets loaded on the node, or null when the daemon cannot say
     // (Dogecoin v1.14 has no listwallets) or the call fails. Never throws.
-    async listWallets(){
+    async listWallets() {
         try {
-            const data = { jsonrpc: '2.0', method: 'listwallets', params: [], id: 1 }
+            const data = { jsonrpc: '2.0', method: 'listwallets', params: [], id: 1 };
             const response = await axios.post(this.url, data, {
-                auth: { username: this.rpcUser, password: this.rpcPassword }
-            })
-            const result = response.data && response.data.result
-            return Array.isArray(result) ? result : null
+                auth: { username: this.rpcUser, password: this.rpcPassword },
+            });
+            const result = response.data && response.data.result;
+            return Array.isArray(result) ? result : null;
         } catch (error) {
-            return null
+            return null;
         }
     },
 
-    async getNewAddress(){
+    async getNewAddress() {
         try {
             const data = {
                 jsonrpc: '2.0',
                 method: 'getnewaddress',
                 params: [],
                 id: 1,
-            }
+            };
 
             const response = await axios.post(this.walletEndpoint(), data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
             if (response.data.result) {
                 return response.data.result;
@@ -216,30 +215,30 @@ module.exports = {
     // The thrown message stays static (a transport error.message leaks the RPC
     // host:port); a lost wallet is flagged on both transports, the HTTP 200 error
     // body Core 28+ sends and the HTTP 500 rejection of the legacy daemons.
-    async getBalance(){
+    async getBalance() {
         const data = {
             jsonrpc: '2.0',
             method: 'getbalance',
             params: [],
             id: 1,
-        }
-        let response
+        };
+        let response;
         try {
             response = await axios.post(this.walletEndpoint(), data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
         } catch (error) {
             throw balanceError(rejectedRpcErrorMessage(error));
         }
 
-        const body = response && response.data
-        if (body && body.result !== null && body.result !== undefined && !isNaN(body.result)){
+        const body = response && response.data;
+        if (body && body.result !== null && body.result !== undefined && !isNaN(body.result)) {
             return body.result;
         }
-        throw balanceError(body && body.error ? (body.error.message || JSON.stringify(body.error)) : null);
+        throw balanceError(body && body.error ? body.error.message || JSON.stringify(body.error) : null);
     },
 
     // Pin a fixed wallet fee rate (coins/kB) so sendtoaddress never consults
@@ -259,20 +258,20 @@ module.exports = {
     // One attempt. Resolves the daemon's answer (true when pinned); an RPC error
     // or a transport failure throws the fixed message with its rpcCode and a
     // timedOut flag, so the caller can tell "method not found" from a hiccup.
-    async setTxFee(feePerKb){
-        const data = { jsonrpc: '2.0', method: 'settxfee', params: [feePerKb], id: 1 }
-        let response
+    async setTxFee(feePerKb) {
+        const data = { jsonrpc: '2.0', method: 'settxfee', params: [feePerKb], id: 1 };
+        let response;
         try {
             response = await axios.post(this.walletEndpoint(), data, {
-                auth: { username: this.rpcUser, password: this.rpcPassword }
-            })
+                auth: { username: this.rpcUser, password: this.rpcPassword },
+            });
         } catch (error) {
             throw walletCallError('Error setting wallet fee', rejectedRpcCode(error), isTimeout(error));
         }
-        const body = response && response.data
-        const rpcCode = rpcErrorCode(body)
+        const body = response && response.data;
+        const rpcCode = rpcErrorCode(body);
         if (rpcCode !== null) throw walletCallError('Error setting wallet fee', rpcCode, false);
-        return Boolean(body) && body.result === true
+        return Boolean(body) && body.result === true;
     },
 
     /**
@@ -288,43 +287,44 @@ module.exports = {
      *   send the bare positional call; DOGE v1.14 has no fee_rate argument, while
      *   an LTC daemon that ever drops settxfee gets the rate like BTC.
      */
-    async sendToAddress(address, amount, feeRateSatPerVb = null){
+    async sendToAddress(address, amount, feeRateSatPerVb = null) {
         try {
-            const data = buildSendToAddressData(address, amount, feeRateSatPerVb)
+            const data = buildSendToAddressData(address, amount, feeRateSatPerVb);
 
             const response = await axios.post(this.walletEndpoint(), data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
-                }
-            })
+                },
+            });
 
-            const result = response.data && response.data.result
+            const result = response.data && response.data.result;
             // sendtoaddress returns a bare txid string under positional params.
             // Still tolerate the verbose-object form {txid:...} in case a future
             // daemon returns it (e.g. if Bitcoin Core ever flips its default).
             if (typeof result === 'string' && result.length > 0) {
-                return result
+                return result;
             }
             if (result && typeof result === 'object' && typeof result.txid === 'string') {
-                return result.txid
+                return result.txid;
             }
-            const nodeErr = response.data && response.data.error
-                ? (response.data.error.message || JSON.stringify(response.data.error))
-                : 'no result, no error'
+            const nodeErr =
+                response.data && response.data.error
+                    ? response.data.error.message || JSON.stringify(response.data.error)
+                    : 'no result, no error';
             // Log the node's own (safe) RPC error for diagnosis, but throw a static
             // message: a transport axios error.message leaks the RPC host:port, and the
             // sanitization security suite requires a clean static thrown message.
-            logger.error('sendtoaddress returned no txid: ' + nodeErr)
-            throw this.sendError(nodeErr)
+            logger.error('sendtoaddress returned no txid: ' + nodeErr);
+            throw this.sendError(nodeErr);
         } catch (error) {
-            if (error && error.walletMissing) throw error
+            if (error && error.walletMissing) throw error;
             // Read the node's error off a non-2xx reply too, so a lost wallet is
             // still flagged on daemons that answer RPC errors with HTTP 500.
-            const nodeErr = rejectedRpcErrorMessage(error)
-            if (nodeErr === null) throw new Error('Error sending funds to address')
-            logger.error('sendtoaddress returned no txid: ' + nodeErr)
-            throw this.sendError(nodeErr)
+            const nodeErr = rejectedRpcErrorMessage(error);
+            if (nodeErr === null) throw new Error('Error sending funds to address');
+            logger.error('sendtoaddress returned no txid: ' + nodeErr);
+            throw this.sendError(nodeErr);
         }
     },
 
@@ -342,10 +342,10 @@ module.exports = {
      * `sendFundsToAddress` re-bootstrap without failing for days.
      */
     sendError(nodeErr) {
-        const err = new Error('Error sending funds to address')
+        const err = new Error('Error sending funds to address');
         if (isWalletMissingMessage(nodeErr)) {
-            err.walletMissing = true
+            err.walletMissing = true;
         }
-        return err
+        return err;
     },
-}
+};

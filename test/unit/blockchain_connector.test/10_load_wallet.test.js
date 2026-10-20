@@ -8,104 +8,113 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const axios = require('axios')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const axios = require('axios');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let connector
-let axiosPostStub
+let connector;
+let axiosPostStub;
 
 function setup() {
-    connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass')
-    axiosPostStub = sinon.stub(axios, 'post')
-    sinon.stub(connector, 'sleep').resolves()
-    sinon.stub(console, 'error')
-    sinon.stub(console, 'log')
+    connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass');
+    axiosPostStub = sinon.stub(axios, 'post');
+    sinon.stub(connector, 'sleep').resolves();
+    sinon.stub(console, 'error');
+    sinon.stub(console, 'log');
 }
 
 function teardown() {
-    sinon.restore()
+    sinon.restore();
 }
 
 function assertRpcCall(expectedMethod, expectedParams) {
-    const [url, data, config] = axiosPostStub.firstCall.args
-    assert.strictEqual(url, 'http://localhost:18332')
-    assert.strictEqual(data.jsonrpc, '2.0')
-    assert.strictEqual(data.method, expectedMethod)
-    assert.strictEqual(data.id, 1)
+    const [url, data, config] = axiosPostStub.firstCall.args;
+    assert.strictEqual(url, 'http://localhost:18332');
+    assert.strictEqual(data.jsonrpc, '2.0');
+    assert.strictEqual(data.method, expectedMethod);
+    assert.strictEqual(data.id, 1);
     if (expectedParams !== undefined) {
-        assert.deepStrictEqual(data.params, expectedParams)
+        assert.deepStrictEqual(data.params, expectedParams);
     }
-    assert.deepStrictEqual(config.auth, { username: 'rpcuser', password: 'rpcpass' })
+    assert.deepStrictEqual(config.auth, { username: 'rpcuser', password: 'rpcpass' });
 }
 
 function rpcSuccess(result) {
-    return { data: { result, error: null, id: 1 } }
+    return { data: { result, error: null, id: 1 } };
 }
 
 function rpcNoResult() {
-    return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } }
+    return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } };
 }
 
 describe('BlockchainConnector', function () {
-    beforeEach(setup)
-    afterEach(teardown)
+    beforeEach(setup);
+    afterEach(teardown);
 
     // ─── loadWallet ─────────────────────────────────────────────────────
 
     describe('loadWallet', function () {
         it('returns wallet info on success', async function () {
-            axiosPostStub.resolves(rpcSuccess({ name: 'w' }))
-            const result = await connector.loadWallet('w')
-            assert.deepStrictEqual(result, { name: 'w' })
-            assertRpcCall('loadwallet', ['w'])
-        })
+            axiosPostStub.resolves(rpcSuccess({ name: 'w' }));
+            const result = await connector.loadWallet('w');
+            assert.deepStrictEqual(result, { name: 'w' });
+            assertRpcCall('loadwallet', ['w']);
+        });
 
         it('throws when result is falsy', async function () {
-            axiosPostStub.resolves(rpcNoResult())
-            await assert.rejects(() => connector.loadWallet('w'), /Error loading wallet/)
-        })
+            axiosPostStub.resolves(rpcNoResult());
+            await assert.rejects(() => connector.loadWallet('w'), /Error loading wallet/);
+        });
 
         it('throws clean error on network error', async function () {
-            axiosPostStub.rejects(new Error('refused'))
-            await assert.rejects(() => connector.loadWallet('w'), /Error loading wallet/)
-        })
-    })
-})
+            axiosPostStub.rejects(new Error('refused'));
+            await assert.rejects(() => connector.loadWallet('w'), /Error loading wallet/);
+        });
+    });
+});
 
 describe('BlockchainConnector', function () {
-    beforeEach(setup)
-    afterEach(teardown)
+    beforeEach(setup);
+    afterEach(teardown);
 
     describe('loadWallet', function () {
         it('carries the node code from an HTTP 200 error body', async function () {
-            axiosPostStub.resolves({ data: { result: null, error: { code: -35, message: 'Wallet "w" is already loaded.' }, id: 1 } })
+            axiosPostStub.resolves({
+                data: { result: null, error: { code: -35, message: 'Wallet "w" is already loaded.' }, id: 1 },
+            });
             await assert.rejects(
                 () => connector.loadWallet('w'),
-                err => err.message === 'Error loading wallet' && err.rpcCode === -35 && !err.timedOut && err.config === undefined
-            )
-        })
+                (err) =>
+                    err.message === 'Error loading wallet' &&
+                    err.rpcCode === -35 &&
+                    !err.timedOut &&
+                    err.config === undefined,
+            );
+        });
 
         it('carries the node code from an HTTP 500 rejection', async function () {
-            const rejection = new Error('Request failed with status code 500')
-            rejection.config = { auth: { username: 'rpcuser', password: 'rpcpass' } }
-            rejection.response = { status: 500, data: { result: null, error: { code: -18, message: 'Path does not exist' }, id: 1 } }
-            axiosPostStub.rejects(rejection)
+            const rejection = new Error('Request failed with status code 500');
+            rejection.config = { auth: { username: 'rpcuser', password: 'rpcpass' } };
+            rejection.response = {
+                status: 500,
+                data: { result: null, error: { code: -18, message: 'Path does not exist' }, id: 1 },
+            };
+            axiosPostStub.rejects(rejection);
             await assert.rejects(
                 () => connector.loadWallet('w'),
-                err => err.message === 'Error loading wallet' && err.rpcCode === -18 && err.config === undefined
-            )
-        })
+                (err) => err.message === 'Error loading wallet' && err.rpcCode === -18 && err.config === undefined,
+            );
+        });
 
         it('flags a timeout without an rpc code', async function () {
-            const timeout = new Error('timeout of 60000ms exceeded')
-            timeout.code = 'ECONNABORTED'
-            axiosPostStub.rejects(timeout)
+            const timeout = new Error('timeout of 60000ms exceeded');
+            timeout.code = 'ECONNABORTED';
+            axiosPostStub.rejects(timeout);
             await assert.rejects(
                 () => connector.loadWallet('w'),
-                err => err.message === 'Error loading wallet' && err.timedOut === true && err.rpcCode === undefined
-            )
-        })
-    })
-})
+                (err) => err.message === 'Error loading wallet' && err.timedOut === true && err.rpcCode === undefined,
+            );
+        });
+    });
+});

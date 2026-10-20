@@ -8,10 +8,15 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const { state, useConnectorFixtures, makeAxiosError, assertConsoleClean } = require('../helpers/connector_sanitization_fixture')
+const assert = require('assert');
+const {
+    state,
+    useConnectorFixtures,
+    makeAxiosError,
+    assertConsoleClean,
+} = require('../helpers/connector_sanitization_fixture');
 describe('Security: BlockchainConnector Error Sanitization', function () {
-    useConnectorFixtures()
+    useConnectorFixtures();
     // ─── Blanket console output credential check ──────────────────────
 
     describe('no method ever logs credentials to console', function () {
@@ -28,20 +33,22 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
             { name: 'getBalance', args: [] },
             { name: 'sendToAddress', args: ['addr', 1.0] },
             { name: 'sendRawTransaction', args: ['hex'] },
-        ]
+        ];
 
         for (const { name, args } of methods) {
             it(`${name} does not log password`, async function () {
-                state.axiosPostStub.rejects(makeAxiosError('ECONNREFUSED'))
-                try { await state.connector[name](...args) } catch (e) {}
-                assertConsoleClean()
-            })
+                state.axiosPostStub.rejects(makeAxiosError('ECONNREFUSED'));
+                try {
+                    await state.connector[name](...args);
+                } catch (e) {}
+                assertConsoleClean();
+            });
         }
-    })
-})
+    });
+});
 
 describe('Security: BlockchainConnector Error Sanitization', function () {
-    useConnectorFixtures()
+    useConnectorFixtures();
     // ─── Error object property checks ─────────────────────────────────
 
     describe('no method exposes .config on thrown errors', function () {
@@ -60,21 +67,21 @@ describe('Security: BlockchainConnector Error Sanitization', function () {
             { name: 'getBalance', args: [] },
             { name: 'sendToAddress', args: ['addr', 1.0] },
             { name: 'sendRawTransaction', args: ['hex'] },
-        ]
+        ];
 
         for (const { name, args } of methods) {
             it(`${name} error has no .config property`, async function () {
-                state.axiosPostStub.rejects(makeAxiosError('ECONNREFUSED'))
+                state.axiosPostStub.rejects(makeAxiosError('ECONNREFUSED'));
                 try {
-                    await state.connector[name](...args)
+                    await state.connector[name](...args);
                     // getRawTransaction returns null, doesn't throw
-                    if (name === 'getRawTransaction') return
-                    assert.fail('should throw')
+                    if (name === 'getRawTransaction') return;
+                    assert.fail('should throw');
                 } catch (err) {
-                    assert.strictEqual(err.config, undefined, `${name} error exposes .config`)
-                    assert.strictEqual(err.response, undefined, `${name} error exposes .response`)
+                    assert.strictEqual(err.config, undefined, `${name} error exposes .config`);
+                    assert.strictEqual(err.response, undefined, `${name} error exposes .response`);
                 }
-            })
+            });
         }
-    })
-})
+    });
+});

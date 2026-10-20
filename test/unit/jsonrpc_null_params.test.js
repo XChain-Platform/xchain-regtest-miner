@@ -25,10 +25,15 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const jsonRouter = require('express-json-rpc-router');
 
-const BODY_GUARD = (req, res, next) => { if (req.body === undefined) req.body = {}; next(); };
+const BODY_GUARD = (req, res, next) => {
+    if (req.body === undefined) req.body = {};
+    next();
+};
 
 const PARAM_GUARD = (req, res, next) => {
-    const normalize = (rpc) => { if (rpc && typeof rpc === 'object' && rpc.params === null) rpc.params = {} };
+    const normalize = (rpc) => {
+        if (rpc && typeof rpc === 'object' && rpc.params === null) rpc.params = {};
+    };
     if (Array.isArray(req.body)) req.body.forEach(normalize);
     else normalize(req.body);
     next();
@@ -38,9 +43,10 @@ const PARAM_GUARD = (req, res, next) => {
 // and reports failure as a truthy {error} result, exactly as send_funds does.
 const METHODS = {
     async send_funds({ address, amount }) {
-        if (typeof address !== 'string' || !address) return { error: 'There was a problem sending funds: Invalid address' };
+        if (typeof address !== 'string' || !address)
+            return { error: 'There was a problem sending funds: Invalid address' };
         return 'txid-' + address + '-' + amount;
-    }
+    },
 };
 
 function buildApp(withParamGuard) {
@@ -60,7 +66,7 @@ async function rpc(app, body) {
         const res = await fetch(`http://127.0.0.1:${port}/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
         return JSON.parse(await res.text());
     } finally {
@@ -93,14 +99,19 @@ describe('JSON-RPC null params normalization', function () {
     });
 
     it('a well-formed call is untouched', async () => {
-        const r = await rpc(buildApp(true), { jsonrpc: '2.0', id: 1, method: 'send_funds', params: { address: 'bcrt1q', amount: 2 } });
+        const r = await rpc(buildApp(true), {
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'send_funds',
+            params: { address: 'bcrt1q', amount: 2 },
+        });
         assert.strictEqual(r.result, 'txid-bcrt1q-2');
     });
 
     it('normalizes each member of a batch body rather than replacing the array', async () => {
         const r = await rpc(buildApp(true), [
             { jsonrpc: '2.0', id: 1, method: 'send_funds', params: null },
-            { jsonrpc: '2.0', id: 2, method: 'send_funds', params: { address: 'bcrt1q', amount: 1 } }
+            { jsonrpc: '2.0', id: 2, method: 'send_funds', params: { address: 'bcrt1q', amount: 1 } },
         ]);
         assert.ok(Array.isArray(r), 'batch replies must stay a batch');
         assert.strictEqual(r.length, 2);

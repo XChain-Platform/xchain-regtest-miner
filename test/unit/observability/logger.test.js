@@ -66,7 +66,10 @@ describe('observability logger: shape and prefix', function () {
         getLogger('a').info('one');
         getLogger('b').info('two');
         sinon.restore();
-        assert.deepStrictEqual(c.log.getCalls().map((call) => call.args[0]), ['[a] one', '[b] two']);
+        assert.deepStrictEqual(
+            c.log.getCalls().map((call) => call.args[0]),
+            ['[a] one', '[b] two'],
+        );
     });
 });
 
@@ -75,7 +78,12 @@ describe('observability logger: level routing', function () {
         sinon.restore();
     });
 
-    const ROUTES = [['debug', 'debug'], ['info', 'log'], ['warn', 'warn'], ['error', 'error']];
+    const ROUTES = [
+        ['debug', 'debug'],
+        ['info', 'log'],
+        ['warn', 'warn'],
+        ['error', 'error'],
+    ];
     for (const [level, method] of ROUTES) {
         it(`routes ${level} to console.${method} and no other console method`, function () {
             const c = stubConsole();

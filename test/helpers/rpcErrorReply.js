@@ -21,21 +21,21 @@
  * legacy shape there too.
  */
 
-const DAEMONS = ['legacy', 'doge114', 'core31']
+const DAEMONS = ['legacy', 'doge114', 'core31'];
 
 // Refuse a daemon name no double models.
 function assertDaemon(daemon) {
     if (!DAEMONS.includes(daemon)) {
-        throw new Error(`Unknown daemon "${daemon}"; expected one of ${DAEMONS.join(', ')}`)
+        throw new Error(`Unknown daemon "${daemon}"; expected one of ${DAEMONS.join(', ')}`);
     }
-    return daemon
+    return daemon;
 }
 
 // Map an RPC error code to the HTTP status of the pre-2.0 transport.
 function legacyStatus(code) {
-    if (code === -32601) return 404
-    if (code === -32600) return 400
-    return 500
+    if (code === -32601) return 404;
+    if (code === -32600) return 400;
+    return 500;
 }
 
 /**
@@ -45,11 +45,11 @@ function legacyStatus(code) {
  * @param {{daemon: string, request: object, error: {code: number, message: string}}} opts
  */
 function sendRpcError(res, { daemon, request, error }) {
-    const id = request && request.id !== undefined ? request.id : null
+    const id = request && request.id !== undefined ? request.id : null;
     if (daemon === 'core31' && request && request.jsonrpc === '2.0') {
-        return res.status(200).json({ jsonrpc: '2.0', error, id })
+        return res.status(200).json({ jsonrpc: '2.0', error, id });
     }
-    return res.status(legacyStatus(error.code)).json({ result: null, error, id })
+    return res.status(legacyStatus(error.code)).json({ result: null, error, id });
 }
 
-module.exports = { DAEMONS, assertDaemon, legacyStatus, sendRpcError }
+module.exports = { DAEMONS, assertDaemon, legacyStatus, sendRpcError };

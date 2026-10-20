@@ -18,27 +18,25 @@
  * A fixed mnemonic makes all keys and addresses deterministic.
  */
 
-const assert = require('assert')
-const {
-    network, mainKeyNode, MAIN_ADDRESS, bitcoin, ecc,
-} = require('../helpers/fixtures')
-const { ECPairFactory } = require('ecpair')
+const assert = require('assert');
+const { network, mainKeyNode, MAIN_ADDRESS, bitcoin, ecc } = require('../helpers/fixtures');
+const { ECPairFactory } = require('ecpair');
 
 describe('Seam C: fillMempool ↔ bitcoinjs-lib crypto pipeline', function () {
     describe('ECPair network parameter', function () {
         it('creates key pair with regtest network', function () {
-            const ECPair = ECPairFactory(ecc)
-            const keyPair = ECPair.fromPrivateKey(mainKeyNode.privateKey, { network })
-            assert.ok(keyPair.publicKey, 'Should have a public key')
-            assert.ok(keyPair.privateKey, 'Should have a private key')
-            assert.deepStrictEqual(keyPair.network, bitcoin.networks.regtest)
-        })
+            const ECPair = ECPairFactory(ecc);
+            const keyPair = ECPair.fromPrivateKey(mainKeyNode.privateKey, { network });
+            assert.ok(keyPair.publicKey, 'Should have a public key');
+            assert.ok(keyPair.privateKey, 'Should have a private key');
+            assert.deepStrictEqual(keyPair.network, bitcoin.networks.regtest);
+        });
 
         it('produces the same address as direct P2PKH derivation', function () {
-            const ECPair = ECPairFactory(ecc)
-            const keyPair = ECPair.fromPrivateKey(mainKeyNode.privateKey, { network })
-            const ecPairAddr = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network }).address
-            assert.strictEqual(ecPairAddr, MAIN_ADDRESS)
-        })
-    })
-})
+            const ECPair = ECPairFactory(ecc);
+            const keyPair = ECPair.fromPrivateKey(mainKeyNode.privateKey, { network });
+            const ecPairAddr = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network }).address;
+            assert.strictEqual(ecPairAddr, MAIN_ADDRESS);
+        });
+    });
+});

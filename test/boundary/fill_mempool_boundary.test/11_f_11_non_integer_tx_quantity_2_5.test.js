@@ -8,17 +8,17 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
-let XChainRegtestMiner
-let miner
-let connectorStub
-const OUTPUTS_QUANTITY_PER_TX = 2500
-const AMOUNT_FOR_EACH_ADDRESS = 1000
-const FEE = 1000
-const SATOSHI_UNIT = 100000000.0
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
+const OUTPUTS_QUANTITY_PER_TX = 2500;
+const AMOUNT_FOR_EACH_ADDRESS = 1000;
+const FEE = 1000;
+const SATOSHI_UNIT = 100000000.0;
 
 function setupMiner() {
     connectorStub = {
@@ -36,52 +36,51 @@ function setupMiner() {
         getRawTransaction: sinon.stub().resolves(null),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
         getNetworkInfo: sinon.stub().resolves({}),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 
-    miner.walletAddress = 'bcrt1qtest'
+    miner.walletAddress = 'bcrt1qtest';
 }
 
 function teardownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 function registerMinerHooks() {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 }
 
 describe('Boundary: fillMempool Chunking and Calculations', function () {
-    registerMinerHooks()
+    registerMinerHooks();
 
     // ─── F-11: Non-integer tx_quantity ──────────────────────────────────
 
     describe('F-11: non-integer tx_quantity (2.5)', function () {
         it('Math.ceil handles float: 2.5/2500 rounds up to 1 chunk', function () {
-            const txQuantity = 2.5
-            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
-            assert.strictEqual(chunks, 1)
-        })
+            const txQuantity = 2.5;
+            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX);
+            assert.strictEqual(chunks, 1);
+        });
 
         it('address loop runs fractional times (effectively 2 iterations)', function () {
-            const txQuantity = 2.5
-            let count = 0
+            const txQuantity = 2.5;
+            let count = 0;
             for (let i = 0; i < txQuantity; i++) {
-                count++
+                count++;
             }
             // i goes 0, 1, 2: loop runs 3 times (0 < 2.5, 1 < 2.5, 2 < 2.5, 3 >= 2.5 stops)
-            assert.strictEqual(count, 3,
-                'Float comparison: 0,1,2 all < 2.5 so loop runs 3 times')
-        })
-    })
-})
+            assert.strictEqual(count, 3, 'Float comparison: 0,1,2 all < 2.5 so loop runs 3 times');
+        });
+    });
+});

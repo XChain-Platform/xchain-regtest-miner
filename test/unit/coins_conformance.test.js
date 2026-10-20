@@ -29,51 +29,52 @@
 // green-by-skip.
 
 const assert = require('assert');
-const fs     = require('fs');
-const path   = require('path');
+const fs = require('fs');
+const path = require('path');
 const { siblingCheckout, skipOrFail } = require('../helpers/sibling_checkout.js');
 
 const coins = require('../../src/coins');
 const { CONSENSUS_CONFIG_PIN } = require('../../src/coins/consensus_pin.js');
 
 const LOCAL_COINS_DIR = path.join(__dirname, '..', '..', 'src', 'coins');
-const HUB_DIR   = process.env.XCHAIN_HUB_DIR || path.join(__dirname, '..', '..', '..', 'xchain-hub');
+const HUB_DIR = process.env.XCHAIN_HUB_DIR || path.join(__dirname, '..', '..', '..', 'xchain-hub');
 const CANON_DIR = path.join(HUB_DIR, 'src', 'coins');
 const CANON_VERDICT = siblingCheckout(__dirname, CANON_DIR);
 
 // Keep in lockstep with FILES in xchain-hub/bin/sync-coins.sh.
 const VENDORED_FILES = ['BTC.js', 'LTC.js', 'DOGE.js', 'index.js', 'consensus_pin.js'];
 
-describe('coin-registry conformance (vendored copy) @regression', function(){
-
-    describe('pin == consensusHash over the vendored files', function(){
-        for(const net of coins.NETWORKS){
+describe('coin-registry conformance (vendored copy) @regression', function () {
+    describe('pin == consensusHash over the vendored files', function () {
+        for (const net of coins.NETWORKS) {
             const pin = CONSENSUS_CONFIG_PIN[net];
-            if(pin === null || pin === undefined) continue; // pre-arm (mainnet)
-            for(const tick of coins.ALLOWED_COINS){
-                if(!pin[tick]) continue; // freshly added chain, not yet pinned
-                it(`${tick}/${net} vendored pin matches the vendored consensusHash`, function(){
+            if (pin === null || pin === undefined) continue; // pre-arm (mainnet)
+            for (const tick of coins.ALLOWED_COINS) {
+                if (!pin[tick]) continue; // freshly added chain, not yet pinned
+                it(`${tick}/${net} vendored pin matches the vendored consensusHash`, function () {
                     assert.strictEqual(coins.consensusHash(tick, net), String(pin[tick]).toLowerCase());
                 });
             }
         }
-        it('verifyConsensusPin passes for every network on the vendored bundle', function(){
-            for(const net of coins.NETWORKS) coins.verifyConsensusPin(net);
+        it('verifyConsensusPin passes for every network on the vendored bundle', function () {
+            for (const net of coins.NETWORKS) coins.verifyConsensusPin(net);
         });
     });
 
-    describe('byte-identity to canonical xchain-hub/src/coins', function(){
-        before(function(){
-            if(!CANON_VERDICT.usable)
-                return skipOrFail(this, CANON_VERDICT, 'the canonical coin-registry guard');
+    describe('byte-identity to canonical xchain-hub/src/coins', function () {
+        before(function () {
+            if (!CANON_VERDICT.usable) return skipOrFail(this, CANON_VERDICT, 'the canonical coin-registry guard');
         });
 
-        VENDORED_FILES.forEach(function(f){
-            it(f + ' is byte-identical to the canonical xchain-hub copy', function(){
+        VENDORED_FILES.forEach(function (f) {
+            it(f + ' is byte-identical to the canonical xchain-hub copy', function () {
                 const local = fs.readFileSync(path.join(LOCAL_COINS_DIR, f), 'utf8');
                 const canon = fs.readFileSync(path.join(CANON_DIR, f), 'utf8');
-                assert.strictEqual(local, canon,
-                    f + ' drifted from canonical xchain-hub/src/coins; run xchain-hub/bin/sync-coins.sh to resync');
+                assert.strictEqual(
+                    local,
+                    canon,
+                    f + ' drifted from canonical xchain-hub/src/coins; run xchain-hub/bin/sync-coins.sh to resync',
+                );
             });
         });
     });

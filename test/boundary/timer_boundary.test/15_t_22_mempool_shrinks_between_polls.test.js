@@ -8,14 +8,14 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
-let XChainRegtestMiner
-let miner
-let connectorStub
-let clock
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
+let clock;
 
 function setupMiner() {
     connectorStub = {
@@ -33,65 +33,66 @@ function setupMiner() {
         getRawTransaction: sinon.stub().resolves('0200000001...'),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
         getNetworkInfo: sinon.stub().resolves({}),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(miner, 'prepareWallet').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(miner, 'prepareWallet').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 
-    miner.walletAddress = 'bcrt1qtest'
+    miner.walletAddress = 'bcrt1qtest';
 
-    clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false })
+    clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false });
 }
 
 function teardownMiner() {
-    clock.restore()
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    clock.restore();
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 function registerMinerHooks() {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 }
 
 describe('Boundary: Adaptive Mining Timer Logic', function () {
-    registerMinerHooks()
+    registerMinerHooks();
 
     // ─── T-22: Mempool shrinks (tx eviction) ───────────────────────────
 
     describe('T-22: mempool shrinks between polls', function () {
         it('does not reset timers on mempool shrink (length still > 0)', async function () {
-            miner.maxTimeToMineTxs = 100
-            miner.addedTimeToMineTxs = 50000
+            miner.maxTimeToMineTxs = 100;
+            miner.addedTimeToMineTxs = 50000;
 
             // Start with 3 txs, then shrink to 2 (eviction)
-            connectorStub.getRawMempool.onCall(0).resolves(['a', 'b', 'c'])
-            connectorStub.getRawMempool.onCall(1).resolves(['a', 'b'])
-            connectorStub.getRawMempool.onCall(2).resolves(['a', 'b'])
+            connectorStub.getRawMempool.onCall(0).resolves(['a', 'b', 'c']);
+            connectorStub.getRawMempool.onCall(1).resolves(['a', 'b']);
+            connectorStub.getRawMempool.onCall(2).resolves(['a', 'b']);
 
-            let iterCount = 0
+            let iterCount = 0;
             miner.sleep.callsFake(async () => {
-                iterCount++
-                if (iterCount === 1) clock.tick(150) // Past maxTime
-                if (iterCount >= 4) throw new Error('__LOOP_BREAK__')
-            })
+                iterCount++;
+                if (iterCount === 1) clock.tick(150); // Past maxTime
+                if (iterCount >= 4) throw new Error('__LOOP_BREAK__');
+            });
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
+            try {
+                await miner.start();
+            } catch (e) {
+                if (e.message !== '__LOOP_BREAK__') throw e;
             }
 
             // The shrink means rawMempool.length (2) is NOT > lastRawMempoolLength (3),
             // so extendedStartToMine is not reset. maxTime should still fire.
-            assert(connectorStub.generateToAddress.called,
-                'Timer should fire despite mempool shrink')
-        })
-    })
-})
+            assert(connectorStub.generateToAddress.called, 'Timer should fire despite mempool shrink');
+        });
+    });
+});

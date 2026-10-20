@@ -29,8 +29,7 @@ describe('pin identity tool', () => {
             ...fresh,
             coins: { ...fresh.coins, [target]: 'changed' },
         };
-        const differingFiles = Object.keys(fresh.coins)
-            .filter((file) => changed.coins[file] !== fresh.coins[file]);
+        const differingFiles = Object.keys(fresh.coins).filter((file) => changed.coins[file] !== fresh.coins[file]);
 
         assert.deepEqual(Object.keys(changed.coins), Object.keys(fresh.coins));
         assert.deepEqual(differingFiles, [target]);

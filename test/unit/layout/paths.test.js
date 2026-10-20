@@ -8,26 +8,26 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const fs = require('fs')
-const path = require('path')
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 
-const root = path.resolve(__dirname, '../../..')
+const root = path.resolve(__dirname, '../../..');
 
 describe('source layout', function () {
     it('keeps the blockchain connector in the rpc directory', function () {
-        assert.strictEqual(fs.existsSync(path.join(root, 'src/blockchain_connector.js')), false)
-        assert.strictEqual(fs.existsSync(path.join(root, 'src/rpc/blockchain_connector.js')), true)
+        assert.strictEqual(fs.existsSync(path.join(root, 'src/blockchain_connector.js')), false);
+        assert.strictEqual(fs.existsSync(path.join(root, 'src/rpc/blockchain_connector.js')), true);
 
-        const miner = fs.readFileSync(path.join(root, 'src/XChainRegtestMiner.js'), 'utf8')
-        assert.match(miner, /require\('\.\/rpc\/blockchain_connector\.js'\)/)
-    })
+        const miner = fs.readFileSync(path.join(root, 'src/XChainRegtestMiner.js'), 'utf8');
+        assert.match(miner, /require\('\.\/rpc\/blockchain_connector\.js'\)/);
+    });
 
     it('keeps crypto networks in the networks directory', function () {
-        assert.strictEqual(fs.existsSync(path.join(root, 'src/crypto_networks.js')), false)
-        assert.strictEqual(fs.existsSync(path.join(root, 'src/networks/crypto_networks.js')), true)
+        assert.strictEqual(fs.existsSync(path.join(root, 'src/crypto_networks.js')), false);
+        assert.strictEqual(fs.existsSync(path.join(root, 'src/networks/crypto_networks.js')), true);
 
-        const fillPlan = fs.readFileSync(path.join(root, 'src/XChainRegtestMiner/fill_plan.js'), 'utf8')
-        assert.match(fillPlan, /require\('\.\.\/networks\/crypto_networks\.js'\)/)
-    })
-})
+        const fillPlan = fs.readFileSync(path.join(root, 'src/XChainRegtestMiner/fill_plan.js'), 'utf8');
+        assert.match(fillPlan, /require\('\.\.\/networks\/crypto_networks\.js'\)/);
+    });
+});

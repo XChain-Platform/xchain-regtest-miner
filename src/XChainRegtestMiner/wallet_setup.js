@@ -27,14 +27,14 @@ const {
     PER_CALL_FEE_RATE_COINS,
     SETTXFEE_COINS,
     FEE_RATE_REFUSING_COINS,
-    logger
-} = require('./constants.js')
-const { trySetTxFee } = require('./settxfee_probe.js')
-const { loadWalletOnce, WALLET_LOAD_MAX_ATTEMPTS, WALLET_LOAD_RETRY_INTERVAL_MS } = require('./wallet_load.js')
+    logger,
+} = require('./constants.js');
+const { trySetTxFee } = require('./settxfee_probe.js');
+const { loadWalletOnce, WALLET_LOAD_MAX_ATTEMPTS, WALLET_LOAD_RETRY_INTERVAL_MS } = require('./wallet_load.js');
 
 // The wallet-availability probe prepareWallet opens with. Resolves the probed
 // address, or null when every attempt failed and the load/create path must run.
-async function probeWalletAddress(){
+async function probeWalletAddress() {
     // Probe with getNewAddress: succeeds whenever ANY wallet is usable,
     // including modern Bitcoin Core 0.17+ with an already-loaded named
     // wallet, or legacy single-wallet chains (Dogecoin v1.14.x, older
@@ -47,51 +47,53 @@ async function probeWalletAddress(){
     // after a fresh `xchain-node reset` (the miner crashes because
     // `createWallet` as the fallback isn't supported on DOGE). A handful
     // of 1-second retries covers wallet load in practice.
-    let probeAddress = null
-    const PROBE_MAX_ATTEMPTS = 10
-    const PROBE_INTERVAL_MS  = 1000
+    let probeAddress = null;
+    const PROBE_MAX_ATTEMPTS = 10;
+    const PROBE_INTERVAL_MS = 1000;
     for (let attempt = 1; attempt <= PROBE_MAX_ATTEMPTS; attempt++) {
         try {
-            probeAddress = await this.connector.getNewAddress()
-            break
-        } catch(err){
+            probeAddress = await this.connector.getNewAddress();
+            break;
+        } catch (err) {
             if (attempt < PROBE_MAX_ATTEMPTS) {
-                await this.sleep(PROBE_INTERVAL_MS)
+                await this.sleep(PROBE_INTERVAL_MS);
             }
             // After the last attempt, fall through to the load/create path.
         }
     }
-    return probeAddress
+    return probeAddress;
 }
 
 // Binds the miner to its own named wallet after the base-URL probe succeeded and
 // resolves the address to mine to. Core and LTC serve a base-URL wallet call from
 // whichever single wallet is loaded, so a foreign wallet answering is swapped for ours.
-async function bindProbedWallet(probeAddress){
-    let info = null
+async function bindProbedWallet(probeAddress) {
+    let info = null;
     try {
         // Keep the retries low: the probe just answered on this same endpoint.
-        info = await this.connector.getWalletInfo(3)
-    } catch(err){
-        logger.warn('Could not read wallet info after a successful probe; staying on the base RPC URL')
-        return probeAddress
+        info = await this.connector.getWalletInfo(3);
+    } catch (err) {
+        logger.warn('Could not read wallet info after a successful probe; staying on the base RPC URL');
+        return probeAddress;
     }
 
     // No walletname field means a legacy single-wallet daemon (Dogecoin v1.14).
-    if (!info || typeof info.walletname !== 'string'){
-        return probeAddress
+    if (!info || typeof info.walletname !== 'string') {
+        return probeAddress;
     }
 
     // Our wallet answered: pin it so a second wallet loaded later cannot break routing.
-    if (info.walletname === this.walletNameParam){
-        this.connector.setWalletName(this.walletNameParam)
-        return probeAddress
+    if (info.walletname === this.walletNameParam) {
+        this.connector.setWalletName(this.walletNameParam);
+        return probeAddress;
     }
 
     // A foreign wallet answered (an empty name is Core's unnamed default wallet).
-    logger.warn(`Probe was answered by wallet '${info.walletname}', not '${this.walletNameParam}'; loading and pinning ours`)
-    await this.ensureWalletLoaded()
-    return await this.connector.getNewAddress()
+    logger.warn(
+        `Probe was answered by wallet '${info.walletname}', not '${this.walletNameParam}'; loading and pinning ours`,
+    );
+    await this.ensureWalletLoaded();
+    return await this.connector.getNewAddress();
 }
 
 // Settles the startup balance read. A wallet prepareWallet found empty is mined
@@ -100,9 +102,9 @@ async function bindProbedWallet(probeAddress){
 // the stamp and the pin share this one async body so the final balance check, the
 // stamp and the opening run of the pin stay one synchronous run: across two async
 // functions a turn would separate them, and a concurrent flow could land there.
-async function settleStartupBalance(){
-    if (this.balance <= 0){
-        logger.info("Mining blocks to get balance in the wallet")
+async function settleStartupBalance() {
+    if (this.balance <= 0) {
+        logger.info('Mining blocks to get balance in the wallet');
         // Always mine to coinbase-maturity depth regardless of current chain
         // height: fewer blocks (e.g. a single one on an aged chain) would only
         // add an immature coinbase (spendable after 100 confirmations), leaving
@@ -111,26 +113,26 @@ async function settleStartupBalance(){
         // Private entry point: start() runs this warmup without awaiting while the API
         // is already listening, so a fill_mempool arriving during it must not
         // turn wallet preparation into a boot failure.
-        await this.generateBlocksQueued(101)
+        await this.generateBlocksQueued(101);
 
         // Re-poll the balance in a bounded loop instead of trusting the
         // mining call: ping/status export walletReady as the readiness
         // oracle, so it must reflect an observed spendable balance, not
         // just that a mining RPC was issued.
-        const BALANCE_POLL_MAX_ATTEMPTS = 10
-        const BALANCE_POLL_INTERVAL_MS = 1000
+        const BALANCE_POLL_MAX_ATTEMPTS = 10;
+        const BALANCE_POLL_INTERVAL_MS = 1000;
         for (let attempt = 1; attempt <= BALANCE_POLL_MAX_ATTEMPTS; attempt++) {
-            this.balance = await this.connector.getBalance()
-            if (this.balance > 0){
-                break
+            this.balance = await this.connector.getBalance();
+            if (this.balance > 0) {
+                break;
             }
             if (attempt < BALANCE_POLL_MAX_ATTEMPTS) {
-                await this.sleep(BALANCE_POLL_INTERVAL_MS)
+                await this.sleep(BALANCE_POLL_INTERVAL_MS);
             }
         }
 
-        if (this.balance <= 0){
-            throw new Error("Wallet balance still 0 after mining to maturity; cannot mark wallet ready")
+        if (this.balance <= 0) {
+            throw new Error('Wallet balance still 0 after mining to maturity; cannot mark wallet ready');
         }
     }
 
@@ -138,9 +140,9 @@ async function settleStartupBalance(){
     // interval from here rather than firing a redundant getbalance on its very
     // first tick, which would also null the balance just measured on any venue
     // whose connector answers that call less reliably than this one just did.
-    this._balanceReadAt = Date.now()
+    this._balanceReadAt = Date.now();
 
-    await this.pinFundingFeeRate()
+    await this.pinFundingFeeRate();
 }
 
 module.exports = {
@@ -159,30 +161,32 @@ module.exports = {
      * answers createwallet with "Database already exists" forever. Any other
      * failure is retried within WALLET_LOAD_MAX_ATTEMPTS, checking listwallets.
      */
-    async ensureWalletLoaded(){
-        const walletName = this.walletNameParam
+    async ensureWalletLoaded() {
+        const walletName = this.walletNameParam;
         for (let attempt = 1; attempt <= WALLET_LOAD_MAX_ATTEMPTS; attempt++) {
-            if (await loadWalletOnce.call(this, walletName)){
-                this.connector.setWalletName(walletName)
-                return
+            if (await loadWalletOnce.call(this, walletName)) {
+                this.connector.setWalletName(walletName);
+                return;
             }
             if (attempt < WALLET_LOAD_MAX_ATTEMPTS) {
-                logger.warn(`Wallet '${walletName}' not confirmed loaded (attempt ${attempt}/${WALLET_LOAD_MAX_ATTEMPTS}); retrying the load`)
-                await this.sleep(WALLET_LOAD_RETRY_INTERVAL_MS)
+                logger.warn(
+                    `Wallet '${walletName}' not confirmed loaded (attempt ${attempt}/${WALLET_LOAD_MAX_ATTEMPTS}); retrying the load`,
+                );
+                await this.sleep(WALLET_LOAD_RETRY_INTERVAL_MS);
             }
         }
-        throw new Error(`Could not load wallet '${walletName}' on regtest node: the node never confirmed it loaded`)
+        throw new Error(`Could not load wallet '${walletName}' on regtest node: the node never confirmed it loaded`);
     },
 
-    async sendFundsToAddress(address, amount){
+    async sendFundsToAddress(address, amount) {
         if (typeof address !== 'string' || address.length === 0) {
-            throw new Error('Invalid address: must be a non-empty string')
+            throw new Error('Invalid address: must be a non-empty string');
         }
         if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
-            throw new Error('Invalid amount: must be a positive finite number')
+            throw new Error('Invalid amount: must be a positive finite number');
         }
         try {
-            return await this.connector.sendToAddress(address, amount, this.fundingFeeRateSatPerVb)
+            return await this.connector.sendToAddress(address, amount, this.fundingFeeRateSatPerVb);
         } catch (err) {
             // A node RESTARTED under a long-running miner comes back with no
             // wallet loaded, and the wallet is bootstrapped exactly once, at
@@ -192,22 +196,22 @@ module.exports = {
             // is unusable. Measured 2026-08-11: BTC regtest sat like this for
             // 30 hours and read, from the outside, as an unexplained
             // "Error sending funds to address".
-            if (!err || !err.walletMissing) throw err
-            logger.info('Wallet is no longer loaded on the node (restarted?); reloading and retrying once')
-            await this.ensureWalletLoaded()
+            if (!err || !err.walletMissing) throw err;
+            logger.info('Wallet is no longer loaded on the node (restarted?); reloading and retrying once');
+            await this.ensureWalletLoaded();
             // Re-pin after the reload: settxfee is in-memory wallet state, so the
             // reloaded wallet on LTC/DOGE comes back without its fee ceiling.
-            await this.pinFundingFeeRate()
-            return await this.connector.sendToAddress(address, amount, this.fundingFeeRateSatPerVb)
+            await this.pinFundingFeeRate();
+            return await this.connector.sendToAddress(address, amount, this.fundingFeeRateSatPerVb);
         }
     },
 
-    async createWallet(walletName){
+    async createWallet(walletName) {
         try {
-            await this.connector.createWallet(walletName)
-            return true
-        } catch(err){
-            throw new Error('Error creating wallet: ' + (err && err.message ? err.message : err))
+            await this.connector.createWallet(walletName);
+            return true;
+        } catch (err) {
+            throw new Error('Error creating wallet: ' + (err && err.message ? err.message : err));
         }
     },
 
@@ -245,77 +249,85 @@ module.exports = {
      *
      * @returns {Promise<'fee_rate'|'settxfee'|'none'>} the mechanism in force
      */
-    async pinFundingFeeRate(){
-        const coin = String(this.network || '').split('-')[0].toLowerCase()
+    async pinFundingFeeRate() {
+        const coin = String(this.network || '')
+            .split('-')[0]
+            .toLowerCase();
 
         const useFeeRate = () => {
-            this.fundingFeeRateSatPerVb = FUNDING_FEE_RATE_SAT_PER_VB
-            logger.info('Funding sends pinned to ' + FUNDING_FEE_RATE_SAT_PER_VB +
-                ' sat/vB via the per-call fee_rate argument (settxfee is gone as of Bitcoin Core 31)')
-            return 'fee_rate'
-        }
+            this.fundingFeeRateSatPerVb = FUNDING_FEE_RATE_SAT_PER_VB;
+            logger.info(
+                'Funding sends pinned to ' +
+                    FUNDING_FEE_RATE_SAT_PER_VB +
+                    ' sat/vB via the per-call fee_rate argument (settxfee is gone as of Bitcoin Core 31)',
+            );
+            return 'fee_rate';
+        };
 
         if (PER_CALL_FEE_RATE_COINS.includes(coin)) {
-            return useFeeRate()
+            return useFeeRate();
         }
 
-        const answer = await trySetTxFee.call(this)
+        const answer = await trySetTxFee.call(this);
         if (answer === true) {
             // Leave the per-call rate null: the wallet-wide pin already caps the
             // send, and DOGE v1.14 refuses a fee_rate argument.
-            this.fundingFeeRateSatPerVb = null
-            logger.info('Pinned wallet fee rate to ' + FUNDING_FEE_RATE_COINS_PER_KB +
-                '/kB via settxfee (regtest estimatesmartfee bypass)')
-            return 'settxfee'
+            this.fundingFeeRateSatPerVb = null;
+            logger.info(
+                'Pinned wallet fee rate to ' +
+                    FUNDING_FEE_RATE_COINS_PER_KB +
+                    '/kB via settxfee (regtest estimatesmartfee bypass)',
+            );
+            return 'settxfee';
         }
-        const takesFeeRate = SETTXFEE_COINS.includes(coin) && !FEE_RATE_REFUSING_COINS.includes(coin)
+        const takesFeeRate = SETTXFEE_COINS.includes(coin) && !FEE_RATE_REFUSING_COINS.includes(coin);
         if (answer === 'unreachable' && takesFeeRate) {
             // Nothing is known about the rate, and this daemon accepts fee_rate, so keep a ceiling.
-            logger.warn('settxfee could not be reached on this ' + coin + ' daemon; pinning fee_rate per call')
-            return useFeeRate()
+            logger.warn('settxfee could not be reached on this ' + coin + ' daemon; pinning fee_rate per call');
+            return useFeeRate();
         }
         if (answer === 'unreachable' && this.fundingFeeRateSatPerVb != null) {
             // A re-pin after a wallet reload: the per-call rate holds no wallet state, so keep it.
-            logger.warn('settxfee could not be reached on re-pin; keeping the per-call fee_rate already in force')
-            return 'fee_rate'
+            logger.warn('settxfee could not be reached on re-pin; keeping the per-call fee_rate already in force');
+            return 'fee_rate';
         }
         if (answer === 'refused' || answer === 'unreachable') {
             // Stay on the positional no-rate form, which every supported daemon accepts.
-            this.fundingFeeRateSatPerVb = null
-            logger.warn('settxfee could not be confirmed on this daemon; funding sends use the fee estimate')
-            return 'none'
+            this.fundingFeeRateSatPerVb = null;
+            logger.warn('settxfee could not be confirmed on this daemon; funding sends use the fee estimate');
+            return 'none';
         }
 
         if (FEE_RATE_REFUSING_COINS.includes(coin)) {
             // Stay positional on a daemon that refuses fee_rate (DOGE v1.14).
-            this.fundingFeeRateSatPerVb = null
-            logger.info('settxfee not found on this ' + coin +
-                ' daemon; funding sends use the fee estimate')
-            return 'none'
+            this.fundingFeeRateSatPerVb = null;
+            logger.info('settxfee not found on this ' + coin + ' daemon; funding sends use the fee estimate');
+            return 'none';
         }
         // Surface the daemon change: a coin that shipped settxfee losing it means a new release.
-        if (SETTXFEE_COINS.includes(coin)) logger.warn('settxfee not found on this ' + coin + ' daemon; pinning fee_rate per call')
-        return useFeeRate()
+        if (SETTXFEE_COINS.includes(coin))
+            logger.warn('settxfee not found on this ' + coin + ' daemon; pinning fee_rate per call');
+        return useFeeRate();
     },
 
-    async prepareWallet(){
-        logger.info("Checking wallet availability")
+    async prepareWallet() {
+        logger.info('Checking wallet availability');
 
-        const probeAddress = await probeWalletAddress.call(this)
+        const probeAddress = await probeWalletAddress.call(this);
 
-        if (probeAddress == null){
-            await this.ensureWalletLoaded()
-            logger.info("Getting a new address to receive blocks reward")
-            this.walletAddress = await this.connector.getNewAddress()
+        if (probeAddress == null) {
+            await this.ensureWalletLoaded();
+            logger.info('Getting a new address to receive blocks reward');
+            this.walletAddress = await this.connector.getNewAddress();
         } else {
             // Probe succeeded; make sure the wallet that answered is ours before using it
-            this.walletAddress = await bindProbedWallet.call(this, probeAddress)
+            this.walletAddress = await bindProbedWallet.call(this, probeAddress);
         }
 
-        logger.info("Checking wallet balance")
-        this.balance = await this.connector.getBalance()
+        logger.info('Checking wallet balance');
+        this.balance = await this.connector.getBalance();
 
-        await settleStartupBalance.call(this)
+        await settleStartupBalance.call(this);
 
         // Wallet is fully prepared (address assigned, coinbase matured): wallet-dependent
         // RPCs (generateToAddress) are safe from here. Callers gate on this via ping/status,
@@ -331,6 +343,6 @@ module.exports = {
         // startup-completion as well (xchain-documentation, components/regtest-miner/
         // operations.md, the wallet_ready row of the status field table), so redefining this
         // flag is a docs change in a separate repo rather than a local one.
-        this.walletReady = true
-    }
-}
+        this.walletReady = true;
+    },
+};

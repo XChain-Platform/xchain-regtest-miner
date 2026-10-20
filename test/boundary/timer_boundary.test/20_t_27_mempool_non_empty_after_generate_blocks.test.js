@@ -8,14 +8,14 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
-let XChainRegtestMiner
-let miner
-let connectorStub
-let clock
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
+let clock;
 
 function setupMiner() {
     connectorStub = {
@@ -33,68 +33,69 @@ function setupMiner() {
         getRawTransaction: sinon.stub().resolves('0200000001...'),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
         getNetworkInfo: sinon.stub().resolves({}),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(miner, 'prepareWallet').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(miner, 'prepareWallet').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 
-    miner.walletAddress = 'bcrt1qtest'
+    miner.walletAddress = 'bcrt1qtest';
 
-    clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false })
+    clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false });
 }
 
 function teardownMiner() {
-    clock.restore()
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    clock.restore();
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 function registerMinerHooks() {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 }
 
 describe('Boundary: Adaptive Mining Timer Logic', function () {
-    registerMinerHooks()
+    registerMinerHooks();
 
     // ─── T-27: Mining completes but mempool still has txs ──────────────
 
     describe('T-27: mempool non-empty after generateBlocks', function () {
         it('resets timers and starts new cycle for remaining txs', async function () {
-            miner.maxTimeToMineTxs = 50
-            miner.addedTimeToMineTxs = 50
+            miner.maxTimeToMineTxs = 50;
+            miner.addedTimeToMineTxs = 50;
 
             // Mempool always has txs (not all included in block)
-            connectorStub.getRawMempool.resolves(['txid1', 'txid2'])
+            connectorStub.getRawMempool.resolves(['txid1', 'txid2']);
 
-            let generateCount = 0
+            let generateCount = 0;
             connectorStub.generateToAddress.callsFake(async () => {
-                generateCount++
-                return ['hash']
-            })
+                generateCount++;
+                return ['hash'];
+            });
 
-            let iterCount = 0
+            let iterCount = 0;
             miner.sleep.callsFake(async () => {
-                iterCount++
-                clock.tick(60)
-                if (iterCount >= 6) throw new Error('__LOOP_BREAK__')
-            })
+                iterCount++;
+                clock.tick(60);
+                if (iterCount >= 6) throw new Error('__LOOP_BREAK__');
+            });
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
+            try {
+                await miner.start();
+            } catch (e) {
+                if (e.message !== '__LOOP_BREAK__') throw e;
             }
 
             // Should mine multiple times as timers reset and re-fire
-            assert(generateCount >= 2,
-                'Should mine multiple cycles when mempool remains non-empty')
-        })
-    })
-})
+            assert(generateCount >= 2, 'Should mine multiple cycles when mempool remains non-empty');
+        });
+    });
+});

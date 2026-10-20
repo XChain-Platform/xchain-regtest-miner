@@ -18,40 +18,40 @@
  * returns realistic, interdependent responses.
  */
 
-const assert = require('assert')
-const sinon = require('sinon')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let miner, connector
+let miner, connector;
 
 function createMiner() {
-    connector = { generateToAddress: sinon.stub().resolves(['blockhash']) }
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
-    const XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-    miner.connector = connector
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    connector = { generateToAddress: sinon.stub().resolves(['blockhash']) };
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+    const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    miner.connector = connector;
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 }
 
 function restoreMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', function () {
-    beforeEach(createMiner)
-    afterEach(restoreMiner)
+    beforeEach(createMiner);
+    afterEach(restoreMiner);
 
     // ─── generateBlocks Sequence ────────────────────────────────────────
 
     describe('generateBlocks delegation', function () {
         it('passes count and wallet address to connector', async function () {
-            miner.walletAddress = 'bcrt1qreward'
-            await miner.generateBlocks(10)
-            assert(connector.generateToAddress.calledWith(10, 'bcrt1qreward'))
-        })
-    })
-})
+            miner.walletAddress = 'bcrt1qreward';
+            await miner.generateBlocks(10);
+            assert(connector.generateToAddress.calledWith(10, 'bcrt1qreward'));
+        });
+    });
+});

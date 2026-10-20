@@ -28,22 +28,22 @@ const coins = require('../coins');
 
 // Split a "<fullname>-<network>" key (e.g. "bitcoin-mainnet") into a canonical
 // {tick, net} pair, or null when it names no known coin/network.
-function parseNetworkName(networkName){
+function parseNetworkName(networkName) {
     const s = String(networkName == null ? '' : networkName);
     const i = s.lastIndexOf('-');
-    if(i < 0) return null;
+    if (i < 0) return null;
     const tick = coins.FULL_NAME_TO_TICK[s.slice(0, i)];
-    const net  = s.slice(i + 1);
-    if(!tick || !coins.NETWORKS.includes(net)) return null;
+    const net = s.slice(i + 1);
+    if (!tick || !coins.NETWORKS.includes(net)) return null;
     return { tick, net };
 }
 
 class CryptoNetworks {
     // bitcoinjs-lib network object (+ XChain relay overlays) for a network key.
-    static getBitcoinJsNetwork(networkName){
+    static getBitcoinJsNetwork(networkName) {
         const p = parseNetworkName(networkName);
         return p ? coins.getCoinConfig(p.tick, p.net).net : undefined;
     }
 }
 
-module.exports = CryptoNetworks
+module.exports = CryptoNetworks;

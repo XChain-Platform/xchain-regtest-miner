@@ -12,16 +12,16 @@
  *
  *********************************************************************/
 
-const express = require('express')
-const bodyParser = require('body-parser')
-const helmet = require('helmet')
-const cors = require('cors')
-const XChainRegtestMiner = require('../XChainRegtestMiner')
-const { installAuthentication } = require('./auth')
-const { createRpcMethods } = require('./rpc_methods')
-const { DEFAULT_NODE_FLUSH_INTERVAL_MS } = require('../XChainRegtestMiner/constants.js')
+const express = require('express');
+const bodyParser = require('body-parser');
+const helmet = require('helmet');
+const cors = require('cors');
+const XChainRegtestMiner = require('../XChainRegtestMiner');
+const { installAuthentication } = require('./auth');
+const { createRpcMethods } = require('./rpc_methods');
+const { DEFAULT_NODE_FLUSH_INTERVAL_MS } = require('../XChainRegtestMiner/constants.js');
 
-const REQUIRED_ENV_VARS = ['NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER', 'NODE_PASSWORD', 'REGTEST_MINER_API_PORT']
+const REQUIRED_ENV_VARS = ['NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER', 'NODE_PASSWORD', 'REGTEST_MINER_API_PORT'];
 
 // Idle mine-empty heartbeat default when IDLE_MINE_INTERVAL_MS is unset. The
 // auto-mine loop is otherwise mempool-driven only, so a rail restart that
@@ -32,35 +32,37 @@ const REQUIRED_ENV_VARS = ['NETWORK', 'NODE_URL', 'NODE_PORT', 'NODE_USER', 'NOD
 // manual generate_blocks call. One minute keeps a rebooted rail self-healing
 // well inside a 5-minute sync budget. An operator who sets IDLE_MINE_INTERVAL_MS
 // explicitly, including "0", still gets exactly that value.
-const DEFAULT_STARTUP_IDLE_MINE_INTERVAL_MS = 60000
+const DEFAULT_STARTUP_IDLE_MINE_INTERVAL_MS = 60000;
 
 // Parses NODE_FLUSH_INTERVAL_MS: unset or blank gives the default, a plain
 // non-negative integer is honored (0 disables), anything else warns and keeps the
 // default, because the flush is best-effort and must not stop the miner booting.
 function parseNodeFlushInterval(value, logger) {
     if (value === undefined || value === null || String(value).trim() === '') {
-        return DEFAULT_NODE_FLUSH_INTERVAL_MS
+        return DEFAULT_NODE_FLUSH_INTERVAL_MS;
     }
-    const text = String(value).trim()
+    const text = String(value).trim();
     if (!/^\d+$/.test(text)) {
-        logger.warn('Invalid NODE_FLUSH_INTERVAL_MS, using ' + DEFAULT_NODE_FLUSH_INTERVAL_MS + ': ' + text.slice(0, 40))
-        return DEFAULT_NODE_FLUSH_INTERVAL_MS
+        logger.warn(
+            'Invalid NODE_FLUSH_INTERVAL_MS, using ' + DEFAULT_NODE_FLUSH_INTERVAL_MS + ': ' + text.slice(0, 40),
+        );
+        return DEFAULT_NODE_FLUSH_INTERVAL_MS;
     }
-    return parseInt(text, 10)
+    return parseInt(text, 10);
 }
 
 function validateEnvVars(environment, network, logger) {
-    const missing = REQUIRED_ENV_VARS.filter(name => !environment[name] || environment[name].trim() === '')
+    const missing = REQUIRED_ENV_VARS.filter((name) => !environment[name] || environment[name].trim() === '');
     if (missing.length > 0) {
-        logger.error('Missing required environment variables: ' + missing.join(', '))
-        process.exit(1)
+        logger.error('Missing required environment variables: ' + missing.join(', '));
+        process.exit(1);
     }
-    const portVars = ['NODE_PORT', 'REGTEST_MINER_API_PORT']
+    const portVars = ['NODE_PORT', 'REGTEST_MINER_API_PORT'];
     for (const name of portVars) {
-        const val = parseInt(environment[name], 10)
+        const val = parseInt(environment[name], 10);
         if (isNaN(val) || val < 1 || val > 65535) {
-            logger.error(name + ' must be a valid port number (1-65535)')
-            process.exit(1)
+            logger.error(name + ' must be a valid port number (1-65535)');
+            process.exit(1);
         }
     }
     // Refuse mainnet outright. This tool auto-mines and exposes an
@@ -69,14 +71,24 @@ function validateEnvVars(environment, network, logger) {
     // intended target; testnet is tolerated for faucet-style flows (valueless coins).
     // This label check is the cheap first gate; verifyNodeChain backs it at startup
     // with the node's own getblockchaininfo answer.
-    const validNetworks = ['regtest', 'testnet']
+    const validNetworks = ['regtest', 'testnet'];
     if (!validNetworks.includes(network)) {
-        logger.error('NETWORK must resolve to one of: ' + validNetworks.join(', ') + ' (got: ' + environment.NETWORK + '). mainnet is refused.')
-        process.exit(1)
+        logger.error(
+            'NETWORK must resolve to one of: ' +
+                validNetworks.join(', ') +
+                ' (got: ' +
+                environment.NETWORK +
+                '). mainnet is refused.',
+        );
+        process.exit(1);
     }
-    const nodeUrl = environment.NODE_URL
+    const nodeUrl = environment.NODE_URL;
     if (nodeUrl !== 'localhost' && nodeUrl !== '127.0.0.1') {
-        logger.warn('WARNING: NODE_URL is not localhost (' + nodeUrl + '). RPC credentials will be transmitted over the network in plaintext.')
+        logger.warn(
+            'WARNING: NODE_URL is not localhost (' +
+                nodeUrl +
+                '). RPC credentials will be transmitted over the network in plaintext.',
+        );
     }
 }
 
@@ -84,56 +96,75 @@ function validateEnvVars(environment, network, logger) {
 // reports them: 'test' for testnet3 and the LTC/DOGE testnets, 'testnet4' for
 // Bitcoin Core 28+. Anything else, 'main' above all, is refused.
 function chainMatchesNetwork(network, chain) {
-    if (typeof chain !== 'string') return false
-    if (network === 'regtest') return chain === 'regtest'
-    if (network === 'testnet') return chain === 'test' || /^testnet\d*$/.test(chain)
-    return false
+    if (typeof chain !== 'string') return false;
+    if (network === 'regtest') return chain === 'regtest';
+    if (network === 'testnet') return chain === 'test' || /^testnet\d*$/.test(chain);
+    return false;
 }
 
 // Refuse to start unless the node itself reports a chain matching NETWORK, failing
 // closed on a mismatch and on a node that never answers: the label is operator-typed,
 // and a funded mainnet node behind it would let send_funds spend real coins.
-async function verifyNodeChain(connector, network, logger, { attempts = 30, intervalMs = 1000, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
-    let info = null
+async function verifyNodeChain(
+    connector,
+    network,
+    logger,
+    { attempts = 30, intervalMs = 1000, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) } = {},
+) {
+    let info = null;
     // Retry while the node warms up: it rejects RPC with -28 until it has loaded.
     for (let attempt = 1; attempt <= attempts && info === null; attempt++) {
         try {
-            info = await connector.getBlockchainInfo()
+            info = await connector.getBlockchainInfo();
         } catch (err) {
-            if (attempt < attempts) await sleep(intervalMs)
+            if (attempt < attempts) await sleep(intervalMs);
         }
     }
     if (info === null) {
-        logger.error('Could not verify the node chain: getblockchaininfo failed ' + attempts + ' times. Refusing to start.')
-        process.exit(1)
-        return
+        logger.error(
+            'Could not verify the node chain: getblockchaininfo failed ' + attempts + ' times. Refusing to start.',
+        );
+        process.exit(1);
+        return;
     }
-    const chain = info && info.chain
+    const chain = info && info.chain;
     if (!chainMatchesNetwork(network, chain)) {
-        logger.error('Node reports chain ' + JSON.stringify(chain) + ' but NETWORK resolves to ' + network + '. mainnet and mismatched nodes are refused.')
-        process.exit(1)
-        return
+        logger.error(
+            'Node reports chain ' +
+                JSON.stringify(chain) +
+                ' but NETWORK resolves to ' +
+                network +
+                '. mainnet and mismatched nodes are refused.',
+        );
+        process.exit(1);
+        return;
     }
-    logger.log('Verified node chain: ' + chain)
+    logger.log('Verified node chain: ' + chain);
 }
 
 function createMiner(config) {
-    return new XChainRegtestMiner(config.coinNetwork, config.nodeUrl, config.nodePort, config.nodeUser, config.nodePassword)
+    return new XChainRegtestMiner(
+        config.coinNetwork,
+        config.nodeUrl,
+        config.nodePort,
+        config.nodeUser,
+        config.nodePassword,
+    );
 }
 
 function startMinerDetached(miner, logger) {
-    miner.start().catch(err => {
-        logger.error('Miner failed to start: ' + (err && err.message ? err.message : err))
-        process.exit(1)
-    })
+    miner.start().catch((err) => {
+        logger.error('Miner failed to start: ' + (err && err.message ? err.message : err));
+        process.exit(1);
+    });
 }
 
 function createApiApp() {
-    const app = express()
-    app.use(helmet())
-    app.use(bodyParser.json())
-    app.use(cors())
-    return app
+    const app = express();
+    app.use(helmet());
+    app.use(bodyParser.json());
+    app.use(cors());
+    return app;
 }
 
 function listenApi(app, miner, apiPort, logger) {
@@ -142,45 +173,60 @@ function listenApi(app, miner, apiPort, logger) {
     // Node's default terminate and the still-listening server keeps the event loop
     // alive until docker's stop-grace SIGKILL.
     miner.apiServer = app.listen(apiPort, () => {
-        logger.log('API listening on port '+apiPort)
-    })
+        logger.log('API listening on port ' + apiPort);
+    });
 }
 
 function createStartApi({ config, environment, logger, createHealthController, mountJsonRpc, warnWhenApiIsOpen }) {
-    return async function startApi(){
-        validateEnvVars(environment, config.network, logger)
+    return async function startApi() {
+        validateEnvVars(environment, config.network, logger);
 
-        const miner = createMiner(config)
+        const miner = createMiner(config);
         // Ask the node for its chain before anything reaches the wallet or opens
         // the API port: send_funds can move coins as soon as the port listens.
-        await verifyNodeChain(miner.connector, config.network, logger)
+        await verifyNodeChain(miner.connector, config.network, logger);
 
         // Mine-empty heartbeat. An explicit IDLE_MINE_INTERVAL_MS (including "0")
         // is honored as-is; left unset, it defaults on so a rail that comes back
         // from a reboot with a funded wallet and an empty mempool still advances
         // height on its own instead of waiting on an unrelated transaction.
-        const idleMineIntervalEnv = environment.IDLE_MINE_INTERVAL_MS
-        const idleMineIntervalMs = (idleMineIntervalEnv === undefined || idleMineIntervalEnv === null || String(idleMineIntervalEnv).trim() === '')
-            ? DEFAULT_STARTUP_IDLE_MINE_INTERVAL_MS
-            : parseInt(idleMineIntervalEnv, 10)
-        try { await miner.setIdleMineInterval(idleMineIntervalMs) }
-        catch (err) {
-            logger.error('Invalid IDLE_MINE_INTERVAL_MS: ' + (err && err.message ? err.message : err))
-            process.exit(1)
+        const idleMineIntervalEnv = environment.IDLE_MINE_INTERVAL_MS;
+        const idleMineIntervalMs =
+            idleMineIntervalEnv === undefined ||
+            idleMineIntervalEnv === null ||
+            String(idleMineIntervalEnv).trim() === ''
+                ? DEFAULT_STARTUP_IDLE_MINE_INTERVAL_MS
+                : parseInt(idleMineIntervalEnv, 10);
+        try {
+            await miner.setIdleMineInterval(idleMineIntervalMs);
+        } catch (err) {
+            logger.error('Invalid IDLE_MINE_INTERVAL_MS: ' + (err && err.message ? err.message : err));
+            process.exit(1);
         }
 
-        miner.nodeFlushIntervalMs = parseNodeFlushInterval(environment.NODE_FLUSH_INTERVAL_MS, logger)
+        miner.nodeFlushIntervalMs = parseNodeFlushInterval(environment.NODE_FLUSH_INTERVAL_MS, logger);
 
-        startMinerDetached(miner, logger)
+        startMinerDetached(miner, logger);
 
-        const app = createApiApp()
-        warnWhenApiIsOpen()
-        installAuthentication(app, config.apiKey, logger)
-        const healthController = createHealthController(miner)
-        const rpcMethods = createRpcMethods(miner, healthController.health)
-        mountJsonRpc(app, rpcMethods)
-        listenApi(app, miner, config.apiPort, logger)
-    }
+        const app = createApiApp();
+        warnWhenApiIsOpen();
+        installAuthentication(app, config.apiKey, logger);
+        const healthController = createHealthController(miner);
+        const rpcMethods = createRpcMethods(miner, healthController.health);
+        mountJsonRpc(app, rpcMethods);
+        listenApi(app, miner, config.apiPort, logger);
+    };
 }
 
-module.exports = { REQUIRED_ENV_VARS, parseNodeFlushInterval, chainMatchesNetwork, createApiApp, createMiner, createStartApi, listenApi, startMinerDetached, validateEnvVars, verifyNodeChain }
+module.exports = {
+    REQUIRED_ENV_VARS,
+    parseNodeFlushInterval,
+    chainMatchesNetwork,
+    createApiApp,
+    createMiner,
+    createStartApi,
+    listenApi,
+    startMinerDetached,
+    validateEnvVars,
+    verifyNodeChain,
+};

@@ -20,22 +20,21 @@
  * Target runtime: < 2 minutes
  * Trigger: every PR and merge to main
  */
-const assert = require('assert')
-const sinon = require('sinon')
-const axios = require('axios')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
-
+const assert = require('assert');
+const sinon = require('sinon');
+const axios = require('axios');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
 // ═══════════════════════════════════════════════════════════════════════
 // Section D: Security Regression
 // ═══════════════════════════════════════════════════════════════════════
 
-let XChainRegtestMiner, miner, connectorStub
-let connector, axiosPostStub
+let XChainRegtestMiner, miner, connectorStub;
+let connector, axiosPostStub;
 
 function restoreMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 function registerSendFundsHooks() {
@@ -52,23 +51,23 @@ function registerSendFundsHooks() {
             sendToAddress: sinon.stub().resolves('txid_abc'),
             setTxFee: sinon.stub().resolves(true),
             setWalletName: sinon.stub(),
-        }
+        };
 
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-        XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-    afterEach(restoreMiner)
+        sinon.stub(BlockchainConnector.prototype, 'constructor');
+        XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+        miner.connector = connectorStub;
+        sinon.stub(console, 'log');
+        sinon.stub(console, 'error');
+    });
+    afterEach(restoreMiner);
 }
 
 function registerFillMempoolHooks() {
     beforeEach(function () {
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-        XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
+        sinon.stub(BlockchainConnector.prototype, 'constructor');
+        XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
         miner.connector = {
             getWalletInfo: sinon.stub(),
             loadWallet: sinon.stub(),
@@ -83,203 +82,215 @@ function registerFillMempoolHooks() {
             setWalletName: sinon.stub(),
             getRawTransaction: sinon.stub(),
             sendRawTransaction: sinon.stub(),
-        }
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-    afterEach(restoreMiner)
+        };
+        sinon.stub(console, 'log');
+        sinon.stub(console, 'error');
+    });
+    afterEach(restoreMiner);
 }
 
 function registerMiningTimeHooks() {
     beforeEach(function () {
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
-        XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = {}
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
-    afterEach(restoreMiner)
+        sinon.stub(BlockchainConnector.prototype, 'constructor');
+        XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+        miner.connector = {};
+        sinon.stub(console, 'log');
+        sinon.stub(console, 'error');
+    });
+    afterEach(restoreMiner);
 }
 
 function registerErrorSanitizationHooks() {
     beforeEach(function () {
-        connector = new BlockchainConnector('localhost', '18332', 'secretuser', 'secretpass')
-        axiosPostStub = sinon.stub(axios, 'post')
-        sinon.stub(connector, 'sleep').resolves()
-        sinon.stub(console, 'error')
-        sinon.stub(console, 'log')
-    })
+        connector = new BlockchainConnector('localhost', '18332', 'secretuser', 'secretpass');
+        axiosPostStub = sinon.stub(axios, 'post');
+        sinon.stub(connector, 'sleep').resolves();
+        sinon.stub(console, 'error');
+        sinon.stub(console, 'log');
+    });
     afterEach(function () {
-        sinon.restore()
-    })
+        sinon.restore();
+    });
 }
 
 // ─── REG-T1-D01: Input validation ──────────────────────────────
 
 describe('T1 Regression: Security', function () {
     describe('REG-T1-D01: sendFundsToAddress input validation', function () {
-        registerSendFundsHooks()
+        registerSendFundsHooks();
 
         it('rejects null address', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress(null, 1.0), /Invalid address/)
-            assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress(null, 1.0), /Invalid address/);
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 0);
+        });
 
         it('rejects undefined address', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress(undefined, 1.0), /Invalid address/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress(undefined, 1.0), /Invalid address/);
+        });
 
         it('rejects object address', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress({ toString: 'bad' }, 1.0), /Invalid address/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress({ toString: 'bad' }, 1.0), /Invalid address/);
+        });
 
         it('rejects array address', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress(['bcrt1qtest'], 1.0), /Invalid address/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress(['bcrt1qtest'], 1.0), /Invalid address/);
+        });
 
         it('rejects boolean address', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress(true, 1.0), /Invalid address/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress(true, 1.0), /Invalid address/);
+        });
 
         it('rejects NaN amount', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('addr', NaN), /Invalid amount/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress('addr', NaN), /Invalid amount/);
+        });
 
         it('rejects Infinity amount', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('addr', Infinity), /Invalid amount/)
-        })
+            await assert.rejects(() => miner.sendFundsToAddress('addr', Infinity), /Invalid amount/);
+        });
 
         it('rejects -Infinity amount', async function () {
-            await assert.rejects(() => miner.sendFundsToAddress('addr', -Infinity), /Invalid amount/)
-        })
-    })
-})
+            await assert.rejects(() => miner.sendFundsToAddress('addr', -Infinity), /Invalid amount/);
+        });
+    });
+});
 
 // ─── REG-T1-D02: fillMempool input validation ──────────────────
 
 describe('T1 Regression: Security', function () {
     describe('REG-T1-D02: fillMempool input validation', function () {
-        registerFillMempoolHooks()
+        registerFillMempoolHooks();
 
         it('rejects zero', async function () {
-            miner.keepMining = true
-            await assert.rejects(() => miner.fillMempool(0), /positive integer/)
-            assert.strictEqual(miner.keepMining, true, 'keepMining unchanged for invalid input')
-        })
+            miner.keepMining = true;
+            await assert.rejects(() => miner.fillMempool(0), /positive integer/);
+            assert.strictEqual(miner.keepMining, true, 'keepMining unchanged for invalid input');
+        });
 
         it('rejects negative', async function () {
-            miner.keepMining = true
-            await assert.rejects(() => miner.fillMempool(-1), /positive integer/)
-            assert.strictEqual(miner.keepMining, true)
-        })
+            miner.keepMining = true;
+            await assert.rejects(() => miner.fillMempool(-1), /positive integer/);
+            assert.strictEqual(miner.keepMining, true);
+        });
 
         it('rejects float', async function () {
-            miner.keepMining = true
-            await assert.rejects(() => miner.fillMempool(1.5), /positive integer/)
-            assert.strictEqual(miner.keepMining, true)
-        })
+            miner.keepMining = true;
+            await assert.rejects(() => miner.fillMempool(1.5), /positive integer/);
+            assert.strictEqual(miner.keepMining, true);
+        });
 
         it('rejects string', async function () {
-            miner.keepMining = true
-            await assert.rejects(() => miner.fillMempool('abc'), /positive integer/)
-            assert.strictEqual(miner.keepMining, true)
-        })
+            miner.keepMining = true;
+            await assert.rejects(() => miner.fillMempool('abc'), /positive integer/);
+            assert.strictEqual(miner.keepMining, true);
+        });
 
         it('rejects null', async function () {
-            miner.keepMining = true
-            await assert.rejects(() => miner.fillMempool(null), /positive integer/)
-            assert.strictEqual(miner.keepMining, true)
-        })
+            miner.keepMining = true;
+            await assert.rejects(() => miner.fillMempool(null), /positive integer/);
+            assert.strictEqual(miner.keepMining, true);
+        });
 
         it('rejects exceeding maximum (50001)', async function () {
-            await assert.rejects(() => miner.fillMempool(50001), /maximum/)
-        })
+            await assert.rejects(() => miner.fillMempool(50001), /maximum/);
+        });
 
         it('rejects concurrent calls', async function () {
-            miner.fillMempoolRunning = true
-            await assert.rejects(() => miner.fillMempool(10), /already running/)
-        })
-    })
-})
+            miner.fillMempoolRunning = true;
+            await assert.rejects(() => miner.fillMempool(10), /already running/);
+        });
+    });
+});
 
 // ─── REG-T1-D03: setMiningTime input validation ────────────────
 
 describe('T1 Regression: Security', function () {
     describe('REG-T1-D03: setMiningTime input validation', function () {
-        registerMiningTimeHooks()
+        registerMiningTimeHooks();
 
         it('rejects NaN maxTime', async function () {
-            await assert.rejects(() => miner.setMiningTime(NaN, 5000))
-            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-        })
+            await assert.rejects(() => miner.setMiningTime(NaN, 5000));
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+        });
 
         it('rejects Infinity', async function () {
-            await assert.rejects(() => miner.setMiningTime(Infinity, 5000))
-            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-        })
+            await assert.rejects(() => miner.setMiningTime(Infinity, 5000));
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+        });
 
         it('rejects string', async function () {
-            await assert.rejects(() => miner.setMiningTime('abc', 5000))
-            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-        })
+            await assert.rejects(() => miner.setMiningTime('abc', 5000));
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+        });
 
         it('rejects null', async function () {
-            await assert.rejects(() => miner.setMiningTime(null, 5000))
-            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-        })
+            await assert.rejects(() => miner.setMiningTime(null, 5000));
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+        });
 
         it('rejects undefined', async function () {
-            await assert.rejects(() => miner.setMiningTime(undefined, 5000))
-            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-        })
-    })
-})
+            await assert.rejects(() => miner.setMiningTime(undefined, 5000));
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+        });
+    });
+});
 
 // ─── REG-T1-D04: Error sanitization (no credential leaks) ──────
 
 // Rejects the next RPC with an axios-style error carrying credentials in its config, then
 // asserts the error the connector throws exposes neither the user name nor the password.
 async function assertErrorHidesCredentials(message, config, call) {
-    const axiosError = new Error(message)
-    axiosError.config = config
-    axiosPostStub.rejects(axiosError)
+    const axiosError = new Error(message);
+    axiosError.config = config;
+    axiosPostStub.rejects(axiosError);
 
     try {
-        await call()
-        assert.fail('should have thrown')
+        await call();
+        assert.fail('should have thrown');
     } catch (err) {
-        assert.ok(!err.message.includes('secretuser'))
-        assert.ok(!err.message.includes('secretpass'))
+        assert.ok(!err.message.includes('secretuser'));
+        assert.ok(!err.message.includes('secretpass'));
     }
 }
 
 describe('T1 Regression: Security', function () {
     describe('REG-T1-D04: Error sanitization, no credential leaks', function () {
-        registerErrorSanitizationHooks()
+        registerErrorSanitizationHooks();
 
         it('sendToAddress does not expose credentials in error', async function () {
-            await assertErrorHidesCredentials('connect ECONNREFUSED http://localhost:18332', { url: 'http://localhost:18332', auth: { username: 'secretuser', password: 'secretpass' } }, () => connector.sendToAddress('bcrt1qtest', 1.0))
-        })
+            await assertErrorHidesCredentials(
+                'connect ECONNREFUSED http://localhost:18332',
+                { url: 'http://localhost:18332', auth: { username: 'secretuser', password: 'secretpass' } },
+                () => connector.sendToAddress('bcrt1qtest', 1.0),
+            );
+        });
 
         it('getRawMempool does not expose credentials in error', async function () {
-            await assertErrorHidesCredentials('ECONNREFUSED', { auth: { username: 'secretuser', password: 'secretpass' } }, () => connector.getRawMempool())
-        })
+            await assertErrorHidesCredentials(
+                'ECONNREFUSED',
+                { auth: { username: 'secretuser', password: 'secretpass' } },
+                () => connector.getRawMempool(),
+            );
+        });
 
         it('generateToAddress does not expose credentials in error', async function () {
-            await assertErrorHidesCredentials('timeout', { auth: { username: 'secretuser', password: 'secretpass' } }, () => connector.generateToAddress(1, 'addr'))
-        })
+            await assertErrorHidesCredentials(
+                'timeout',
+                { auth: { username: 'secretuser', password: 'secretpass' } },
+                () => connector.generateToAddress(1, 'addr'),
+            );
+        });
 
         it('getWalletInfo does not log credentials during retries', async function () {
-            axiosPostStub.onFirstCall().rejects(new Error('fail'))
-            axiosPostStub.onSecondCall().resolves({ data: { result: { walletname: 'w' } } })
-            await connector.getWalletInfo(5)
+            axiosPostStub.onFirstCall().rejects(new Error('fail'));
+            axiosPostStub.onSecondCall().resolves({ data: { result: { walletname: 'w' } } });
+            await connector.getWalletInfo(5);
             for (const call of console.error.getCalls()) {
                 for (const arg of call.args) {
-                    const str = typeof arg === 'string' ? arg : String(arg)
-                    assert.ok(!str.includes('secretpass'), 'Logged credentials during retry')
+                    const str = typeof arg === 'string' ? arg : String(arg);
+                    assert.ok(!str.includes('secretpass'), 'Logged credentials during retry');
                 }
             }
-        })
-    })
-})
+        });
+    });
+});

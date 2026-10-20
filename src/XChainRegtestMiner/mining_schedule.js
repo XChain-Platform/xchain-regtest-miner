@@ -26,8 +26,8 @@ const {
     DEFAULT_ADDED_TIME_TO_MINE_TXS,
     MAX_MINING_TIME,
     MIN_MINING_TIME,
-    logger
-} = require('./constants.js')
+    logger,
+} = require('./constants.js');
 
 module.exports = {
     async sleep(ms) {
@@ -39,22 +39,28 @@ module.exports = {
     // reconsiderBlock. A returned sentinel here would let the api.js
     // controller's try/catch never fire, so the RPC would report "ok" on
     // rejected input.
-    async setMiningTime(maxTime, txAddedTime){
-        if (!Number.isInteger(maxTime) || !Number.isInteger(txAddedTime) || maxTime <= 0 || txAddedTime <= 0){
-            try { logger.info("INVALID mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms") } catch(e) { logger.info("INVALID mining times (non-printable values)") }
-            throw new Error("Invalid mining times. Both values must be positive integers.")
+    async setMiningTime(maxTime, txAddedTime) {
+        if (!Number.isInteger(maxTime) || !Number.isInteger(txAddedTime) || maxTime <= 0 || txAddedTime <= 0) {
+            try {
+                logger.info(
+                    'INVALID mining times: (Max Time)=>' + maxTime + 'ms (Tx Added Time)=>' + txAddedTime + 'ms',
+                );
+            } catch (e) {
+                logger.info('INVALID mining times (non-printable values)');
+            }
+            throw new Error('Invalid mining times. Both values must be positive integers.');
         }
-        if (maxTime < MIN_MINING_TIME || txAddedTime < MIN_MINING_TIME){
-            logger.info("Mining times too small: minimum is "+MIN_MINING_TIME+"ms")
-            throw new Error("Mining times too small. Minimum is "+MIN_MINING_TIME+"ms.")
+        if (maxTime < MIN_MINING_TIME || txAddedTime < MIN_MINING_TIME) {
+            logger.info('Mining times too small: minimum is ' + MIN_MINING_TIME + 'ms');
+            throw new Error('Mining times too small. Minimum is ' + MIN_MINING_TIME + 'ms.');
         }
-        if (maxTime > MAX_MINING_TIME || txAddedTime > MAX_MINING_TIME){
-            logger.info("Mining times too large: maximum is "+MAX_MINING_TIME+"ms")
-            throw new Error("Mining times too large. Maximum is "+MAX_MINING_TIME+"ms.")
+        if (maxTime > MAX_MINING_TIME || txAddedTime > MAX_MINING_TIME) {
+            logger.info('Mining times too large: maximum is ' + MAX_MINING_TIME + 'ms');
+            throw new Error('Mining times too large. Maximum is ' + MAX_MINING_TIME + 'ms.');
         }
-        this.maxTimeToMineTxs = maxTime
-        this.addedTimeToMineTxs = txAddedTime
-        logger.info("New mining times: (Max Time)=>"+maxTime+"ms (Tx Added Time)=>"+txAddedTime+"ms")
+        this.maxTimeToMineTxs = maxTime;
+        this.addedTimeToMineTxs = txAddedTime;
+        logger.info('New mining times: (Max Time)=>' + maxTime + 'ms (Tx Added Time)=>' + txAddedTime + 'ms');
     },
 
     // Turn the mine-empty heartbeat on (ms) or off (0). Throws on invalid input,
@@ -65,21 +71,27 @@ module.exports = {
     // to wait for MORE transactions before mining what is already in the mempool,
     // and folding an empty-chain heartbeat into them would make every existing
     // venue start producing empty blocks.
-    async setIdleMineInterval(intervalMs){
-        if (!Number.isInteger(intervalMs) || intervalMs < 0){
-            try { logger.info("INVALID idle mine interval: "+intervalMs) } catch(e) { logger.info("INVALID idle mine interval (non-printable value)") }
-            throw new Error("Invalid idle mine interval. Must be a non-negative integer (0 disables).")
+    async setIdleMineInterval(intervalMs) {
+        if (!Number.isInteger(intervalMs) || intervalMs < 0) {
+            try {
+                logger.info('INVALID idle mine interval: ' + intervalMs);
+            } catch (e) {
+                logger.info('INVALID idle mine interval (non-printable value)');
+            }
+            throw new Error('Invalid idle mine interval. Must be a non-negative integer (0 disables).');
         }
-        if (intervalMs !== 0 && intervalMs < MIN_MINING_TIME){
-            throw new Error("Idle mine interval too small. Minimum is "+MIN_MINING_TIME+"ms (0 disables).")
+        if (intervalMs !== 0 && intervalMs < MIN_MINING_TIME) {
+            throw new Error('Idle mine interval too small. Minimum is ' + MIN_MINING_TIME + 'ms (0 disables).');
         }
-        if (intervalMs > MAX_MINING_TIME){
-            throw new Error("Idle mine interval too large. Maximum is "+MAX_MINING_TIME+"ms.")
+        if (intervalMs > MAX_MINING_TIME) {
+            throw new Error('Idle mine interval too large. Maximum is ' + MAX_MINING_TIME + 'ms.');
         }
-        this.idleMineIntervalMs = intervalMs
-        logger.info(intervalMs === 0
-            ? "Idle mine-empty disabled; the loop mines only when the mempool is non-empty"
-            : "Idle mine-empty every "+intervalMs+"ms while the mempool stays empty")
+        this.idleMineIntervalMs = intervalMs;
+        logger.info(
+            intervalMs === 0
+                ? 'Idle mine-empty disabled; the loop mines only when the mempool is non-empty'
+                : 'Idle mine-empty every ' + intervalMs + 'ms while the mempool stays empty',
+        );
     },
 
     // Whether an empty block is due: enabled, mempool empty, and nothing mined
@@ -87,18 +99,24 @@ module.exports = {
     // read the same clock. A miner that has never mined (lastMineAt null) is
     // measured from `since`, the moment the loop started watching, so enabling
     // the heartbeat does not fire a block instantly on boot.
-    idleMineDue(now, since){
-        if (!this.idleMineIntervalMs) return false
-        if (this._mempoolSize > 0) return false
-        let last = this._lastMineAt != null ? this._lastMineAt : since
-        if (last == null) return false
-        return (now - last) >= this.idleMineIntervalMs
+    idleMineDue(now, since) {
+        if (!this.idleMineIntervalMs) return false;
+        if (this._mempoolSize > 0) return false;
+        let last = this._lastMineAt != null ? this._lastMineAt : since;
+        if (last == null) return false;
+        return now - last >= this.idleMineIntervalMs;
     },
 
-    async setDefaultMiningTime(){
-        this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
-        this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
-        logger.info("The mining times were set to the default: (Max Time)=>"+this.maxTimeToMineTxs+"ms (Tx Added Time)=>"+this.addedTimeToMineTxs+"ms")
+    async setDefaultMiningTime() {
+        this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS;
+        this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS;
+        logger.info(
+            'The mining times were set to the default: (Max Time)=>' +
+                this.maxTimeToMineTxs +
+                'ms (Tx Added Time)=>' +
+                this.addedTimeToMineTxs +
+                'ms',
+        );
     },
 
     // Pin the node clock to `timestamp` (unix seconds) so the NEXT mined block
@@ -110,12 +128,16 @@ module.exports = {
     // its network half so 'bitcoin-mainnet' and a bare 'mainnet' both trip.
     async setMockTime(timestamp) {
         if (!Number.isFinite(Number(timestamp)) || Number(timestamp) < 0) {
-            throw new Error('setMockTime: timestamp must be a non-negative unix time (0 releases the mock clock)')
+            throw new Error('setMockTime: timestamp must be a non-negative unix time (0 releases the mock clock)');
         }
-        if (String(this.network || '').split('-').pop() === 'mainnet') {
-            throw new Error('setMockTime is refused on mainnet')
+        if (
+            String(this.network || '')
+                .split('-')
+                .pop() === 'mainnet'
+        ) {
+            throw new Error('setMockTime is refused on mainnet');
         }
-        return await this.connector.setMockTime(Number(timestamp))
+        return await this.connector.setMockTime(Number(timestamp));
     },
 
     // Returns the mining-state generation this pause claimed, so a caller that
@@ -125,21 +147,21 @@ module.exports = {
     // inside. Every current caller ignores the value; reconsiderBlock does its own
     // claim through enterReorgPause because a plain generation snapshot cannot
     // tell a second reconsider apart from an operator pause.
-    async pauseMining(){
-        const generation = this.claimPause()
+    async pauseMining() {
+        const generation = this.claimPause();
         // Record operator intent here, not in claimPause, which the reorg pause shares.
-        this._operatorMiningGeneration++
+        this._operatorMiningGeneration++;
         // Barrier: a pause that lands between the loop's keepMining check and its
         // generateBlocks(1) would let one more block settle after pause() resolves,
         // breaking a height-deterministic generateBlocks section. Await the in-flight
         // mine so callers get a true barrier.
-        await this._generateQueue
-        return generation
+        await this._generateQueue;
+        return generation;
     },
 
-    async continueMining(){
-        this.keepMining = true
-        this._miningStateGeneration++
-        this._operatorMiningGeneration++
-    }
-}
+    async continueMining() {
+        this.keepMining = true;
+        this._miningStateGeneration++;
+        this._operatorMiningGeneration++;
+    },
+};

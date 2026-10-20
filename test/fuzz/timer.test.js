@@ -8,14 +8,14 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const fc = require('fast-check')
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const fc = require('fast-check');
+const BlockchainConnector = require('../../src/rpc/blockchain_connector');
 
-let XChainRegtestMiner
-let miner
-let connectorStub
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
 
 function useMiner() {
     beforeEach(function () {
@@ -33,39 +33,39 @@ function useMiner() {
             setWalletName: sinon.stub(),
             getRawTransaction: sinon.stub().resolves('0200000001'),
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
-        }
+        };
 
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
+        sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
+        XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+        miner.connector = connectorStub;
 
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+        sinon.stub(miner, 'sleep').resolves();
+        sinon.stub(console, 'log');
+        sinon.stub(console, 'error');
+    });
 
     afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+        sinon.restore();
+        delete require.cache[require.resolve('../../src/XChainRegtestMiner')];
+    });
 }
 
-const MIN_MINING_TIME_MS = 1000
-const MAX_MINING_TIME_MS = 3600000
+const MIN_MINING_TIME_MS = 1000;
+const MAX_MINING_TIME_MS = 3600000;
 
 // Whether setMiningTime must accept this pair: both integers within the 1s to 1h bounds.
 function isValidMiningTimes(maxTime, txAddedTime) {
     return [maxTime, txAddedTime].every(
-        (t) => Number.isInteger(t) && t >= MIN_MINING_TIME_MS && t <= MAX_MINING_TIME_MS
-    )
+        (t) => Number.isInteger(t) && t >= MIN_MINING_TIME_MS && t <= MAX_MINING_TIME_MS,
+    );
 }
 
 // Puts both mining timers back to their defaults between property iterations.
 function resetMiningTimes() {
-    miner.maxTimeToMineTxs = 30000
-    miner.addedTimeToMineTxs = 5000
+    miner.maxTimeToMineTxs = 30000;
+    miner.addedTimeToMineTxs = 5000;
 }
 
 // ─── setMiningTime with arbitrary values ────────────────────────
@@ -75,32 +75,32 @@ function resetMiningTimes() {
 // report "ok" on rejected input. These property tests assert the new
 // throw-on-invalid / resolve-on-valid contract.
 describe('Fuzz: mining timer parameters', function () {
-    useMiner()
+    useMiner();
     describe('setMiningTime with arbitrary values', function () {
         it('only accepts positive integers within bounds; rejects (throws) otherwise', async function () {
             await fc.assert(
                 fc.asyncProperty(fc.anything(), fc.anything(), async (maxTime, txAddedTime) => {
-                    const origMax = miner.maxTimeToMineTxs
-                    const origAdded = miner.addedTimeToMineTxs
+                    const origMax = miner.maxTimeToMineTxs;
+                    const origAdded = miner.addedTimeToMineTxs;
 
-                    const isValid = isValidMiningTimes(maxTime, txAddedTime)
+                    const isValid = isValidMiningTimes(maxTime, txAddedTime);
 
                     if (isValid) {
-                        await miner.setMiningTime(maxTime, txAddedTime)
-                        assert.strictEqual(miner.maxTimeToMineTxs, maxTime)
-                        assert.strictEqual(miner.addedTimeToMineTxs, txAddedTime)
+                        await miner.setMiningTime(maxTime, txAddedTime);
+                        assert.strictEqual(miner.maxTimeToMineTxs, maxTime);
+                        assert.strictEqual(miner.addedTimeToMineTxs, txAddedTime);
                     } else {
-                        await assert.rejects(() => miner.setMiningTime(maxTime, txAddedTime))
-                        assert.strictEqual(miner.maxTimeToMineTxs, origMax)
-                        assert.strictEqual(miner.addedTimeToMineTxs, origAdded)
+                        await assert.rejects(() => miner.setMiningTime(maxTime, txAddedTime));
+                        assert.strictEqual(miner.maxTimeToMineTxs, origMax);
+                        assert.strictEqual(miner.addedTimeToMineTxs, origAdded);
                     }
 
                     // Reset for next iteration
-                    resetMiningTimes()
+                    resetMiningTimes();
                 }),
-                { numRuns: 1000 }
-            )
-        })
+                { numRuns: 1000 },
+            );
+        });
 
         it('never crashes the process regardless of input types (including non-stringifiable objects)', async function () {
             await fc.assert(
@@ -110,75 +110,75 @@ describe('Fuzz: mining timer parameters', function () {
                     // resolving (valid input) or by throwing our own Error (invalid
                     // input), never by an unrelated crash.
                     try {
-                        await miner.setMiningTime(maxTime, txAddedTime)
+                        await miner.setMiningTime(maxTime, txAddedTime);
                     } catch (err) {
-                        assert.ok(err instanceof Error)
+                        assert.ok(err instanceof Error);
                     }
-                    resetMiningTimes()
+                    resetMiningTimes();
                 }),
-                { numRuns: 1000 }
-            )
-        })
+                { numRuns: 1000 },
+            );
+        });
 
         it('handles objects with non-callable toString by throwing our own Error, not a TypeError', async function () {
             // Previously this caused an unrelated TypeError; String() wrapping fixed
             // that, and invalid input now throws our own descriptive Error.
-            await assert.rejects(() => miner.setMiningTime({ toString: 0 }, {}), /Invalid mining times/)
-            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
-        })
-    })
-})
+            await assert.rejects(() => miner.setMiningTime({ toString: 0 }, {}), /Invalid mining times/);
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000);
+        });
+    });
+});
 
 describe('Fuzz: mining timer parameters', function () {
-    useMiner()
+    useMiner();
 
     // ─── Integer boundary values ────────────────────────────────────
 
     describe('setMiningTime integer edge cases', function () {
         const acceptedCases = [
-            [1000, 1000],               // MIN boundary
-            [3600000, 3600000],          // MAX boundary
-            [30000, 5000],              // defaults
-            [1000, 3600000],            // min/max mix
-            [3600000, 1000],            // max/min mix
-        ]
+            [1000, 1000], // MIN boundary
+            [3600000, 3600000], // MAX boundary
+            [30000, 5000], // defaults
+            [1000, 3600000], // min/max mix
+            [3600000, 1000], // max/min mix
+        ];
 
         for (const [maxTime, txAddedTime] of acceptedCases) {
             it(`accepts (${maxTime}, ${txAddedTime}) without throwing`, async function () {
-                await miner.setMiningTime(maxTime, txAddedTime)
-                assert.strictEqual(miner.maxTimeToMineTxs, maxTime)
-                assert.strictEqual(miner.addedTimeToMineTxs, txAddedTime)
-            })
+                await miner.setMiningTime(maxTime, txAddedTime);
+                assert.strictEqual(miner.maxTimeToMineTxs, maxTime);
+                assert.strictEqual(miner.addedTimeToMineTxs, txAddedTime);
+            });
         }
 
         const rejectedEdgeCases = [
             [0, 0],
             [-1, -1],
-            [-2147483648, -2147483648],  // INT32_MIN
+            [-2147483648, -2147483648], // INT32_MIN
             [Number.MIN_SAFE_INTEGER, Number.MIN_SAFE_INTEGER],
             [0, Number.MAX_SAFE_INTEGER],
             [Number.MAX_SAFE_INTEGER, 0],
             [-1, 1000],
             [1000, -1],
-            [1, 1],                       // below MIN_MINING_TIME
-            [999, 999],                   // just below MIN_MINING_TIME
-            [3600001, 3600001],           // just above MAX_MINING_TIME
+            [1, 1], // below MIN_MINING_TIME
+            [999, 999], // just below MIN_MINING_TIME
+            [3600001, 3600001], // just above MAX_MINING_TIME
             [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER], // way above MAX_MINING_TIME
-        ]
+        ];
 
         for (const [maxTime, txAddedTime] of rejectedEdgeCases) {
             it(`rejects (${maxTime}, ${txAddedTime}) and preserves defaults`, async function () {
-                await assert.rejects(() => miner.setMiningTime(maxTime, txAddedTime))
-                assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-                assert.strictEqual(miner.addedTimeToMineTxs, 5000)
-            })
+                await assert.rejects(() => miner.setMiningTime(maxTime, txAddedTime));
+                assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+                assert.strictEqual(miner.addedTimeToMineTxs, 5000);
+            });
         }
-    })
-})
+    });
+});
 
 describe('Fuzz: mining timer parameters', function () {
-    useMiner()
+    useMiner();
 
     // ─── Non-integer rejection ──────────────────────────────────────
 
@@ -200,51 +200,47 @@ describe('Fuzz: mining timer parameters', function () {
             [false, 0],
             [{}, 1],
             [[], 1],
-        ]
+        ];
 
         for (const [maxTime, txAddedTime] of rejectedCases) {
             it(`rejects (${JSON.stringify(maxTime)}, ${JSON.stringify(txAddedTime)}) and preserves defaults`, async function () {
-                await assert.rejects(() => miner.setMiningTime(maxTime, txAddedTime))
-                assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-                assert.strictEqual(miner.addedTimeToMineTxs, 5000)
-            })
+                await assert.rejects(() => miner.setMiningTime(maxTime, txAddedTime));
+                assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+                assert.strictEqual(miner.addedTimeToMineTxs, 5000);
+            });
         }
-    })
-})
+    });
+});
 
 describe('Fuzz: mining timer parameters', function () {
-    useMiner()
+    useMiner();
 
     // ─── setDefaultMiningTime always restores defaults ──────────────
 
     describe('setDefaultMiningTime after arbitrary setMiningTime', function () {
         it('always restores defaults regardless of prior state', async function () {
             await fc.assert(
-                fc.asyncProperty(
-                    fc.integer({ min: 1 }),
-                    fc.integer({ min: 1 }),
-                    async (maxTime, txAddedTime) => {
-                        // maxTime/txAddedTime may fall outside [MIN_MINING_TIME,
-                        // MAX_MINING_TIME] and throw; setDefaultMiningTime() must
-                        // still restore defaults either way.
-                        try {
-                            await miner.setMiningTime(maxTime, txAddedTime)
-                        } catch (err) {
-                            assert.ok(err instanceof Error)
-                        }
-                        await miner.setDefaultMiningTime()
-                        assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-                        assert.strictEqual(miner.addedTimeToMineTxs, 5000)
+                fc.asyncProperty(fc.integer({ min: 1 }), fc.integer({ min: 1 }), async (maxTime, txAddedTime) => {
+                    // maxTime/txAddedTime may fall outside [MIN_MINING_TIME,
+                    // MAX_MINING_TIME] and throw; setDefaultMiningTime() must
+                    // still restore defaults either way.
+                    try {
+                        await miner.setMiningTime(maxTime, txAddedTime);
+                    } catch (err) {
+                        assert.ok(err instanceof Error);
                     }
-                ),
-                { numRuns: 500 }
-            )
-        })
-    })
-})
+                    await miner.setDefaultMiningTime();
+                    assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+                    assert.strictEqual(miner.addedTimeToMineTxs, 5000);
+                }),
+                { numRuns: 500 },
+            );
+        });
+    });
+});
 
 describe('Fuzz: mining timer parameters', function () {
-    useMiner()
+    useMiner();
 
     // ─── Rapid sequential setMiningTime calls ───────────────────────
 
@@ -252,47 +248,50 @@ describe('Fuzz: mining timer parameters', function () {
         it('last valid write wins with random positive integer sequences', async function () {
             await fc.assert(
                 fc.asyncProperty(
-                    fc.array(fc.tuple(fc.integer({ min: 1000, max: 3600000 }), fc.integer({ min: 1000, max: 3600000 })), { minLength: 1, maxLength: 50 }),
+                    fc.array(
+                        fc.tuple(fc.integer({ min: 1000, max: 3600000 }), fc.integer({ min: 1000, max: 3600000 })),
+                        { minLength: 1, maxLength: 50 },
+                    ),
                     async (pairs) => {
                         for (const [maxTime, txAddedTime] of pairs) {
-                            await miner.setMiningTime(maxTime, txAddedTime)
+                            await miner.setMiningTime(maxTime, txAddedTime);
                         }
-                        const [lastMax, lastAdded] = pairs[pairs.length - 1]
-                        assert.strictEqual(miner.maxTimeToMineTxs, lastMax)
-                        assert.strictEqual(miner.addedTimeToMineTxs, lastAdded)
+                        const [lastMax, lastAdded] = pairs[pairs.length - 1];
+                        assert.strictEqual(miner.maxTimeToMineTxs, lastMax);
+                        assert.strictEqual(miner.addedTimeToMineTxs, lastAdded);
 
                         // Reset
-                        resetMiningTimes()
-                    }
+                        resetMiningTimes();
+                    },
                 ),
-                { numRuns: 200 }
-            )
-        })
-    })
-})
+                { numRuns: 200 },
+            );
+        });
+    });
+});
 
 describe('Fuzz: mining timer parameters', function () {
-    useMiner()
+    useMiner();
 
     // ─── Zero/negative timers now rejected ──────────────────────────
 
     describe('zero/negative timers are rejected', function () {
         it('setMiningTime(0, 5000) is rejected', async function () {
-            await assert.rejects(() => miner.setMiningTime(0, 5000))
-            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
-        })
+            await assert.rejects(() => miner.setMiningTime(0, 5000));
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000);
+        });
 
         it('setMiningTime(-1000, -1000) is rejected', async function () {
-            await assert.rejects(() => miner.setMiningTime(-1000, -1000))
-            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
-        })
+            await assert.rejects(() => miner.setMiningTime(-1000, -1000));
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000);
+        });
 
         it('setMiningTime(1, 0) is rejected (both must be positive)', async function () {
-            await assert.rejects(() => miner.setMiningTime(1, 0))
-            assert.strictEqual(miner.maxTimeToMineTxs, 30000)
-            assert.strictEqual(miner.addedTimeToMineTxs, 5000)
-        })
-    })
-})
+            await assert.rejects(() => miner.setMiningTime(1, 0));
+            assert.strictEqual(miner.maxTimeToMineTxs, 30000);
+            assert.strictEqual(miner.addedTimeToMineTxs, 5000);
+        });
+    });
+});

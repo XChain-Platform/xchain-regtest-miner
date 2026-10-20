@@ -22,16 +22,16 @@
  * Trigger: nightly; before releases; after dependency upgrades
  */
 
-const assert = require('assert')
-const XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-const pipeline = require('./helpers/pipeline')
+const assert = require('assert');
+const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+const pipeline = require('./helpers/pipeline');
 
-let node
+let node;
 
-pipeline.registerFile()
+pipeline.registerFile();
 
 function createMiner() {
-    return new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass')
+    return new XChainRegtestMiner('regtest', '127.0.0.1', String(node.port), 'user', 'pass');
 }
 
 function registerSendFundsTests() {
@@ -40,35 +40,37 @@ function registerSendFundsTests() {
     // ═══════════════════════════════════════════════════════════════════
     describe('REG-T2-007: send_funds creates a real transaction', function () {
         beforeEach(function () {
-            node.reset()
-            node._rpc_createwallet(['xchain_regtest_wallet'])
-            node._rpc_generatetoaddress([110, 'bcrt1qseed'])
-            node.calls = []
-        })
+            node.reset();
+            node._rpc_createwallet(['xchain_regtest_wallet']);
+            node._rpc_generatetoaddress([110, 'bcrt1qseed']);
+            node.calls = [];
+        });
 
         it('send_funds produces a transaction in the mempool', async function () {
-            const miner = createMiner()
-            await miner.prepareWallet()
+            const miner = createMiner();
+            await miner.prepareWallet();
 
-            const address = await miner.connector.getNewAddress()
-            const txid = await miner.sendFundsToAddress(address, 1.0)
+            const address = await miner.connector.getNewAddress();
+            const txid = await miner.sendFundsToAddress(address, 1.0);
 
-            assert.ok(txid, 'Should return a txid')
-            assert.ok(node.mempool.length > 0, 'Transaction should be in mempool')
-            assert.ok(node.mempool.some(m => m.txid === txid),
-                'The specific txid should be in the mempool')
-        })
-    })
+            assert.ok(txid, 'Should return a txid');
+            assert.ok(node.mempool.length > 0, 'Transaction should be in mempool');
+            assert.ok(
+                node.mempool.some((m) => m.txid === txid),
+                'The specific txid should be in the mempool',
+            );
+        });
+    });
 }
 
 describe('T2 Regression: Full E2E Pipeline', function () {
     before(async function () {
-        node = await pipeline.start()
-    })
+        node = await pipeline.start();
+    });
 
     after(async function () {
-        await pipeline.finish()
-    })
+        await pipeline.finish();
+    });
 
-    registerSendFundsTests()
-})
+    registerSendFundsTests();
+});

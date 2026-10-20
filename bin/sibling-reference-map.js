@@ -86,7 +86,7 @@
 
 'use strict';
 
-const fs   = require('fs');
+const fs = require('fs');
 const path = require('path');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
@@ -99,17 +99,37 @@ const NAME_RE = REPO_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Directories that hold no first-party source and would otherwise dominate the
 // sweep: an installed dependency tree can carry a vendored copy of this repo.
-const SKIP_DIRS = new Set([
-    'node_modules', '.git', '.nyc_output', 'coverage', 'dist', 'build', '.cache', '.venv',
-]);
+const SKIP_DIRS = new Set(['node_modules', '.git', '.nyc_output', 'coverage', 'dist', 'build', '.cache', '.venv']);
 
 // Binary payloads a text scan would only produce noise from. Everything else is
 // read as utf8, because a reference can live in a shell script, a Dockerfile, a
 // YAML workflow or a markdown runbook just as easily as in a .js file.
 const SKIP_EXT = new Set([
-    '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.pdf', '.zip', '.gz', '.tgz',
-    '.bz2', '.xz', '.wasm', '.node', '.so', '.dylib', '.dll', '.woff', '.woff2', '.ttf',
-    '.eot', '.mp4', '.mov', '.class', '.jar',
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.gif',
+    '.ico',
+    '.webp',
+    '.pdf',
+    '.zip',
+    '.gz',
+    '.tgz',
+    '.bz2',
+    '.xz',
+    '.wasm',
+    '.node',
+    '.so',
+    '.dylib',
+    '.dll',
+    '.woff',
+    '.woff2',
+    '.ttf',
+    '.eot',
+    '.mp4',
+    '.mov',
+    '.class',
+    '.jar',
 ]);
 
 // A file larger than this is a data dump, not code that requires a module.
@@ -121,7 +141,7 @@ const MAX_FILE_BYTES = 4 * 1024 * 1024;
 // directories are named by the caller, not by this file: they are paths in the
 // tree AROUND this checkout, and a repo carries no inventory of its surroundings.
 const PLATFORM_TOOLING_LABEL = 'platform-tooling';
-const PLATFORM_TOOLING_ENV  = 'SIBLING_MAP_EXTRA_DIRS';
+const PLATFORM_TOOLING_ENV = 'SIBLING_MAP_EXTRA_DIRS';
 
 /**
  * The tooling directories to sweep, relative to the siblings root, from
@@ -247,7 +267,9 @@ const ENV_ROOT_VARS = ['XCHAIN_REGTEST_MINER_PATH', 'XCHAIN_REGTEST_MINER_DIR'];
 const ENV_PREFIX = REPO_NAME.toUpperCase().replace(/-/g, '_');
 
 /** True when an identifier is the node path module under some alias. */
-function isPathAlias(name) { return /path/i.test(name); }
+function isPathAlias(name) {
+    return /path/i.test(name);
+}
 
 /**
  * The repo-relative directory an expression points at: `''` for the checkout
@@ -290,7 +312,10 @@ function bodySlice(text, openIndex, limit) {
     const end = Math.min(text.length, openIndex + limit);
     for (let i = openIndex; i < end; i += 1) {
         if (text[i] === '{') depth += 1;
-        else if (text[i] === '}') { depth -= 1; if (depth === 0) return text.slice(openIndex, i + 1); }
+        else if (text[i] === '}') {
+            depth -= 1;
+            if (depth === 0) return text.slice(openIndex, i + 1);
+        }
     }
     return text.slice(openIndex, end);
 }
@@ -301,7 +326,10 @@ function callArg(text, openIndex, limit) {
     const end = Math.min(text.length, openIndex + limit);
     for (let i = openIndex; i < end; i += 1) {
         if (text[i] === '(') depth += 1;
-        else if (text[i] === ')') { depth -= 1; if (depth === 0) return text.slice(openIndex + 1, i); }
+        else if (text[i] === ')') {
+            depth -= 1;
+            if (depth === 0) return text.slice(openIndex + 1, i);
+        }
     }
     return null;
 }
@@ -319,7 +347,9 @@ function inheritedPrefix(init, roots) {
         if (!new RegExp(`\\b${name}\\b`).test(init)) continue;
         if (new RegExp(`^\\s*${name}\\s*$`).test(init)) return prefix;
         if (new RegExp(`\\b${name}\\s*(?:\\.\\s*(?:find|filter)\\s*\\(|\\[\\s*0\\s*\\])`).test(init)) return prefix;
-        const join = new RegExp(`([A-Za-z_$][\\w$]*)\\s*\\.\\s*(?:join|resolve)\\s*\\(\\s*${name}\\s*,([^)]*)\\)`).exec(init);
+        const join = new RegExp(`([A-Za-z_$][\\w$]*)\\s*\\.\\s*(?:join|resolve)\\s*\\(\\s*${name}\\s*,([^)]*)\\)`).exec(
+            init,
+        );
         if (join && isPathAlias(join[1])) {
             const tail = literalJoinTail(join[2]);
             // Walking the root down to another directory gives another root; a
@@ -385,7 +415,8 @@ function collectRootVars(text) {
         while ((m = forOf.exec(text)) !== null) {
             if (declare(m[1], classify(m[2]))) learned = true;
         }
-        const cb = /\b([A-Za-z_$][\w$]*)\s*\.\s*(?:find|filter|map|forEach|some|every)\s*\(\s*(?:async\s+)?\(?\s*([A-Za-z_$][\w$]*)\s*[,)]/g;
+        const cb =
+            /\b([A-Za-z_$][\w$]*)\s*\.\s*(?:find|filter|map|forEach|some|every)\s*\(\s*(?:async\s+)?\(?\s*([A-Za-z_$][\w$]*)\s*[,)]/g;
         while ((m = cb.exec(text)) !== null) {
             if (roots.has(m[1]) && declare(m[2], roots.get(m[1]))) learned = true;
         }
@@ -457,13 +488,21 @@ function rootVarReferences(text, roots, lists, skipRanges) {
     const suppressed = (index) => (skipRanges || []).some((r) => index >= r.start && index < r.end);
     for (const [name, suffix] of roots) {
         let m;
-        const joined = new RegExp(`([A-Za-z_$][\\w$]*)\\s*\\.\\s*(?:join|resolve)\\s*\\(\\s*${name}\\s*,([^)]*)\\)`, 'g');
+        const joined = new RegExp(
+            `([A-Za-z_$][\\w$]*)\\s*\\.\\s*(?:join|resolve)\\s*\\(\\s*${name}\\s*,([^)]*)\\)`,
+            'g',
+        );
         while ((m = joined.exec(text)) !== null) {
             if (!isPathAlias(m[1])) continue;
             const tails = resolveJoinTail(m[2], lists || [], m.index);
             if (tails === null) {
                 if (!suppressed(m.index)) {
-                    dynamic.push({ index: m.index, form: 'root-var', root: name, expression: m[0].trim().slice(0, 120) });
+                    dynamic.push({
+                        index: m.index,
+                        form: 'root-var',
+                        root: name,
+                        expression: m[0].trim().slice(0, 120),
+                    });
                 }
                 continue;
             }
@@ -494,15 +533,21 @@ function rootVarReferences(text, roots, lists, skipRanges) {
  */
 function collectHelpers(text, roots, outRanges) {
     const helpers = new Map();
-    const re = /(?:function\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)|(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function\s*)?\(([^)]*)\)\s*(?:=>)?)\s*\{/g;
+    const re =
+        /(?:function\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)|(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function\s*)?\(([^)]*)\)\s*(?:=>)?)\s*\{/g;
     let m;
     while ((m = re.exec(text)) !== null) {
         const name = m[1] || m[3];
-        const param = (m[2] || m[4] || '').split(',')[0].trim().replace(/[^\w$].*$/, '');
+        const param = (m[2] || m[4] || '')
+            .split(',')[0]
+            .trim()
+            .replace(/[^\w$].*$/, '');
         if (!name || !param) continue;
         const open = m.index + m[0].length - 1;
         const body = bodySlice(text, open, 2000);
-        const call = new RegExp(`([A-Za-z_$][\\w$]*)\\s*\\.\\s*(?:join|resolve)\\s*\\(\\s*([A-Za-z_$][\\w$]*)[^)]*\\b${param}\\b`).exec(body);
+        const call = new RegExp(
+            `([A-Za-z_$][\\w$]*)\\s*\\.\\s*(?:join|resolve)\\s*\\(\\s*([A-Za-z_$][\\w$]*)[^)]*\\b${param}\\b`,
+        ).exec(body);
         if (!call || !isPathAlias(call[1])) continue;
         const prefix = roots.has(call[2]) ? roots.get(call[2]) : rootPrefix(body);
         if (prefix === null) continue;
@@ -534,10 +579,19 @@ function balancedArrayBody(text, openIndex) {
     let quote = null;
     for (let i = openIndex; i < text.length; i += 1) {
         const c = text[i];
-        if (quote) { if (c === quote && text[i - 1] !== '\\') quote = null; continue; }
-        if (c === '\'' || c === '"' || c === '`') { quote = c; continue; }
+        if (quote) {
+            if (c === quote && text[i - 1] !== '\\') quote = null;
+            continue;
+        }
+        if (c === "'" || c === '"' || c === '`') {
+            quote = c;
+            continue;
+        }
         if (c === '[') depth += 1;
-        else if (c === ']') { depth -= 1; if (depth === 0) return text.slice(openIndex + 1, i); }
+        else if (c === ']') {
+            depth -= 1;
+            if (depth === 0) return text.slice(openIndex + 1, i);
+        }
     }
     return null;
 }
@@ -551,9 +605,10 @@ function itemsFromArrayBody(body, tupleIndex) {
     const rows = splitTopLevel(stripComments(body));
     const items = [];
     for (const row of rows) {
-        const cell = tupleIndex === undefined
-            ? row
-            : (splitTopLevel(row.replace(/^\s*\[/, '').replace(/\]\s*$/, ''))[tupleIndex] || '');
+        const cell =
+            tupleIndex === undefined
+                ? row
+                : splitTopLevel(row.replace(/^\s*\[/, '').replace(/\]\s*$/, ''))[tupleIndex] || '';
         const lit = /^\s*(['"`])([^'"`]*)\1\s*$/.exec(cell);
         if (lit) items.push(lit[2]);
     }
@@ -572,13 +627,24 @@ function stripComments(text) {
         const c = text[i];
         if (quote) {
             out += c;
-            if (c === '\\') { out += text[i + 1] || ''; i += 1; continue; }
+            if (c === '\\') {
+                out += text[i + 1] || '';
+                i += 1;
+                continue;
+            }
             if (c === quote) quote = null;
             continue;
         }
-        if (c === '\'' || c === '"' || c === '`') { quote = c; out += c; continue; }
+        if (c === "'" || c === '"' || c === '`') {
+            quote = c;
+            out += c;
+            continue;
+        }
         if (c === '/' && text[i + 1] === '/') {
-            while (i < text.length && text[i] !== '\n') { out += ' '; i += 1; }
+            while (i < text.length && text[i] !== '\n') {
+                out += ' ';
+                i += 1;
+            }
             out += '\n';
             continue;
         }
@@ -602,11 +668,20 @@ function splitTopLevel(body) {
     let start = 0;
     for (let i = 0; i < body.length; i += 1) {
         const c = body[i];
-        if (quote) { if (c === quote && body[i - 1] !== '\\') quote = null; continue; }
-        if (c === '\'' || c === '"' || c === '`') { quote = c; continue; }
+        if (quote) {
+            if (c === quote && body[i - 1] !== '\\') quote = null;
+            continue;
+        }
+        if (c === "'" || c === '"' || c === '`') {
+            quote = c;
+            continue;
+        }
         if ('[{('.includes(c)) depth += 1;
         else if (']})'.includes(c)) depth -= 1;
-        else if (c === ',' && depth === 0) { out.push(body.slice(start, i)); start = i + 1; }
+        else if (c === ',' && depth === 0) {
+            out.push(body.slice(start, i));
+            start = i + 1;
+        }
     }
     out.push(body.slice(start));
     return out.filter((s) => s.trim() !== '');
@@ -662,7 +737,8 @@ function collectLoopLists(text) {
     }
     // NAMES.forEach(function(f){ ... }) is the same loop written as a callback,
     // and the explorer's twin guard reaches into this repo from inside one.
-    const each = /\b([A-Za-z_$][\w$]*)\s*\.\s*(?:forEach|map)\s*\(\s*(?:async\s+)?(?:function\s*)?\(?\s*([A-Za-z_$][\w$]*)\s*[,)]/g;
+    const each =
+        /\b([A-Za-z_$][\w$]*)\s*\.\s*(?:forEach|map)\s*\(\s*(?:async\s+)?(?:function\s*)?\(?\s*([A-Za-z_$][\w$]*)\s*[,)]/g;
     while ((m = each.exec(text)) !== null) {
         push(m.index, each.lastIndex, m[2], arrayLiteralItems(text, m[1]));
     }
@@ -672,13 +748,18 @@ function collectLoopLists(text) {
         const body = balancedArrayBody(text, m.index);
         if (body === null) continue;
         const after = m.index + body.length + 2;
-        const call = /^\s*\.\s*(?:forEach|map)\s*\(\s*(?:async\s+)?(?:function\s*)?\(?\s*([A-Za-z_$][\w$]*)\s*[,)]/.exec(text.slice(after, after + 80));
+        const call =
+            /^\s*\.\s*(?:forEach|map)\s*\(\s*(?:async\s+)?(?:function\s*)?\(?\s*([A-Za-z_$][\w$]*)\s*[,)]/.exec(
+                text.slice(after, after + 80),
+            );
         if (!call) continue;
         push(m.index, after + call[0].length, call[1], itemsFromArrayBody(body));
     }
     const shell = /\bfor\s+([A-Za-z_][\w]*)\s+in\s+([\s\S]{0,500}?)(?:;\s*|\n\s*)do\b/g;
     while ((m = shell.exec(text)) !== null) {
-        const items = m[2].replace(/\\\s*\n/g, ' ').split(/\s+/)
+        const items = m[2]
+            .replace(/\\\s*\n/g, ' ')
+            .split(/\s+/)
             .filter((t) => t && /^[A-Za-z0-9_@.\-/]+$/.test(t));
         if (!items.length) continue;
         const done = text.indexOf('\ndone', shell.lastIndex);
@@ -742,7 +823,10 @@ function helperReferences(text, helpers, lists, strings) {
             if (arg === null) continue;
             const expr = arg.trim();
             const literal = /^(['"`])([^'"`]*)\1$/.exec(expr);
-            if (literal) { push(m.index, relFromTail(suffix, literal[2]), name); continue; }
+            if (literal) {
+                push(m.index, relFromTail(suffix, literal[2]), name);
+                continue;
+            }
             const prefixed = /^(['"`])([^'"`]*)\1\s*\+\s*([A-Za-z_$][\w$]*)$/.exec(expr);
             if (prefixed) {
                 const items = nearestList(lists, prefixed[3], m.index);
@@ -934,7 +1018,11 @@ function siblingRepos(root) {
         if (entry.name === REPO_NAME) continue;
         const full = path.join(root, entry.name);
         let real;
-        try { real = fs.realpathSync(full); } catch (e) { continue; }
+        try {
+            real = fs.realpathSync(full);
+        } catch (e) {
+            continue;
+        }
         if (real === self) continue;
         if (!fs.statSync(full).isDirectory()) continue;
         names.push(entry.name);
@@ -975,10 +1063,18 @@ function buildReferenceMap(root, opts = {}) {
     const scanOne = (file, repo, scanRoot) => {
         {
             let stat;
-            try { stat = fs.statSync(file); } catch (e) { return; }
+            try {
+                stat = fs.statSync(file);
+            } catch (e) {
+                return;
+            }
             if (stat.size > MAX_FILE_BYTES) return;
             let text;
-            try { text = fs.readFileSync(file, 'utf8'); } catch (e) { return; }
+            try {
+                text = fs.readFileSync(file, 'utf8');
+            } catch (e) {
+                return;
+            }
             // The env-variable form never spells the repo name, so the cheap
             // pre-filter has to admit it too or the whole idiom stays invisible.
             if (!text.includes(REPO_NAME) && !text.includes(ENV_PREFIX)) return;
@@ -1048,9 +1144,7 @@ function buildReferenceMap(root, opts = {}) {
     // `xchain-*` siblings only. Swept under one label so `siblingRepos` still means
     // exactly the sibling checkouts a downstream reader already knows.
     const toolingSwept = [];
-    const extraDirs = opts.includePlatformTooling
-        ? (opts.extraDirs || platformToolingDirs())
-        : [];
+    const extraDirs = opts.includePlatformTooling ? opts.extraDirs || platformToolingDirs() : [];
     for (const dir of extraDirs) {
         const abs = path.join(root, dir);
         if (!fs.existsSync(abs)) continue;
@@ -1063,7 +1157,11 @@ function buildReferenceMap(root, opts = {}) {
     // the toolchain reports them.
     for (const file of walkFiles(path.join(REPO_ROOT, 'src'), [])) {
         let text;
-        try { text = fs.readFileSync(file, 'utf8'); } catch (e) { continue; }
+        try {
+            text = fs.readFileSync(file, 'utf8');
+        } catch (e) {
+            continue;
+        }
         const relFile = path.relative(REPO_ROOT, file);
         for (const hit of computedRequireSites(text, path.posix.dirname(relFile))) {
             dynamic.push({
@@ -1128,11 +1226,19 @@ function parseArgs(argv) {
     for (let i = 0; i < argv.length; i += 1) {
         if (argv[i] === '--json') opts.json = true;
         else if (argv[i] === '--include-platform-tooling') opts.includePlatformTooling = true;
-        else if (argv[i] === '--siblings') { opts.siblings = path.resolve(argv[i + 1]); i += 1; }
-        else if (argv[i] === '--pin') { opts.pin = path.resolve(argv[i + 1]); i += 1; }
-        else if (argv[i] === '--base-sha') { opts.baseSha = argv[i + 1]; i += 1; }
-        else if (argv[i] === '--note') { opts.note = argv[i + 1]; i += 1; }
-        else if (argv[i] === '--help' || argv[i] === '-h') opts.help = true;
+        else if (argv[i] === '--siblings') {
+            opts.siblings = path.resolve(argv[i + 1]);
+            i += 1;
+        } else if (argv[i] === '--pin') {
+            opts.pin = path.resolve(argv[i + 1]);
+            i += 1;
+        } else if (argv[i] === '--base-sha') {
+            opts.baseSha = argv[i + 1];
+            i += 1;
+        } else if (argv[i] === '--note') {
+            opts.note = argv[i + 1];
+            i += 1;
+        } else if (argv[i] === '--help' || argv[i] === '-h') opts.help = true;
     }
     return opts;
 }
@@ -1148,10 +1254,11 @@ function parseArgs(argv) {
 function srcInventoryAt(sha) {
     if (!sha) return null;
     try {
-        const out = require('child_process').execFileSync(
-            'git', ['ls-tree', '-r', '--name-only', sha, 'src'],
-            { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 },
-        );
+        const out = require('child_process').execFileSync('git', ['ls-tree', '-r', '--name-only', sha, 'src'], {
+            cwd: REPO_ROOT,
+            encoding: 'utf8',
+            maxBuffer: 32 * 1024 * 1024,
+        });
         return out.split('\n').filter(Boolean).sort();
     } catch (e) {
         return null;
@@ -1165,29 +1272,36 @@ function main() {
         return;
     }
     if (opts.includePlatformTooling && !platformToolingDirs().length) {
-        console.error(`--include-platform-tooling with no ${PLATFORM_TOOLING_ENV}: `
-            + 'name the directories to sweep, relative to the siblings root and comma-separated.');
+        console.error(
+            `--include-platform-tooling with no ${PLATFORM_TOOLING_ENV}: ` +
+                'name the directories to sweep, relative to the siblings root and comma-separated.',
+        );
         process.exitCode = 2;
         return;
     }
     const map = buildReferenceMap(opts.siblings, { includePlatformTooling: opts.includePlatformTooling });
     if (opts.pin) {
-        const pinned = Object.assign({
-            pinMetadata: {
-                tool: 'bin/sibling-reference-map.js',
-                capturedAt: new Date().toISOString(),
-                repoSha: opts.baseSha || null,
-                // Relative to this checkout, never as the operator spelled it: an
-                // absolute path names somebody's machine and pins to no tree at all.
-                siblingsRoot: path.relative(REPO_ROOT, opts.siblings) || '.',
-                note: opts.note || null,
-                repoSrcFilesAtBaseSha: srcInventoryAt(opts.baseSha),
+        const pinned = Object.assign(
+            {
+                pinMetadata: {
+                    tool: 'bin/sibling-reference-map.js',
+                    capturedAt: new Date().toISOString(),
+                    repoSha: opts.baseSha || null,
+                    // Relative to this checkout, never as the operator spelled it: an
+                    // absolute path names somebody's machine and pins to no tree at all.
+                    siblingsRoot: path.relative(REPO_ROOT, opts.siblings) || '.',
+                    note: opts.note || null,
+                    repoSrcFilesAtBaseSha: srcInventoryAt(opts.baseSha),
+                },
             },
-        }, map);
+            map,
+        );
         fs.writeFileSync(opts.pin, `${JSON.stringify(pinned, null, 2)}\n`);
         console.log(`pin written: ${opts.pin}`);
-        console.log(`  ${pinned.distinctPathCount} distinct paths, ${pinned.existingPathCount} resolving, `
-            + `${pinned.referenceCount} reference sites`);
+        console.log(
+            `  ${pinned.distinctPathCount} distinct paths, ${pinned.existingPathCount} resolving, ` +
+                `${pinned.referenceCount} reference sites`,
+        );
         return;
     }
     if (opts.json) {
@@ -1195,20 +1309,35 @@ function main() {
         return;
     }
     console.log(`sibling repos swept: ${map.siblingRepos.length} (${map.siblingRepos.join(', ')})`);
-    console.log(`platform tooling swept: ${map.platformToolingSwept.length
-        ? map.platformToolingSwept.join(', ')
-        : `none (opt in with --include-platform-tooling and ${PLATFORM_TOOLING_ENV})`}`);
-    console.log(`distinct ${REPO_NAME} src/ paths referenced: ${map.distinctPathCount} `
-        + `(${map.existingPathCount} resolve to a file in the tree)`);
-    console.log(`total reference sites: ${map.referenceCount} `
-        + `(require ${map.referenceCountByKind.require}, `
-        + `join ${map.referenceCountByKind.join}, mention ${map.referenceCountByKind.text})`);
-    console.log('reference sites by form: '
-        + Object.keys(map.referenceCountByForm).map((f) => `${f} ${map.referenceCountByForm[f]}`).join(', '));
+    console.log(
+        `platform tooling swept: ${
+            map.platformToolingSwept.length
+                ? map.platformToolingSwept.join(', ')
+                : `none (opt in with --include-platform-tooling and ${PLATFORM_TOOLING_ENV})`
+        }`,
+    );
+    console.log(
+        `distinct ${REPO_NAME} src/ paths referenced: ${map.distinctPathCount} ` +
+            `(${map.existingPathCount} resolve to a file in the tree)`,
+    );
+    console.log(
+        `total reference sites: ${map.referenceCount} ` +
+            `(require ${map.referenceCountByKind.require}, ` +
+            `join ${map.referenceCountByKind.join}, mention ${map.referenceCountByKind.text})`,
+    );
+    console.log(
+        'reference sites by form: ' +
+            Object.keys(map.referenceCountByForm)
+                .map((f) => `${f} ${map.referenceCountByForm[f]}`)
+                .join(', '),
+    );
     console.log(`unresolvable path references: ${Object.values(map.paths).filter((p) => !p.exists).length}`);
-    console.log(`dynamic references (a human checks these on a rename): ${map.dynamicReferenceCount} `
-        + `(${Object.keys(map.dynamicReferenceCountByForm)
-            .map((f) => `${f} ${map.dynamicReferenceCountByForm[f]}`).join(', ')})`);
+    console.log(
+        `dynamic references (a human checks these on a rename): ${map.dynamicReferenceCount} ` +
+            `(${Object.keys(map.dynamicReferenceCountByForm)
+                .map((f) => `${f} ${map.dynamicReferenceCountByForm[f]}`)
+                .join(', ')})`,
+    );
     console.log('');
     const perRepo = {};
     for (const entry of Object.values(map.paths)) {
