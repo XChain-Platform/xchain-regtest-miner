@@ -52,6 +52,22 @@ function useMiner() {
     })
 }
 
+const MIN_MINING_TIME_MS = 1000
+const MAX_MINING_TIME_MS = 3600000
+
+// Whether setMiningTime must accept this pair: both integers within the 1s to 1h bounds.
+function isValidMiningTimes(maxTime, txAddedTime) {
+    return [maxTime, txAddedTime].every(
+        (t) => Number.isInteger(t) && t >= MIN_MINING_TIME_MS && t <= MAX_MINING_TIME_MS
+    )
+}
+
+// Puts both mining timers back to their defaults between property iterations.
+function resetMiningTimes() {
+    miner.maxTimeToMineTxs = 30000
+    miner.addedTimeToMineTxs = 5000
+}
+
 // ─── setMiningTime with arbitrary values ────────────────────────
 
 // setMiningTime throws (rather than silently no-opping) on invalid input
@@ -62,15 +78,12 @@ describe('Fuzz: mining timer parameters', function () {
     useMiner()
     describe('setMiningTime with arbitrary values', function () {
         it('only accepts positive integers within bounds; rejects (throws) otherwise', async function () {
-            const MIN = 1000
-            const MAX = 3600000
             await fc.assert(
                 fc.asyncProperty(fc.anything(), fc.anything(), async (maxTime, txAddedTime) => {
                     const origMax = miner.maxTimeToMineTxs
                     const origAdded = miner.addedTimeToMineTxs
 
-                    const isValid = Number.isInteger(maxTime) && Number.isInteger(txAddedTime) &&
-                        maxTime >= MIN && maxTime <= MAX && txAddedTime >= MIN && txAddedTime <= MAX
+                    const isValid = isValidMiningTimes(maxTime, txAddedTime)
 
                     if (isValid) {
                         await miner.setMiningTime(maxTime, txAddedTime)
@@ -83,8 +96,7 @@ describe('Fuzz: mining timer parameters', function () {
                     }
 
                     // Reset for next iteration
-                    miner.maxTimeToMineTxs = 30000
-                    miner.addedTimeToMineTxs = 5000
+                    resetMiningTimes()
                 }),
                 { numRuns: 1000 }
             )
@@ -102,8 +114,7 @@ describe('Fuzz: mining timer parameters', function () {
                     } catch (err) {
                         assert.ok(err instanceof Error)
                     }
-                    miner.maxTimeToMineTxs = 30000
-                    miner.addedTimeToMineTxs = 5000
+                    resetMiningTimes()
                 }),
                 { numRuns: 1000 }
             )
@@ -251,8 +262,7 @@ describe('Fuzz: mining timer parameters', function () {
                         assert.strictEqual(miner.addedTimeToMineTxs, lastAdded)
 
                         // Reset
-                        miner.maxTimeToMineTxs = 30000
-                        miner.addedTimeToMineTxs = 5000
+                        resetMiningTimes()
                     }
                 ),
                 { numRuns: 200 }

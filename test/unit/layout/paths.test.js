@@ -27,7 +27,7 @@ describe('source layout', function () {
         assert.strictEqual(fs.existsSync(path.join(root, 'src/crypto_networks.js')), false)
         assert.strictEqual(fs.existsSync(path.join(root, 'src/networks/crypto_networks.js')), true)
 
-        const mempoolFill = fs.readFileSync(path.join(root, 'src/XChainRegtestMiner/mempool_fill.js'), 'utf8')
-        assert.match(mempoolFill, /require\('\.\.\/networks\/crypto_networks\.js'\)/)
+        const fillPlan = fs.readFileSync(path.join(root, 'src/XChainRegtestMiner/fill_plan.js'), 'utf8')
+        assert.match(fillPlan, /require\('\.\.\/networks\/crypto_networks\.js'\)/)
     })
 })

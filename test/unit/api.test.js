@@ -31,6 +31,15 @@ function createMinerStub() {
     }
 }
 
+// The methods the production api.js controller exposes, in registration order.
+const PRODUCTION_CONTROLLER_METHODS = [
+    'ping', 'status', 'health', 'send_funds', 'fill_mempool',
+    'pause_mining', 'continue_mining', 'set_mining_time',
+    'set_default_mining_time', 'set_mock_time',
+    'set_idle_mine_interval', 'generate_blocks',
+    'invalidate_block', 'reconsider_block'
+]
+
 describe('api.js', function () {
     let miner
 
@@ -55,13 +64,7 @@ describe('api.js', function () {
             })
 
             it('uses the complete production controller surface', function () {
-                assert.deepStrictEqual(Object.keys(controller), [
-                    'ping', 'status', 'health', 'send_funds', 'fill_mempool',
-                    'pause_mining', 'continue_mining', 'set_mining_time',
-                    'set_default_mining_time', 'set_mock_time',
-                    'set_idle_mine_interval', 'generate_blocks',
-                    'invalidate_block', 'reconsider_block'
-                ])
+                assert.deepStrictEqual(Object.keys(controller), PRODUCTION_CONTROLLER_METHODS)
             })
         })
 

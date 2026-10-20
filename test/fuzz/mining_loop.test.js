@@ -18,6 +18,15 @@ let miner
 let connectorStub
 let clock
 
+// Runs the start loop until the sleep stub throws the break sentinel; any other error is real.
+async function startUntilLoopBreak() {
+    try {
+        await miner.start()
+    } catch (e) {
+        if (e.message !== '__LOOP_BREAK__') throw e
+    }
+}
+
 function setUpMiner() {
     connectorStub = {
         getWalletInfo: sinon.stub().resolves({ walletname: 'test' }),
@@ -81,9 +90,7 @@ function miningTimerMaxTimeTests() {
             }
         })
 
-        try { await miner.start() } catch (e) {
-            if (e.message !== '__LOOP_BREAK__') throw e
-        }
+        await startUntilLoopBreak()
 
         assert.ok(generateCount > 0, 'Should have mined at least one block')
     })
@@ -114,9 +121,7 @@ function miningTimerAddedTimeTests() {
             }
         })
 
-        try { await miner.start() } catch (e) {
-            if (e.message !== '__LOOP_BREAK__') throw e
-        }
+        await startUntilLoopBreak()
 
         assert.ok(generateCount > 0, 'Should have mined when addedTime expired')
     })
@@ -151,9 +156,7 @@ function miningTimerExtensionTests() {
             }
         })
 
-        try { await miner.start() } catch (e) {
-            if (e.message !== '__LOOP_BREAK__') throw e
-        }
+        await startUntilLoopBreak()
 
         // With constantly growing mempool and short ticks, addedTime
         // keeps resetting and should NOT trigger mining
@@ -186,9 +189,7 @@ function keepMiningFlagTests() {
             }
         })
 
-        try { await miner.start() } catch (e) {
-            if (e.message !== '__LOOP_BREAK__') throw e
-        }
+        await startUntilLoopBreak()
 
         // With keepMining always false, no blocks should be generated
         assert.strictEqual(connectorStub.generateToAddress.callCount, 0,
@@ -214,9 +215,7 @@ function keepMiningFlagTests() {
             }
         })
 
-        try { await miner.start() } catch (e) {
-            if (e.message !== '__LOOP_BREAK__') throw e
-        }
+        await startUntilLoopBreak()
 
         // Should not crash regardless of toggle pattern
         assert.ok(loopCount >= 20)
@@ -321,9 +320,7 @@ function miningLoopResilienceTests() {
             }
         })
 
-        try { await miner.start() } catch (e) {
-            if (e.message !== '__LOOP_BREAK__') throw e
-        }
+        await startUntilLoopBreak()
 
         assert.ok(loopCount >= 10, 'Loop should survive interleaved errors')
     })
@@ -354,9 +351,7 @@ function miningLoopResilienceTests() {
             }
         })
 
-        try { await miner.start() } catch (e) {
-            if (e.message !== '__LOOP_BREAK__') throw e
-        }
+        await startUntilLoopBreak()
 
         assert.ok(loopCount >= 15, 'Loop should survive interleaved generate errors')
     })

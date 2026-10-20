@@ -238,50 +238,36 @@ describe('T1 Regression: Security', function () {
 
 // ─── REG-T1-D04: Error sanitization (no credential leaks) ──────
 
+// Rejects the next RPC with an axios-style error carrying credentials in its config, then
+// asserts the error the connector throws exposes neither the user name nor the password.
+async function assertErrorHidesCredentials(message, config, call) {
+    const axiosError = new Error(message)
+    axiosError.config = config
+    axiosPostStub.rejects(axiosError)
+
+    try {
+        await call()
+        assert.fail('should have thrown')
+    } catch (err) {
+        assert.ok(!err.message.includes('secretuser'))
+        assert.ok(!err.message.includes('secretpass'))
+    }
+}
+
 describe('T1 Regression: Security', function () {
     describe('REG-T1-D04: Error sanitization, no credential leaks', function () {
         registerErrorSanitizationHooks()
 
         it('sendToAddress does not expose credentials in error', async function () {
-            const axiosError = new Error('connect ECONNREFUSED http://localhost:18332')
-            axiosError.config = { url: 'http://localhost:18332', auth: { username: 'secretuser', password: 'secretpass' } }
-            axiosPostStub.rejects(axiosError)
-
-            try {
-                await connector.sendToAddress('bcrt1qtest', 1.0)
-                assert.fail('should have thrown')
-            } catch (err) {
-                assert.ok(!err.message.includes('secretuser'))
-                assert.ok(!err.message.includes('secretpass'))
-            }
+            await assertErrorHidesCredentials('connect ECONNREFUSED http://localhost:18332', { url: 'http://localhost:18332', auth: { username: 'secretuser', password: 'secretpass' } }, () => connector.sendToAddress('bcrt1qtest', 1.0))
         })
 
         it('getRawMempool does not expose credentials in error', async function () {
-            const axiosError = new Error('ECONNREFUSED')
-            axiosError.config = { auth: { username: 'secretuser', password: 'secretpass' } }
-            axiosPostStub.rejects(axiosError)
-
-            try {
-                await connector.getRawMempool()
-                assert.fail('should have thrown')
-            } catch (err) {
-                assert.ok(!err.message.includes('secretuser'))
-                assert.ok(!err.message.includes('secretpass'))
-            }
+            await assertErrorHidesCredentials('ECONNREFUSED', { auth: { username: 'secretuser', password: 'secretpass' } }, () => connector.getRawMempool())
         })
 
         it('generateToAddress does not expose credentials in error', async function () {
-            const axiosError = new Error('timeout')
-            axiosError.config = { auth: { username: 'secretuser', password: 'secretpass' } }
-            axiosPostStub.rejects(axiosError)
-
-            try {
-                await connector.generateToAddress(1, 'addr')
-                assert.fail('should have thrown')
-            } catch (err) {
-                assert.ok(!err.message.includes('secretuser'))
-                assert.ok(!err.message.includes('secretpass'))
-            }
+            await assertErrorHidesCredentials('timeout', { auth: { username: 'secretuser', password: 'secretpass' } }, () => connector.generateToAddress(1, 'addr'))
         })
 
         it('getWalletInfo does not log credentials during retries', async function () {

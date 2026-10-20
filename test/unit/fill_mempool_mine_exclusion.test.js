@@ -146,6 +146,20 @@ describe('fill_mempool vs a concurrent generate_blocks', function () {
     })
 })
 
+// Yields to the event loop until `done()` is true or `maxSpins` yields have passed.
+async function spinUntil(done, maxSpins) {
+    for (let spins = 0; spins < maxSpins && !done(); spins++) await tick()
+}
+
+// Removes the SIGTERM and SIGINT listeners start() installed after `before` was taken.
+function removeSignalListenersAddedSince(before) {
+    for (const sig of ['SIGTERM', 'SIGINT']) {
+        for (const listener of process.listeners(sig)) {
+            if (!before[sig].includes(listener)) process.removeListener(sig, listener)
+        }
+    }
+}
+
 // continue_mining sets keepMining true with no fill check, so a call that lands
 // mid-fill must not let the REAL auto-mine loop hit the generateBlocks guard every
 // pass, count each refusal as a failed mine and drive health to mine_failures.
@@ -166,7 +180,7 @@ async function continueMiningDuringFill({ rawMempool, idleMineIntervalMs }) {
     const sigBefore = { SIGTERM: process.listeners('SIGTERM'), SIGINT: process.listeners('SIGINT') }
     const loop = miner.start()
     try {
-        for (let spins = 0; !miner.getStatus().mining_started && spins < 1000; spins++) await tick()
+        await spinUntil(() => miner.getStatus().mining_started, 1000)
         assert.strictEqual(miner.getStatus().mining_started, true, 'precondition: the loop must be running')
 
         // Hold the fill open exactly as fillMempool does, then resume mid-fill.
@@ -178,7 +192,7 @@ async function continueMiningDuringFill({ rawMempool, idleMineIntervalMs }) {
             'precondition: the guard is live, so zero failures means the loop never reached it')
 
         // 3000 passes of at least 100 virtual ms each: far past the 5s timer and 1s idle interval.
-        for (let spins = 0; spins < 3000 && miner.getStatus().mine_failures < 5; spins++) await tick()
+        await spinUntil(() => miner.getStatus().mine_failures >= 5, 3000)
         const during = miner.getStatus()
         assert.strictEqual(mines, 0, 'no loop block may land while the fill runs')
         assert.strictEqual(during.mine_failures, 0, 'a fill-guard refusal is not a failed mine')
@@ -187,17 +201,13 @@ async function continueMiningDuringFill({ rawMempool, idleMineIntervalMs }) {
 
         // The fill ends: the resume the caller asked for takes effect.
         miner.fillMempoolRunning = false
-        for (let spins = 0; spins < 3000 && mines === 0; spins++) await tick()
+        await spinUntil(() => mines > 0, 3000)
         assert.ok(mines >= 1, 'the loop must mine again once the fill has settled')
     } finally {
         miner._shutdown = true
         await loop
         Date.now = realNow
-        for (const sig of ['SIGTERM', 'SIGINT']) {
-            for (const listener of process.listeners(sig)) {
-                if (!sigBefore[sig].includes(listener)) process.removeListener(sig, listener)
-            }
-        }
+        removeSignalListenersAddedSince(sigBefore)
     }
 }
 

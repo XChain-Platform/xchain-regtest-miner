@@ -87,6 +87,45 @@ async function expectStaysPaused(run) {
     assert.strictEqual(miner.getStatus().mining_started, true)
 }
 
+// A promise the test settles by hand through `release`.
+function parkedPromise() {
+    let release
+    const promise = new Promise((resolve) => { release = resolve })
+    return { promise, release }
+}
+
+// Starts a fill_mempool whose first send parks until released and every send then fails.
+// Resolves once the fill is in flight, with the fill's settled promise and the release.
+async function startParkedFill() {
+    const sendParked = parkedPromise()
+    let sends = 0
+    miner.sendFundsToAddress = async () => {
+        sends++
+        if (sends === 1) await sendParked.promise
+        throw new Error('send refused')
+    }
+    const fill = miner.fillMempool(1).catch(() => {})
+    for (let spins = 0; sends === 0 && spins < 1000; spins++) await tick()
+    assert.strictEqual(sends, 1, 'precondition: the fill must be in flight across preparation')
+    return { fill, releaseSend: sendParked.release }
+}
+
+// Starts a reconsider_block whose node call parks on `parked`. Resolves { reconsider }, boxed so
+// awaiting this helper does not wait out the reconsider itself.
+async function startParkedReconsider(parked) {
+    miner.connector.reconsiderBlock = async () => { await parked; return null }
+    const reconsider = miner.reconsiderBlock('00ab')
+    await tick()
+    return { reconsider }
+}
+
+// While a reconsider is in flight start() must leave mining off and no loop mine may land.
+async function expectReorgHoldsMining(run) {
+    await run.spin()
+    assert.strictEqual(run.counts.loopMines, 0, 'no loop mine may land inside the reorg')
+    assert.strictEqual(miner.keepMining, false, 'start() must not switch mining on mid-reorg')
+}
+
 async function expectMines(run) {
     await run.spin()
     assert.ok(run.counts.loopMines >= 1, 'the loop must be mining')
@@ -129,17 +168,7 @@ describe('start(): mining controls that land during wallet preparation', functio
     it('keeps a fill_mempool stop that landed before ready, after the fill ends', async function () {
         const run = await bootPending()
         try {
-            let releaseSend
-            const sendParked = new Promise((resolve) => { releaseSend = resolve })
-            let sends = 0
-            miner.sendFundsToAddress = async () => {
-                sends++
-                if (sends === 1) await sendParked
-                throw new Error('send refused')
-            }
-            const fill = miner.fillMempool(1).catch(() => {})
-            for (let spins = 0; sends === 0 && spins < 1000; spins++) await tick()
-            assert.strictEqual(sends, 1, 'precondition: the fill must be in flight across preparation')
+            const { fill, releaseSend } = await startParkedFill()
             await run.ready()
             assert.strictEqual(miner.fillMempoolRunning, true, 'precondition: the fill spans the start() write')
             releaseSend()
@@ -177,16 +206,12 @@ describe('start(): mining controls that land during wallet preparation', functio
 
     it('hands the resume to a reconsider_block still in flight at ready', async function () {
         const run = await bootPending()
-        let releaseReconsider
-        const reconsiderParked = new Promise((resolve) => { releaseReconsider = resolve })
+        const reconsiderParked = parkedPromise()
+        const releaseReconsider = reconsiderParked.release
         try {
-            miner.connector.reconsiderBlock = async () => { await reconsiderParked; return null }
-            const reconsider = miner.reconsiderBlock('00ab')
-            await tick()
+            const { reconsider } = await startParkedReconsider(reconsiderParked.promise)
             await run.ready()
-            await run.spin()
-            assert.strictEqual(run.counts.loopMines, 0, 'no loop mine may land inside the reorg')
-            assert.strictEqual(miner.keepMining, false, 'start() must not switch mining on mid-reorg')
+            await expectReorgHoldsMining(run)
             releaseReconsider()
             await reconsider
             assert.strictEqual(miner.keepMining, true, 'the reorg exit must restore mining')

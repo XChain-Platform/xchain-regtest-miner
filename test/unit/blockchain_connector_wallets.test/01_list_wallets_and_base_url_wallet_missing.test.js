@@ -71,6 +71,11 @@ describe('BlockchainConnector', function () {
             assert.ok(!threw.walletMissing)
         })
     })
+})
+
+describe('BlockchainConnector', function () {
+    beforeEach(setup)
+    afterEach(() => sinon.restore())
 
     describe('listWallets', function () {
         it('returns the loaded wallet names from the base URL', async function () {

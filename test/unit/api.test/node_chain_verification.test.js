@@ -32,6 +32,19 @@ function connectorAnswering(...answers) {
     return { getBlockchainInfo }
 }
 
+// Network and reported chain pairs chainMatchesNetwork must refuse.
+const REJECTED_CHAIN_PAIRS = [['regtest', 'main'], ['testnet', 'main'], ['regtest', 'test'],
+    ['testnet', 'regtest'], ['regtest', 'signet'], ['testnet', 'signet'], ['regtest', undefined],
+    ['mainnet', 'main'], ['testnet', 'testnetx']]
+
+// Network and reported chain pairs a node may legitimately answer.
+const MATCHING_CHAIN_PAIRS = [['regtest', 'regtest'], ['testnet', 'test'], ['testnet', 'testnet4']]
+
+// Network and getblockchaininfo answers verifyNodeChain must refuse with exit 1.
+const MISMATCHED_NODE_ANSWERS = [['regtest', { chain: 'main' }], ['testnet', { chain: 'main' }],
+    ['regtest', { chain: 'test' }], ['testnet', { chain: 'regtest' }], ['regtest', { chain: 'signet' }],
+    ['regtest', { blocks: 5 }]]
+
 const fast = { attempts: 5, intervalMs: 0, sleep: async () => {} }
 
 describe('node chain verification', function () {
@@ -41,16 +54,14 @@ describe('node chain verification', function () {
         assert.strictEqual(chainMatchesNetwork('regtest', 'regtest'), true)
         assert.strictEqual(chainMatchesNetwork('testnet', 'test'), true)
         assert.strictEqual(chainMatchesNetwork('testnet', 'testnet4'), true)
-        for (const [network, chain] of [['regtest', 'main'], ['testnet', 'main'], ['regtest', 'test'],
-            ['testnet', 'regtest'], ['regtest', 'signet'], ['testnet', 'signet'], ['regtest', undefined],
-            ['mainnet', 'main'], ['testnet', 'testnetx']]) {
+        for (const [network, chain] of REJECTED_CHAIN_PAIRS) {
             assert.strictEqual(chainMatchesNetwork(network, chain), false, network + ' vs ' + chain)
         }
     })
 
     it('resolves without exiting when the node reports the matching chain', async function () {
         const exit = stubExit()
-        for (const [network, chain] of [['regtest', 'regtest'], ['testnet', 'test'], ['testnet', 'testnet4']]) {
+        for (const [network, chain] of MATCHING_CHAIN_PAIRS) {
             const log = logger()
             await verifyNodeChain(connectorAnswering({ chain }), network, log, fast)
             assert.ok(log.log.calledWithMatch(chain), 'logs the verified chain ' + chain)
@@ -60,9 +71,7 @@ describe('node chain verification', function () {
 
     it('exits 1 and names the reported chain on a mainnet or mismatched node', async function () {
         stubExit()
-        for (const [network, info] of [['regtest', { chain: 'main' }], ['testnet', { chain: 'main' }],
-            ['regtest', { chain: 'test' }], ['testnet', { chain: 'regtest' }], ['regtest', { chain: 'signet' }],
-            ['regtest', { blocks: 5 }]]) {
+        for (const [network, info] of MISMATCHED_NODE_ANSWERS) {
             const log = logger()
             const connector = connectorAnswering(info)
             await assert.rejects(() => verifyNodeChain(connector, network, log, fast), new RegExp(EXIT + '1'))

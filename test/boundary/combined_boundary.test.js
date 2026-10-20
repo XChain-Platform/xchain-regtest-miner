@@ -58,6 +58,15 @@ function teardownMiner() {
     delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
 }
 
+// Runs the start loop until the sleep stub throws the break sentinel; any other error is real.
+async function startUntilLoopBreak() {
+    try {
+        await miner.start()
+    } catch (e) {
+        if (e.message !== '__LOOP_BREAK__') throw e
+    }
+}
+
 function registerMinerHooks() {
     beforeEach(setupMiner)
     afterEach(teardownMiner)
@@ -82,9 +91,7 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             assert(connectorStub.generateToAddress.called,
                 'Should mine immediately with maxTime=0 even with large mempool')
@@ -120,9 +127,7 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 if (iterCount >= 6) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             // With addedTime=0, mining fires on the iteration after timers are set.
             // Each mine resets timers to 0, then mempool growth sets them again.
@@ -208,9 +213,7 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 if (iterCount >= 5) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             assert(connectorStub.generateToAddress.called,
                 'Lowering maxTime below elapsed time should trigger mining')
@@ -233,9 +236,7 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             // 80ms < 500ms, so maxTime shouldn't fire yet
             assert(connectorStub.generateToAddress.notCalled,
@@ -289,9 +290,7 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 if (iterCount >= 5) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             assert.strictEqual(connectorStub.generateToAddress.callCount, 1,
                 'Should mine once then stop when mempool empties')
@@ -330,9 +329,7 @@ describe('Boundary: Combined Parameter Interactions', function () {
                 if (iterCount >= 8) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             // Should have recovered from both errors and eventually mined
             assert(genCallCount >= 2,

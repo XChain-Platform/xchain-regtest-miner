@@ -41,12 +41,17 @@ function resetChaosNode(node) {
     seedWallet(node)
 }
 
-describe('Chaos: RPC Disruption', function () {
-    let node
+// The chaos node the suites in this file share; the hooks below start, reset and stop it.
+let node
 
+function registerChaosNodeHooks() {
     before(async function () { node = await startChaosNode() })
     after(async function () { await stopChaosNode(node) })
     beforeEach(function () { resetChaosNode(node) })
+}
+
+describe('Chaos: RPC Disruption', function () {
+    registerChaosNodeHooks()
 
     // ─── CE-01: RPC Connection Loss ─────────────────────────────────
 
@@ -103,11 +108,7 @@ describe('Chaos: RPC Disruption', function () {
 })
 
 describe('Chaos: RPC Disruption', function () {
-    let node
-
-    before(async function () { node = await startChaosNode() })
-    after(async function () { await stopChaosNode(node) })
-    beforeEach(function () { resetChaosNode(node) })
+    registerChaosNodeHooks()
 
     describe('CE-01: RPC Connection Loss', function () {
         it('CE-01b: miner does not crash during extended outage', async function () {
@@ -134,11 +135,7 @@ describe('Chaos: RPC Disruption', function () {
 // ─── CE-02: RPC Timeout During Block Generation ─────────────────
 
 describe('Chaos: RPC Disruption', function () {
-    let node
-
-    before(async function () { node = await startChaosNode() })
-    after(async function () { await stopChaosNode(node) })
-    beforeEach(function () { resetChaosNode(node) })
+    registerChaosNodeHooks()
 
     describe('CE-02: RPC Timeout on generatetoaddress', function () {
 
@@ -194,11 +191,7 @@ describe('Chaos: RPC Disruption', function () {
 // ─── CE-03: Intermittent RPC Flapping ───────────────────────────
 
 describe('Chaos: RPC Disruption', function () {
-    let node
-
-    before(async function () { node = await startChaosNode() })
-    after(async function () { await stopChaosNode(node) })
-    beforeEach(function () { resetChaosNode(node) })
+    registerChaosNodeHooks()
 
     describe('CE-03: 50% RPC Flapping', function () {
 
@@ -245,11 +238,7 @@ describe('Chaos: RPC Disruption', function () {
 })
 
 describe('Chaos: RPC Disruption', function () {
-    let node
-
-    before(async function () { node = await startChaosNode() })
-    after(async function () { await stopChaosNode(node) })
-    beforeEach(function () { resetChaosNode(node) })
+    registerChaosNodeHooks()
 
     describe('CE-03: 50% RPC Flapping', function () {
         it('CE-03b: mining resumes cleanly after flapping period ends', async function () {

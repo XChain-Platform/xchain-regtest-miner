@@ -17,6 +17,15 @@ let XChainRegtestMiner
 let miner
 let connectorStub
 
+// Runs the start loop until the sleep stub throws the break sentinel; any other error is real.
+async function startUntilLoopBreak() {
+    try {
+        await miner.start()
+    } catch (e) {
+        if (e.message !== '__LOOP_BREAK__') throw e
+    }
+}
+
 function setUpMiner() {
     connectorStub = {
         getWalletInfo: sinon.stub().resolves({ walletname: 'test' }),
@@ -91,9 +100,7 @@ describe('Fuzz: mining loop state machine', function () {
                             }
                         })
 
-                        try { await miner.start() } catch (e) {
-                            if (e.message !== '__LOOP_BREAK__') throw e
-                        }
+                        await startUntilLoopBreak()
 
                         // Loop should have run through all events
                         assert.ok(loopCount >= events.length,

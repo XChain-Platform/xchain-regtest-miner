@@ -44,6 +44,11 @@ function restoreMinerContext() {
     delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
 }
 
+// Runs fillMempool and swallows the rejection, for tests that only inspect the state it leaves.
+async function fillMempoolIgnoringFailure(miner, quantity) {
+    try { await miner.fillMempool(quantity) } catch (e) {}
+}
+
 describe('Security: Resource Exhaustion & DoS Prevention', function () {
     let miner
     let connectorStub
@@ -239,12 +244,12 @@ describe('Security: Resource Exhaustion & DoS Prevention', function () {
             connectorStub.sendToAddress.rejects(new Error('fail'))
 
             // First call
-            try { await miner.fillMempool(1) } catch(e) {}
+            await fillMempoolIgnoringFailure(miner, 1)
             assert.strictEqual(miner.fillMempoolRunning, false)
 
             // Second call should not be rejected for concurrency
             connectorStub.sendToAddress.rejects(new Error('fail again'))
-            try { await miner.fillMempool(1) } catch(e) {}
+            await fillMempoolIgnoringFailure(miner, 1)
             assert.strictEqual(miner.fillMempoolRunning, false)
 
             // sendToAddress called in both runs

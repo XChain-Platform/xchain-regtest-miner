@@ -12,6 +12,11 @@ const assert = require('assert')
 const sinon = require('sinon')
 
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const {
+    createFillMempoolController,
+    createSendFundsController,
+    createMiningTimeController,
+} = require('../helpers/api_boundary_controllers')
 
 let XChainRegtestMiner, miner, controller
 
@@ -55,58 +60,15 @@ function registerMinerHooks() {
 }
 
 function setupFillMempoolController() {
-    const minerStub = {
-        fillMempool: sinon.stub(),
-    }
-
-    controller = {
-        async fill_mempool({ tx_quantity }) {
-            try {
-                await minerStub.fillMempool(tx_quantity)
-            } catch (err) {
-                return { error: 'There was a problem trying to fill mempool with ' + tx_quantity + ' transactions' }
-            }
-            return { result: 'ok' }
-        },
-        _miner: minerStub,
-    }
+    controller = createFillMempoolController()
 }
 
 function setupSendFundsController() {
-    const minerStub = {
-        sendFundsToAddress: sinon.stub(),
-    }
-
-    controller = {
-        async send_funds({ address, amount }) {
-            let txid = null
-            try {
-                txid = await minerStub.sendFundsToAddress(address, amount)
-            } catch (err) {
-                return { error: 'There was a problem sending ' + amount + ' to ' + address }
-            }
-            return txid
-        },
-        _miner: minerStub,
-    }
+    controller = createSendFundsController()
 }
 
 function setupMiningTimeController() {
-    const minerStub = {
-        setMiningTime: sinon.stub().resolves(),
-    }
-
-    controller = {
-        async set_mining_time({ max_time, tx_added_time }) {
-            try {
-                await minerStub.setMiningTime(max_time, tx_added_time)
-            } catch (err) {
-                return { error: 'There was a problem trying to set a new time to mine blocks' }
-            }
-            return { result: 'ok' }
-        },
-        _miner: minerStub,
-    }
+    controller = createMiningTimeController()
 }
 
 describe('Boundary: API Input Validation', function () {

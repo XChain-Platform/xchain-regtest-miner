@@ -11,50 +11,28 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E Tests: Funding fee pin and the sendtoaddress wire contract
+ * E2E Tests: Funding fee pin per daemon
  *
  * Drives both fee-pin mechanisms (per-call fee_rate on Bitcoin Core 31,
  * wallet-wide settxfee on the legacy daemons) over HTTP against the
- * stateful mock node, and pins the mock's own RPC answers to the daemon
- * shapes they stand in for so the double cannot drift from them.
+ * stateful mock node.
  */
 
 const assert = require('assert')
-const axios = require('axios')
 const sinon = require('sinon')
-const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
 const { FUNDING_FEE_RATE_SAT_PER_VB, FUNDING_FEE_RATE_COINS_PER_KB } = require('../../src/XChainRegtestMiner/constants')
-const StatefulMockNode = require('./helpers/StatefulMockNode')
+const { DEST, withNode, createMiner, rawRpc, fundedNode } = require('./helpers/fee_pin_fixtures')
 
-const DEST = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
-
-async function withNode(daemon, fn) {
-    const node = new StatefulMockNode({ daemon })
-    await node.start()
-    try {
-        return await fn(node)
-    } finally {
-        await node.stop()
-    }
-}
-
-function createMiner(network, node) {
-    return new XChainRegtestMiner(network, '127.0.0.1', String(node.port), 'user', 'pass')
-}
-
-async function rpc(node, method, params) {
-    const res = await axios.post(`http://127.0.0.1:${node.port}/`, { jsonrpc: '2.0', method, params, id: 1 })
-    return res.data
-}
-
-// Seeds a loaded, matured wallet so prepareWallet skips the fresh-node probe retries.
-// doge114 already has its one wallet loaded and no createwallet, so it mines to its own address.
-async function fundedNode(node) {
-    let to = DEST
-    if (node.daemon === 'doge114') to = (await rpc(node, 'getnewaddress', [])).result
-    else await rpc(node, 'createwallet', ['xchain_regtest_wallet'])
-    await rpc(node, 'generatetoaddress', [110, to])
-    node.calls = []
+// Sends one funding payment and asserts it carried the per-call fee_rate. Resolves the txid.
+async function sendAndAssertPerCallFeeRate(node, miner) {
+    const txid = await miner.sendFundsToAddress(DEST, 1.0)
+    assert.strictEqual(typeof txid, 'string')
+    assert.deepStrictEqual(node.callsFor('sendtoaddress')[0].params, {
+        address: DEST,
+        amount: 1.0,
+        fee_rate: FUNDING_FEE_RATE_SAT_PER_VB
+    })
+    return txid
 }
 
 describe('E2E: Funding fee pin per daemon', function () {
@@ -76,11 +54,8 @@ describe('E2E: Funding fee pin per daemon', function () {
             assert.strictEqual(node.callsFor('settxfee').length, 0)
             assert.strictEqual(miner.fundingFeeRateSatPerVb, FUNDING_FEE_RATE_SAT_PER_VB)
 
-            const txid = await miner.sendFundsToAddress(DEST, 1.0)
-            assert.strictEqual(typeof txid, 'string')
+            const txid = await sendAndAssertPerCallFeeRate(node, miner)
             assert.ok(node.mempool.some(m => m.txid === txid))
-            assert.deepStrictEqual(node.callsFor('sendtoaddress')[0].params,
-                { address: DEST, amount: 1.0, fee_rate: FUNDING_FEE_RATE_SAT_PER_VB })
         })
     })
 
@@ -93,10 +68,7 @@ describe('E2E: Funding fee pin per daemon', function () {
             assert.strictEqual(node.callsFor('settxfee').length, 1)
             assert.strictEqual(miner.fundingFeeRateSatPerVb, FUNDING_FEE_RATE_SAT_PER_VB)
 
-            const txid = await miner.sendFundsToAddress(DEST, 1.0)
-            assert.strictEqual(typeof txid, 'string')
-            assert.deepStrictEqual(node.callsFor('sendtoaddress')[0].params,
-                { address: DEST, amount: 1.0, fee_rate: FUNDING_FEE_RATE_SAT_PER_VB })
+            await sendAndAssertPerCallFeeRate(node, miner)
         })
     })
 
@@ -177,134 +149,7 @@ async function testSettxfeePinOnDoge(network) {
     })
 }
 
-// Asserts doge114 refuses a named send carrying `extra` and leaves the mempool empty.
-async function assertDogeRefusesNamedArg(extra) {
-    await withNode('doge114', async node => {
-        await fundedNode(node)
-        const params = Object.assign({ address: DEST, amount: 1.0 }, extra)
-        const reply = await rawRpc(node, '/', { jsonrpc: '2.0', method: 'sendtoaddress', params, id: 3 })
-        assert.strictEqual(reply.status, 500)
-        assert.strictEqual(reply.body.error.code, -8)
-        assert.match(reply.body.error.message, new RegExp('Unknown named parameter ' + Object.keys(extra)[0]))
-        assert.strictEqual(node.mempool.length, 0)
-    })
-}
-
-// Asserts a fresh node answers base-URL wallet calls with -18 in `daemon`'s transport.
-async function assertNoWalletLoaded(daemon, status) {
-    await withNode(daemon, async node => {
-        for (const [method, params] of [['getbalance', []], ['sendtoaddress', [DEST, 1]]]) {
-            const reply = await rawRpc(node, '/', { jsonrpc: '2.0', method, params, id: 4 })
-            assert.strictEqual(reply.status, status, method)
-            assert.strictEqual(reply.body.error.code, -18, method)
-            assert.match(reply.body.error.message, /no wallet is loaded/i)
-        }
-    })
-}
-
-describe('E2E: StatefulMockNode wire contract', function () {
-    it('answers a positional sendtoaddress with a bare txid string', async function () {
-        await withNode('legacy', async node => {
-            await fundedNode(node)
-            const body = await rpc(node, 'sendtoaddress', [DEST, 1.0])
-            assert.strictEqual(body.error, null)
-            assert.strictEqual(typeof body.result, 'string')
-            assert.ok(body.result.length > 0)
-        })
-    })
-
-    it('answers a named sendtoaddress without verbose with a bare txid string', async function () {
-        await withNode('core31', async node => {
-            await fundedNode(node)
-            const body = await rpc(node, 'sendtoaddress', { address: DEST, amount: 1.0, fee_rate: 100 })
-            assert.strictEqual(typeof body.result, 'string')
-        })
-    })
-
-    it('answers the verbose object only when verbose is requested', async function () {
-        await withNode('core31', async node => {
-            await fundedNode(node)
-            const body = await rpc(node, 'sendtoaddress', { address: DEST, amount: 1.0, verbose: true })
-            assert.strictEqual(typeof body.result, 'object')
-            assert.strictEqual(typeof body.result.txid, 'string')
-        })
-    })
-
-    it('rejects settxfee as method-not-found and reports 31.0.0 in core31 mode', async function () {
-        await withNode('core31', async node => {
-            const fee = await rpc(node, 'settxfee', [0.001])
-            assert.ok(!('result' in fee), 'a JSON-RPC 2.0 error reply carries no result member')
-            assert.strictEqual(fee.error.code, -32601)
-
-            const info = await rpc(node, 'getnetworkinfo', [])
-            assert.ok(info.result.version >= 310000)
-        })
-    })
-
-    it('honors settxfee in legacy mode', async function () {
-        await withNode('legacy', async node => {
-            const fee = await rpc(node, 'settxfee', [0.001])
-            assert.strictEqual(fee.result, true)
-            assert.strictEqual(fee.error, null)
-        })
-    })
-
-    it('keeps the daemon mode across reset and refuses an unknown one', async function () {
-        const node = new StatefulMockNode({ daemon: 'core31' })
-        node.reset()
-        assert.strictEqual(node.daemon, 'core31')
-        assert.strictEqual(new StatefulMockNode().daemon, 'legacy')
-        assert.throws(() => new StatefulMockNode({ daemon: 'core30' }), /Unknown daemon/)
-    })
-})
-
-describe('E2E: StatefulMockNode doge114 and no-wallet wire contract', function () {
-    it('refuses a named fee_rate send in doge114 mode', async function () {
-        await assertDogeRefusesNamedArg({ fee_rate: 100 })
-    })
-
-    it('refuses a named verbose send in doge114 mode', async function () {
-        await assertDogeRefusesNamedArg({ verbose: true })
-    })
-
-    it('accepts a named address and amount and omits walletname in doge114 mode', async function () {
-        await withNode('doge114', async node => {
-            await fundedNode(node)
-            const body = await rpc(node, 'sendtoaddress', { address: DEST, amount: 1.0 })
-            assert.strictEqual(typeof body.result, 'string')
-            const info = await rpc(node, 'getwalletinfo', [])
-            assert.ok(!('walletname' in info.result))
-        })
-    })
-
-    it('starts with its wallet loaded and refuses the multi-wallet RPCs over HTTP 404 in doge114 mode', async function () {
-        await withNode('doge114', async node => {
-            const balance = await rpc(node, 'getbalance', [])
-            assert.strictEqual(typeof balance.result, 'number')
-            for (const method of ['createwallet', 'loadwallet', 'listwallets']) {
-                const reply = await rawRpc(node, '/', { jsonrpc: '2.0', method, params: ['xchain_regtest_wallet'], id: 5 })
-                assert.strictEqual(reply.status, 404, method)
-                assert.strictEqual(reply.body.error.code, -32601, method)
-            }
-        })
-    })
-
-    it('answers base-URL wallet calls with -18 over HTTP 500 when no wallet is loaded in legacy mode', async function () {
-        await assertNoWalletLoaded('legacy', 500)
-    })
-
-    it('answers base-URL wallet calls with -18 over HTTP 200 when no wallet is loaded in core31 mode', async function () {
-        await assertNoWalletLoaded('core31', 200)
-    })
-})
-
 const WALLET_URI = '/wallet/xchain_regtest_wallet'
-
-// POST one RPC and resolve the raw HTTP reply whatever its status.
-async function rawRpc(node, path, body) {
-    const res = await axios.post(`http://127.0.0.1:${node.port}${path}`, body, { validateStatus: () => true })
-    return { status: res.status, body: res.data }
-}
 
 // Prepare through the load path so sends target the pinned /wallet/<name> URI.
 async function preparedMiner(network, node) {

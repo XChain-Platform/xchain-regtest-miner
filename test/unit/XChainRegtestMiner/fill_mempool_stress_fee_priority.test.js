@@ -87,6 +87,16 @@ async function runFill(networkName, txQuantity) {
     return stress
 }
 
+// Asserts a stress tx's fee rate reaches the Dogecoin block minimum and exceeds the fee that once stalled the drain.
+function assertClearsDogeBlockMinimum(fee, size) {
+    const feePerKb = fee * 1000 / size
+    assert.ok(feePerKb >= DOGE_BLOCK_MIN_FEE_PER_KB,
+        'stress tx pays ' + fee + ' koinu on ' + size + ' bytes (' + Math.round(feePerKb) +
+        ' koinu/kB), below the 0.01 DOGE/kB block minimum: it would mine about one per block')
+    // Strictly above the old max(dustThreshold, 1000) fee that stalled the drain.
+    assert.ok(fee > 100000, 'fee ' + fee + ' is not above the old 100000 koinu')
+}
+
 describe('fill_mempool stress txs clear the coin mining floor', function () {
     afterEach(function () {
         sinon.restore()
@@ -102,12 +112,7 @@ describe('fill_mempool stress txs clear the coin mining floor', function () {
         const stress = await runFill('dogecoin-regtest', 3)
         assert.strictEqual(stress.length, 3)
         for (const { fee, size } of stress) {
-            const feePerKb = fee * 1000 / size
-            assert.ok(feePerKb >= DOGE_BLOCK_MIN_FEE_PER_KB,
-                'stress tx pays ' + fee + ' koinu on ' + size + ' bytes (' + Math.round(feePerKb) +
-                ' koinu/kB), below the 0.01 DOGE/kB block minimum: it would mine about one per block')
-            // Strictly above the old max(dustThreshold, 1000) fee that stalled the drain.
-            assert.ok(fee > 100000, 'fee ' + fee + ' is not above the old 100000 koinu')
+            assertClearsDogeBlockMinimum(fee, size)
         }
     })
 

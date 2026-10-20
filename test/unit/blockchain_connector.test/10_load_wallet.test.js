@@ -71,7 +71,14 @@ describe('BlockchainConnector', function () {
             axiosPostStub.rejects(new Error('refused'))
             await assert.rejects(() => connector.loadWallet('w'), /Error loading wallet/)
         })
+    })
+})
 
+describe('BlockchainConnector', function () {
+    beforeEach(setup)
+    afterEach(teardown)
+
+    describe('loadWallet', function () {
         it('carries the node code from an HTTP 200 error body', async function () {
             axiosPostStub.resolves({ data: { result: null, error: { code: -35, message: 'Wallet "w" is already loaded.' }, id: 1 } })
             await assert.rejects(

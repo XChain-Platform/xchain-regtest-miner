@@ -15,11 +15,9 @@ const fc = require('fast-check')
 let miner
 let controller
 
-function createController() {
+// Handlers for the fund-moving controller methods, mirroring the api.js error mapping.
+function createFundsHandlers() {
     return {
-        async ping() {
-            return { status: 'success' }
-        },
         async send_funds({ address, amount }) {
             let txid = null
             try {
@@ -39,6 +37,12 @@ function createController() {
             }
             return { result: 'ok' }
         },
+    }
+}
+
+// Handlers for the mining-control controller methods, mirroring the api.js error mapping.
+function createMiningHandlers() {
+    return {
         async continue_mining({}) {
             try {
                 await miner.continueMining()
@@ -64,6 +68,16 @@ function createController() {
             }
             return { result: 'ok' }
         },
+    }
+}
+
+function createController() {
+    return {
+        async ping() {
+            return { status: 'success' }
+        },
+        ...createFundsHandlers(),
+        ...createMiningHandlers(),
     }
 }
 

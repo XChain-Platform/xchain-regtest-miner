@@ -16,6 +16,15 @@ const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 let XChainRegtestMiner, miner
 let connectorStub, clock
 
+// Runs the start loop until the sleep stub throws the break sentinel; any other error is real.
+async function startUntilLoopBreak() {
+    try {
+        await miner.start()
+    } catch (e) {
+        if (e.message !== '__LOOP_BREAK__') throw e
+    }
+}
+
 function setupMiner() {
     connectorStub = {
         getWalletInfo: sinon.stub().resolves({ walletname: 'w' }),
@@ -77,9 +86,7 @@ describe('Boundary: Mempool Polling', function () {
                 if (iterCount >= 5) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             assert(connectorStub.generateToAddress.notCalled,
                 'Should never mine with empty mempool')
@@ -101,9 +108,7 @@ describe('Boundary: Mempool Polling', function () {
                 if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             assert(connectorStub.generateToAddress.called,
                 'Should mine single-tx mempool after timer expires')
@@ -132,9 +137,7 @@ describe('Boundary: Mempool Polling', function () {
                 if (iterCount >= 4) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             assert(connectorStub.generateToAddress.called,
                 'Timer should fire since mempool did not grow (no extension reset)')
@@ -163,9 +166,7 @@ describe('Boundary: Mempool Polling', function () {
                 if (iterCount >= 4) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             assert(connectorStub.generateToAddress.called,
                 'Shrink should not extend timer')
@@ -190,9 +191,7 @@ describe('Boundary: Mempool Polling', function () {
                 if (iterCount >= 4) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             // After shrink to 2, lastRawMempoolLength should be 2
             // When mempool grows to 3, it should detect growth (3 > 2) and reset extended timer
@@ -224,9 +223,7 @@ describe('Boundary: Mempool Polling', function () {
                 if (iterCount >= 10) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             // addedTime (100ms) keeps resetting because mempool grows each poll.
             // maxTime (200ms) should eventually fire after ~4 iterations (4*50=200ms).
@@ -256,9 +253,7 @@ describe('Boundary: Mempool Polling', function () {
                 if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             assert(connectorStub.generateToAddress.called,
                 'Should mine normally with large mempool')
@@ -282,9 +277,7 @@ describe('Boundary: Mempool Polling', function () {
                 if (iterCount >= 5) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             assert(connectorStub.generateToAddress.notCalled,
                 'Should not mine when mempool is unreachable')
@@ -308,9 +301,7 @@ describe('Boundary: Mempool Polling', function () {
                 if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             assert(connectorStub.generateToAddress.notCalled,
                 'null mempool should not trigger mining')
@@ -344,9 +335,7 @@ describe('Boundary: Mempool Polling', function () {
                 if (iterCount >= 8) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             assert(generateCount >= 2,
                 'Should mine multiple times when mempool stays non-empty')
@@ -379,9 +368,7 @@ describe('Boundary: Mempool Polling', function () {
                 if (iterCount >= 6) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak()
 
             // Even though txids change, the length stays the same after first poll,
             // so extendedStartToMine is NOT reset. Only the initial growth triggers timer set.

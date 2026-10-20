@@ -77,7 +77,14 @@ describe('BlockchainConnector', function () {
             axiosPostStub.resolves(rpcNoResult())
             await assert.rejects(() => connector.generateToAddress(1, 'a'), /Error generating to address/)
         })
+    })
+})
 
+describe('BlockchainConnector', function () {
+    beforeEach(setup)
+    afterEach(teardown)
+
+    describe('generateToAddress', function () {
         it('logs the node RPC error for diagnosis but throws a static message', async function () {
             // The real RPC error remains in logs for diagnosing LTC block-generation failures.
             // The thrown message stays static to prevent transport-detail disclosure.

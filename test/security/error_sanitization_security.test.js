@@ -33,6 +33,19 @@ function useConnectorFixtures() {
     afterEach(teardownConnector)
 }
 
+// Asserts nothing written to console.error or console.log carries the stubbed credentials.
+function assertConsoleOmitsCredentials() {
+    for (const method of ['error', 'log']) {
+        for (const call of console[method].getCalls()) {
+            for (const arg of call.args) {
+                const str = typeof arg === 'string' ? arg : JSON.stringify(arg)
+                assert.ok(!str.includes('secretuser'), `console.${method} leaked username`)
+                assert.ok(!str.includes('secretpass'), `console.${method} leaked password`)
+            }
+        }
+    }
+}
+
 describe('Security: Error Sanitization & Information Disclosure', function () {
     useConnectorFixtures()
 
@@ -76,20 +89,7 @@ describe('Security: Error Sanitization & Information Disclosure', function () {
             } catch(e) {}
 
             // Check that no console output contains credentials
-            for (const call of console.error.getCalls()) {
-                for (const arg of call.args) {
-                    const str = typeof arg === 'string' ? arg : JSON.stringify(arg)
-                    assert.ok(!str.includes('secretuser'), 'console.error leaked username')
-                    assert.ok(!str.includes('secretpass'), 'console.error leaked password')
-                }
-            }
-            for (const call of console.log.getCalls()) {
-                for (const arg of call.args) {
-                    const str = typeof arg === 'string' ? arg : JSON.stringify(arg)
-                    assert.ok(!str.includes('secretuser'), 'console.log leaked username')
-                    assert.ok(!str.includes('secretpass'), 'console.log leaked password')
-                }
-            }
+            assertConsoleOmitsCredentials()
         })
     })
 })

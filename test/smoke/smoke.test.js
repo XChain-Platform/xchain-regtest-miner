@@ -14,6 +14,15 @@ const axios = require('axios')
 
 const BlockchainConnector = require('../../src/rpc/blockchain_connector')
 
+// Runs the start loop until the sleep stub throws the break sentinel; any other error is real.
+async function startUntilLoopBreak(miner) {
+    try {
+        await miner.start()
+    } catch (e) {
+        if (e.message !== '__LOOP_BREAK__') throw e
+    }
+}
+
 function createMinerContext() {
     const connectorStub = {
         getWalletInfo: sinon.stub(),
@@ -58,11 +67,7 @@ async function runLoopIterations(miner, iterations) {
         }
     })
 
-    try {
-        await miner.start()
-    } catch (e) {
-        if (e.message !== '__LOOP_BREAK__') throw e
-    }
+    await startUntilLoopBreak(miner)
 }
 
 function createController(miner) {
@@ -183,9 +188,7 @@ describe('Regtest Miner Smoke Tests', function () {
 
             sinon.stub(miner, 'prepareWallet').resolves()
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak(miner)
 
             assert(connectorStub.getRawMempool.callCount >= 1)
             // Timer started but not expired; no block generated yet
@@ -210,9 +213,7 @@ describe('Regtest Miner Smoke Tests', function () {
                 if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak(miner)
 
             clock.restore()
 
@@ -253,9 +254,7 @@ describe('Regtest Miner Smoke Tests', function () {
                 if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak(miner)
 
             clock.restore()
 
@@ -295,9 +294,7 @@ describe('Regtest Miner Smoke Tests', function () {
                 if (iterCount >= 4) throw new Error('__LOOP_BREAK__')
             })
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
-            }
+            await startUntilLoopBreak(miner)
 
             // While paused, mempool should not be polled
             assert.strictEqual(connectorStub.getRawMempool.callCount, 0)
