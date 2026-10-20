@@ -1,0 +1,8 @@
+src/coins/
+src/observability/
+package-lock.json
+bin/pins/
+coverage/
+.stryker-tmp/
+LICENSE.md
+NOTICE.md
