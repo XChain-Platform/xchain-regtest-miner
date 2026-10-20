@@ -11,30 +11,30 @@
 name: Base branch guard
 
 on:
-    pull_request_target:
-        branches: [master]
-        # edited fires when an open pull request is retargeted onto master.
-        types: [opened, reopened, synchronize, edited]
+  pull_request_target:
+    branches: [master]
+    # edited fires when an open pull request is retargeted onto master.
+    types: [opened, reopened, synchronize, edited]
 
 permissions: {}
 
 jobs:
-    base-branch-guard:
-        name: base-branch guard
-        runs-on: ubuntu-latest
-        steps:
-            - name: Require develop, release/* or hotfix/* from this repository
-              # Event fields go through env, never inline, so a branch name cannot inject shell.
-              env:
-                  HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-                  HEAD_REF: ${{ github.event.pull_request.head.ref }}
-                  THIS_REPO: ${{ github.repository }}
-              run: |
-                  if [ "$HEAD_REPO" != "$THIS_REPO" ]; then
-                    echo "::error::Pull requests from forks go to develop, not master. Change the base branch to develop."
-                    exit 1
-                  fi
-                  case "$HEAD_REF" in
-                    develop|release/*|hotfix/*) echo "ok: $HEAD_REF into master" ;;
-                    *) echo "::error::master only accepts develop, release/* or hotfix/*; retarget $HEAD_REF to develop."; exit 1 ;;
-                  esac
+  base-branch-guard:
+    name: base-branch guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require develop, release/* or hotfix/* from this repository
+        # Event fields go through env, never inline, so a branch name cannot inject shell.
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          THIS_REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_REPO" != "$THIS_REPO" ]; then
+            echo "::error::Pull requests from forks go to develop, not master. Change the base branch to develop."
+            exit 1
+          fi
+          case "$HEAD_REF" in
+            develop|release/*|hotfix/*) echo "ok: $HEAD_REF into master" ;;
+            *) echo "::error::master only accepts develop, release/* or hotfix/*; retarget $HEAD_REF to develop."; exit 1 ;;
+          esac

@@ -17,73 +17,73 @@ name: audit
 
 # Least privilege for the default GITHUB_TOKEN: every job here only reads the repo.
 permissions:
-    contents: read
+  contents: read
 
 on:
-    schedule:
-        # Mondays 07:00 UTC. Weekly suits a disclosure cadence and keeps advisory
-        # traffic modest across the repos that run this.
-        - cron: '0 7 * * 1'
-    # Re-run on demand, e.g. the moment a CVE lands in the news.
-    workflow_dispatch:
-    # Also audit when the locked dependency set changes, so a newly pulled-in
-    # vulnerable transitive dep is caught at review time, not only next Monday.
-    pull_request:
-        paths:
-            - package.json
-            - package-lock.json
+  schedule:
+    # Mondays 07:00 UTC. Weekly suits a disclosure cadence and keeps advisory
+    # traffic modest across the repos that run this.
+    - cron: "0 7 * * 1"
+  # Re-run on demand, e.g. the moment a CVE lands in the news.
+  workflow_dispatch:
+  # Also audit when the locked dependency set changes, so a newly pulled-in
+  # vulnerable transitive dep is caught at review time, not only next Monday.
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
 
 jobs:
-    audit:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Use Node.js 22
-              uses: actions/setup-node@v4
-              with:
-                  node-version: '22'
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
-            # `npm audit` builds the tree from package-lock.json and queries the
-            # registry advisory endpoint; it needs no install, so skip `npm ci` for
-            # speed and so private deps never need registry auth here.
-            - name: Audit production dependencies
-              run: npm audit --omit=dev --audit-level=high
+      # `npm audit` builds the tree from package-lock.json and queries the
+      # registry advisory endpoint; it needs no install, so skip `npm ci` for
+      # speed and so private deps never need registry auth here.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
 
-    # Post-flip both-branch sweep.
-    #
-    # A scheduled workflow runs from the DEFAULT branch's workflow file against the
-    # default branch. Once develop is the default, the job above would audit only
-    # develop, and a CVE against a dependency the current release train ships would
-    # produce no red anywhere: exactly the case this audit exists to catch. So the
-    # scheduled sweep checks out both branches explicitly.
-    #
-    # Not merged into the job above because that one must audit the PR's own merge
-    # commit on `pull_request`, which is a different ref than either branch.
-    # Literal refs rather than a matrix, deliberately: a scheduled job runs with
-    # the default branch's cache privileges, and a checkout whose ref comes from an
-    # expression reads as untrusted code in that privileged context (a cache
-    # poisoning surface). Two jobs with hardcoded refs keep the checkout provably
-    # static. Same reason there is no setup-node here: `npm audit` only reads
-    # package-lock.json and queries the registry advisory endpoint, so the
-    # runner's preinstalled npm suffices and no cache-capable action runs after
-    # the non-default checkout.
-    audit-master:
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-              with:
-                  ref: master
-            - name: Audit production dependencies (master)
-              run: npm audit --omit=dev --audit-level=high
+  # Post-flip both-branch sweep.
+  #
+  # A scheduled workflow runs from the DEFAULT branch's workflow file against the
+  # default branch. Once develop is the default, the job above would audit only
+  # develop, and a CVE against a dependency the current release train ships would
+  # produce no red anywhere: exactly the case this audit exists to catch. So the
+  # scheduled sweep checks out both branches explicitly.
+  #
+  # Not merged into the job above because that one must audit the PR's own merge
+  # commit on `pull_request`, which is a different ref than either branch.
+  # Literal refs rather than a matrix, deliberately: a scheduled job runs with
+  # the default branch's cache privileges, and a checkout whose ref comes from an
+  # expression reads as untrusted code in that privileged context (a cache
+  # poisoning surface). Two jobs with hardcoded refs keep the checkout provably
+  # static. Same reason there is no setup-node here: `npm audit` only reads
+  # package-lock.json and queries the registry advisory endpoint, so the
+  # runner's preinstalled npm suffices and no cache-capable action runs after
+  # the non-default checkout.
+  audit-master:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - name: Audit production dependencies (master)
+        run: npm audit --omit=dev --audit-level=high
 
-    audit-develop:
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-              with:
-                  ref: develop
-            - name: Audit production dependencies (develop)
-              run: npm audit --omit=dev --audit-level=high
+  audit-develop:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+      - name: Audit production dependencies (develop)
+        run: npm audit --omit=dev --audit-level=high
