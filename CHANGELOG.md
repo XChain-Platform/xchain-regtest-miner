@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Pin the base image to Node 22.23.4 by digest for the October 2026 Node.js security release.
+
 ## [0.21.0] - 2026-09-29
 
 ### Changed
