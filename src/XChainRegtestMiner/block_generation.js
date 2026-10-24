@@ -203,6 +203,9 @@ module.exports = {
             // so height-gated states (stake activation, confirmation depth) advance
             // on an idle chain without dropping to raw node RPC.
             idle_mine_interval_ms: this.idleMineIntervalMs,
+            // The interval resolved when this service booted. Runtime controls
+            // change the live interval above but leave this restore target fixed.
+            idle_mine_interval_boot_ms: this.idleMineIntervalBootMs,
             blocks_mined: this._blocksMined,
             last_mine_at: this._lastMineAt,
             consecutive_errors: this._consecutiveErrors,

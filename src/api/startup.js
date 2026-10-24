@@ -199,6 +199,7 @@ function createStartApi({ config, environment, logger, createHealthController, m
                 : parseInt(idleMineIntervalEnv, 10);
         try {
             await miner.setIdleMineInterval(idleMineIntervalMs);
+            miner.idleMineIntervalBootMs = idleMineIntervalMs;
         } catch (err) {
             logger.error('Invalid IDLE_MINE_INTERVAL_MS: ' + (err && err.message ? err.message : err));
             process.exit(1);

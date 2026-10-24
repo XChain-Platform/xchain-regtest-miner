@@ -34,6 +34,40 @@ function connectorAnswering(...answers) {
     return { getBlockchainInfo };
 }
 
+function bootWith(chain, environmentOverrides = {}) {
+    sinon.stub(axios, 'post').callsFake(async (url, body) => {
+        if (body.method === 'getblockchaininfo') return { data: { result: { chain }, error: null, id: 1 } };
+        throw new Error('unexpected RPC ' + body.method);
+    });
+    const start = sinon.stub(XChainRegtestMiner.prototype, 'start').resolves();
+    const deps = {
+        config: {
+            network: 'regtest',
+            coinNetwork: 'bitcoin-regtest',
+            nodeUrl: 'localhost',
+            nodePort: '18443',
+            nodeUser: 'user',
+            nodePassword: 'password',
+            apiPort: 0,
+            apiKey: null,
+        },
+        environment: {
+            NETWORK: 'bitcoin-regtest',
+            NODE_URL: 'localhost',
+            NODE_PORT: '18443',
+            NODE_USER: 'user',
+            NODE_PASSWORD: 'password',
+            REGTEST_MINER_API_PORT: '8080',
+            ...environmentOverrides,
+        },
+        logger: logger(),
+        createHealthController: sinon.stub().returns({ health: sinon.stub() }),
+        mountJsonRpc: sinon.stub(),
+        warnWhenApiIsOpen: sinon.stub(),
+    };
+    return { start, deps, startApi: createStartApi(deps) };
+}
+
 // Network and reported chain pairs chainMatchesNetwork must refuse.
 const REJECTED_CHAIN_PAIRS = [
     ['regtest', 'main'],
@@ -124,39 +158,6 @@ describe('node chain verification inside startApi', function () {
         sinon.restore();
     });
 
-    function bootWith(chain) {
-        sinon.stub(axios, 'post').callsFake(async (url, body) => {
-            if (body.method === 'getblockchaininfo') return { data: { result: { chain }, error: null, id: 1 } };
-            throw new Error('unexpected RPC ' + body.method);
-        });
-        const start = sinon.stub(XChainRegtestMiner.prototype, 'start').resolves();
-        const deps = {
-            config: {
-                network: 'regtest',
-                coinNetwork: 'bitcoin-regtest',
-                nodeUrl: 'localhost',
-                nodePort: '18443',
-                nodeUser: 'user',
-                nodePassword: 'password',
-                apiPort: 0,
-                apiKey: null,
-            },
-            environment: {
-                NETWORK: 'bitcoin-regtest',
-                NODE_URL: 'localhost',
-                NODE_PORT: '18443',
-                NODE_USER: 'user',
-                NODE_PASSWORD: 'password',
-                REGTEST_MINER_API_PORT: '8080',
-            },
-            logger: logger(),
-            createHealthController: sinon.stub().returns({ health: sinon.stub() }),
-            mountJsonRpc: sinon.stub(),
-            warnWhenApiIsOpen: sinon.stub(),
-        };
-        return { start, deps, startApi: createStartApi(deps) };
-    }
-
     it('never starts the miner or mounts the API against a node on mainnet', async function () {
         stubExit();
         const { start, deps, startApi } = bootWith('main');
@@ -176,4 +177,19 @@ describe('node chain verification inside startApi', function () {
         assert.strictEqual(deps.mountJsonRpc.calledOnce, true);
         assert.strictEqual(listen.calledOnce, true);
     });
+
+    for (const [label, environmentOverrides, expected] of [
+        ['an unset environment value', {}, 60000],
+        ['an explicit zero environment value', { IDLE_MINE_INTERVAL_MS: '0' }, 0],
+        ['an explicit non-zero environment value', { IDLE_MINE_INTERVAL_MS: '10000' }, 10000],
+    ]) {
+        it('reports the resolved boot heartbeat for ' + label, async function () {
+            sinon.stub(require('express').application, 'listen').returns({ close: sinon.stub() });
+            const { deps, startApi } = bootWith('regtest', environmentOverrides);
+            await startApi();
+            const rpcMethods = deps.mountJsonRpc.firstCall.args[1];
+
+            assert.strictEqual((await rpcMethods.status()).idle_mine_interval_boot_ms, expected);
+        });
+    }
 });

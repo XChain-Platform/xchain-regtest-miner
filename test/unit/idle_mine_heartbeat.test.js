@@ -69,6 +69,13 @@ describe('XChainRegtestMiner idle mine-empty heartbeat', function () {
             assert.strictEqual(miner.idleMineIntervalMs, 0);
         });
 
+        it('does not change the boot interval reported by status', async function () {
+            miner.idleMineIntervalBootMs = 10000;
+            await miner.setIdleMineInterval(0);
+            assert.strictEqual(miner.getStatus().idle_mine_interval_ms, 0);
+            assert.strictEqual(miner.getStatus().idle_mine_interval_boot_ms, 10000);
+        });
+
         it('throws (never returns a sentinel) on non-integers and negatives', async function () {
             for (const bad of ['abc', 1.5, -1, null, undefined, NaN, {}]) {
                 await assert.rejects(() => miner.setIdleMineInterval(bad), /Invalid idle mine interval/);

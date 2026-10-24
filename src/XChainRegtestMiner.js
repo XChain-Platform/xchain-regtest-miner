@@ -147,6 +147,7 @@ class XChainRegtestMiner {
         this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS;
         this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS;
         this.idleMineIntervalMs = DEFAULT_IDLE_MINE_INTERVAL_MS;
+        this.idleMineIntervalBootMs = DEFAULT_IDLE_MINE_INTERVAL_MS;
         this.nodeFlushIntervalMs = DEFAULT_NODE_FLUSH_INTERVAL_MS_CLASS;
         this._nodeFlushInFlight = null;
         this.fillMempoolRunning = false;
