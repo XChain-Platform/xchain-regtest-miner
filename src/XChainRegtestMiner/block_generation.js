@@ -22,8 +22,27 @@
 'use strict';
 
 const { MAX_GENERATE_BLOCKS, logger } = require('./constants.js');
+const { sendFundsToAddress: sendFundsWithoutAmountCap } = require('./wallet_setup.js');
 const { settleAfterMineTimeout } = require('./mine_settle.js');
 const { runMineLoop } = require('./mine_loop.js');
+const { PROCESS_ENV } = require('../config.js');
+
+const DEFAULT_WALLET_FUNDED_FLOOR = 1;
+const DEFAULT_SEND_FUNDS_MAX_AMOUNT = 100;
+
+function configuredAmount(value, fallback) {
+    if (value == null || String(value).trim() === '') return fallback;
+    const amount = Number(value);
+    return Number.isFinite(amount) && amount > 0 ? amount : fallback;
+}
+
+function walletFundedFloor() {
+    return configuredAmount(PROCESS_ENV.MINER_WALLET_FUNDED_FLOOR, DEFAULT_WALLET_FUNDED_FLOOR);
+}
+
+function sendFundsMaxAmount() {
+    return configuredAmount(PROCESS_ENV.MINER_SEND_FUNDS_MAX_AMOUNT, DEFAULT_SEND_FUNDS_MAX_AMOUNT);
+}
 
 // Graceful shutdown on SIGTERM/SIGINT: stop the mining loop, close the API
 // server, then exit. Merely flipping this._shutdown is not enough: registering
@@ -48,6 +67,20 @@ function installShutdownHandlers() {
 }
 
 module.exports = {
+    async sendFundsToAddress(address, amount) {
+        const maxAmount = sendFundsMaxAmount();
+        if (typeof amount === 'number' && Number.isFinite(amount) && amount > maxAmount) {
+            throw new Error(
+                'send_funds amount ' +
+                    amount +
+                    ' exceeds the configured per-call maximum of ' +
+                    maxAmount +
+                    ' coins (MINER_SEND_FUNDS_MAX_AMOUNT)',
+            );
+        }
+        return sendFundsWithoutAmountCap.call(this, address, amount);
+    },
+
     // Throws on invalid count, like setMiningTime: a sentinel
     // return of `[]` would let generate_blocks({count:0|-1|'abc'}) silently
     // answer {count: 0, hashes: []} through the controller with no error.
@@ -181,21 +214,10 @@ module.exports = {
     getStatus() {
         return {
             wallet_ready: this.walletReady,
-            // Fund-capability, read at startup, at both reorg termini, and by the
-            // auto-mine loop at most WALLET_BALANCE_REFRESH_MS apart, so the value is
-            // never staler than that interval whatever drained the wallet.
-            // wallet_ready is a startup-completion flag and stays true across a reorg
-            // by design, so a drill that needs to know whether the wallet can still
-            // fund a send reads these instead. wallet_balance is null when the last
-            // read failed or none has happened, which is not funded either: a transient
-            // getbalance failure therefore flips wallet_funded false for one interval
-            // (a node restart included: the read path reloads the lost wallet),
-            // and that direction is deliberate, because a false unfunded is safe where
-            // a false funded is not. wallet_balance_at is the epoch-ms timestamp of the
-            // last read ATTEMPT (null if none), so a drill can tell a fresh reading
-            // from a wedged one rather than inferring liveness from the number alone.
+            // A missing or failed balance read is not funded. wallet_balance_at records
+            // the last read attempt so consumers can distinguish stale status.
             wallet_balance: this.balance,
-            wallet_funded: typeof this.balance === 'number' && this.balance > 0,
+            wallet_funded: typeof this.balance === 'number' && this.balance >= walletFundedFloor(),
             wallet_balance_at: this._balanceReadAt,
             mempool_size: this._mempoolSize,
             // 0 = mempool-driven mining only (the default). Non-zero = the loop
