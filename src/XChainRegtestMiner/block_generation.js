@@ -23,7 +23,7 @@
 
 const { MAX_GENERATE_BLOCKS, logger } = require('./constants.js');
 const { sendFundsToAddress: sendFundsWithoutAmountCap } = require('./wallet_setup.js');
-const { settleAfterMineTimeout } = require('./mine_settle.js');
+const { readNodeHeight, settleAfterMineTimeout } = require('./mine_settle.js');
 const { runMineLoop } = require('./mine_loop.js');
 const { PROCESS_ENV } = require('../config.js');
 
@@ -42,6 +42,24 @@ function walletFundedFloor() {
 
 function sendFundsMaxAmount() {
     return configuredAmount(PROCESS_ENV.MINER_SEND_FUNDS_MAX_AMOUNT, DEFAULT_SEND_FUNDS_MAX_AMOUNT);
+}
+
+// Attach what a failed mine actually landed, so generate_blocks can report it
+// instead of a bare error. minedBlocks is the height delta (null when either read
+// failed or the node never settled); the blocks are credited to blocks_mined
+// because the node did generate them. A delta past the request means something
+// else mined meanwhile, so it is capped rather than claimed.
+function reportPartialMine(err, requested, startHeight, endHeight) {
+    if (!err || typeof err !== 'object') return;
+    const mined =
+        startHeight !== null && endHeight !== null ? Math.min(Math.max(0, endHeight - startHeight), requested) : null;
+    err.requestedBlocks = requested;
+    err.minedBlocks = mined;
+    if (mined > 0) {
+        this._blocksMined += mined;
+        this._lastMineAt = Date.now();
+        logger.warn('generatetoaddress failed after the node mined ' + mined + ' of ' + requested + ' blocks');
+    }
 }
 
 // Graceful shutdown on SIGTERM/SIGINT: stop the mining loop, close the API
@@ -141,13 +159,22 @@ module.exports = {
     },
 
     async generateBlocksRaw(numberOfBlocks) {
+        // Baseline height, read inside this serialized slot so no queued mine can
+        // move it. A failed generatetoaddress (a client timeout above all) may still
+        // have landed some or all of the blocks: without this read the caller got a
+        // bare error for a branch that was in fact mined. null (unreadable) leaves
+        // the count unknown and never blocks the mine.
+        const startHeight = await readNodeHeight.call(this);
         let hashes;
         try {
             hashes = await this.connector.generateToAddress(numberOfBlocks, this.walletAddress);
         } catch (err) {
             // The node keeps mining after the client times out; hold this queue
-            // slot, and every barrier awaiting it, until the node stops.
-            if (err && err.timedOut) await settleAfterMineTimeout.call(this);
+            // slot, and every barrier awaiting it, until the node stops. Any other
+            // failure is read once, as is: it does not wait for the node.
+            const endHeight =
+                err && err.timedOut ? await settleAfterMineTimeout.call(this) : await readNodeHeight.call(this);
+            reportPartialMine.call(this, err, numberOfBlocks, startHeight, endHeight);
             throw err;
         }
 

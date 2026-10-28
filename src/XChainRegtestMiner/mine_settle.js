@@ -35,6 +35,8 @@ async function readNodeHeight() {
 
 // Wait until the node's height holds still for MINE_SETTLE_QUIET_READS reads, or
 // the deadline passes. A failed read counts as unsettled and never extends it.
+// Resolves to the settled height, or null at the deadline: the last read there is
+// only a lower bound while the node may still be mining.
 async function settleAfterMineTimeout() {
     const deadline = Date.now() + MINE_SETTLE_DEADLINE_MS;
     let last = null;
@@ -45,13 +47,14 @@ async function settleAfterMineTimeout() {
         if (height !== null) last = height;
         if (quiet >= MINE_SETTLE_QUIET_READS - 1) {
             logger.warn('generatetoaddress timed out; the node stopped mining at height ' + last);
-            return;
+            return last;
         }
         await this.sleep(MINE_SETTLE_POLL_MS);
     }
     logger.error(
         'generatetoaddress timed out and the node height never settled; releasing the mine queue while the node may still be mining',
     );
+    return null;
 }
 
-module.exports = { settleAfterMineTimeout };
+module.exports = { readNodeHeight, settleAfterMineTimeout };

@@ -149,6 +149,7 @@ describe('T1 Regression: Miner↔Connector Integration Seams', function () {
                 'createWallet(xchain_regtest_wallet)',
                 'getNewAddress',
                 'getBalance',
+                'getBlockchainInfo', // baseline height for a partial-mine report
                 'generateToAddress(101)',
                 'getBalance', // post-mining readiness re-poll
             ]);

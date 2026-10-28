@@ -120,9 +120,9 @@ module.exports = {
     // Wait out the reorgs that were already in flight when this mine was queued,
     // then mine. `heldBy` is the append-time snapshot, never a live read: a reorg
     // raised after the append is itself waiting on this mine, so waiting on it back
-    // would deadlock. After the last await there is no yield before generateBlocksRaw,
-    // whose first statement dispatches generatetoaddress synchronously, so a reorg
-    // raised meanwhile cannot slip its own RPC in ahead of this one.
+    // would deadlock. A reorg raised meanwhile cannot slip its own RPC in ahead of
+    // this mine: invalidate and reconsider both drain _generateQueue, which holds
+    // this whole call (generateBlocksRaw's baseline height read included).
     async mineWhenReorgIdle(count, heldBy) {
         for (const held of heldBy) await held;
         return this.generateBlocksRaw(count);

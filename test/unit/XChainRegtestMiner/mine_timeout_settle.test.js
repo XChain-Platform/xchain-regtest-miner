@@ -23,7 +23,7 @@ function miningNode(blocksAfterAbort) {
 
 // Wire a miner to the node: the first mine times out (flagged or not), later mines
 // succeed, and each sleep lets the node land one more block.
-function wire(miner, node, { flagged }) {
+function wire(miner, node, { flagged, landedBeforeThrow = 0 }) {
     const seen = { remainingAtNextMine: null, remainingAtReconsider: null };
     let mines = 0;
     miner.walletAddress = 'bcrt1qtest';
@@ -33,6 +33,9 @@ function wire(miner, node, { flagged }) {
                 seen.remainingAtNextMine = node.remaining;
                 return ['hash'];
             }
+            // Blocks the node landed before the client gave up (the rail case: by
+            // the 60 s timeout most or all of the branch is already mined).
+            node.height += landedBeforeThrow;
             const err = new Error('Error generating to address');
             if (flagged) err.timedOut = true;
             throw err;
@@ -116,5 +119,113 @@ describe('a generatetoaddress client timeout holds the mine queue until the node
         assert.strictEqual(err.timedOut, true);
         assert.ok(Date.now() - 1000 >= MINE_SETTLE_DEADLINE_MS, 'the hold must last until the deadline');
         await miner.pauseMining();
+        assert.strictEqual(err.minedBlocks, null, 'an unsettled node gives no count rather than a lower bound');
+    });
+});
+
+function quietMinerWithMethods() {
+    const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    const { createRpcMethods } = require('../../../src/api/rpc_methods.js');
+    const miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'warn');
+    sinon.stub(console, 'error');
+    return { miner, methods: createRpcMethods(miner, {}) };
+}
+
+// generate_blocks either mines the requested count or reports how many it mined.
+// Repro: after invalidate_block, generate_blocks {count:4} answered a bare
+// "Error generating to address" while the node had mined all 4 blocks.
+describe('a failed generatetoaddress reports the blocks the node actually mined', function () {
+    let miner;
+    let methods;
+
+    beforeEach(function () {
+        ({ miner, methods } = quietMinerWithMethods());
+    });
+
+    afterEach(function () {
+        sinon.restore();
+        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+    });
+
+    it('a timeout after the node mined part before and part after the abort reports all 4', async function () {
+        const node = miningNode(2);
+        wire(miner, node, { flagged: true, landedBeforeThrow: 2 });
+        const before = miner._blocksMined;
+        const err = await miner.generateBlocks(4).catch((e) => e);
+        assert.strictEqual(err.timedOut, true);
+        assert.strictEqual(node.height, 104);
+        assert.strictEqual(err.minedBlocks, 4, 'blocks landed before the timeout count too');
+        assert.strictEqual(err.requestedBlocks, 4);
+        assert.strictEqual(miner._blocksMined - before, 4, 'blocks_mined is credited with the mined delta');
+    });
+
+    it('generate_blocks answers with the mined count, not a bare error', async function () {
+        const node = miningNode(1);
+        wire(miner, node, { flagged: true, landedBeforeThrow: 3 });
+        const res = await methods.generate_blocks({ count: 4 });
+        assert.ok(res.error, 'the client did time out, so it is still an error');
+        assert.strictEqual(res.mined, 4);
+        assert.strictEqual(res.requested, 4);
+        assert.match(res.error, /mined 4 of 4 requested blocks/);
+    });
+
+    it('a timeout with nothing mined still errors, with a zero count', async function () {
+        const node = miningNode(0);
+        wire(miner, node, { flagged: true });
+        const before = miner._blocksMined;
+        const res = await methods.generate_blocks({ count: 4 });
+        assert.ok(res.error);
+        assert.strictEqual(res.mined, 0);
+        assert.strictEqual(miner._blocksMined, before);
+    });
+
+    it('an unreadable height leaves the count unknown and the error in its plain shape', async function () {
+        const node = miningNode(0);
+        wire(miner, node, { flagged: false, landedBeforeThrow: 2 });
+        miner.connector.getBlockchainInfo = async () => {
+            throw new Error('down');
+        };
+        const res = await methods.generate_blocks({ count: 4 });
+        assert.deepStrictEqual(Object.keys(res), ['error']);
+    });
+});
+
+// The count is the height delta, bounded to what this mine could have landed.
+describe('a failed generatetoaddress bounds the mined count it reports', function () {
+    let miner;
+
+    beforeEach(function () {
+        ({ miner } = quietMinerWithMethods());
+    });
+
+    afterEach(function () {
+        sinon.restore();
+        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+    });
+
+    it('a failure that is not a timeout reads the height once and reports what landed', async function () {
+        wire(miner, miningNode(0), { flagged: false, landedBeforeThrow: 2 });
+        const err = await miner.generateBlocks(4).catch((e) => e);
+        assert.strictEqual(err.timedOut, undefined);
+        assert.strictEqual(err.minedBlocks, 2);
+        assert.strictEqual(err.requestedBlocks, 4);
+    });
+
+    it('caps the count at the request, so blocks mined by another caller are not claimed', async function () {
+        wire(miner, miningNode(0), { flagged: false, landedBeforeThrow: 7 });
+        const before = miner._blocksMined;
+        const err = await miner.generateBlocks(4).catch((e) => e);
+        assert.strictEqual(err.minedBlocks, 4);
+        assert.strictEqual(miner._blocksMined - before, 4);
+    });
+
+    it('floors a height drop at zero, since a reorg that lowered the tip mined nothing', async function () {
+        wire(miner, miningNode(0), { flagged: false, landedBeforeThrow: -3 });
+        const before = miner._blocksMined;
+        const err = await miner.generateBlocks(4).catch((e) => e);
+        assert.strictEqual(err.minedBlocks, 0);
+        assert.strictEqual(miner._blocksMined, before);
     });
 });

@@ -151,6 +151,20 @@ function createTimeMethods(miner) {
     };
 }
 
+// A failed mine can still have landed blocks (a client timeout leaves the node
+// mining). Report the count so the caller never mistakes a mined branch for
+// nothing; earlier failures (bad count, fill running) carry no count and keep
+// their plain shape.
+function generateBlocksError(err) {
+    const message = 'There was a problem generating blocks: ' + (err && err.message ? err.message : err);
+    if (!err || !Number.isInteger(err.minedBlocks)) return { error: message };
+    return {
+        error: message + ' (the node mined ' + err.minedBlocks + ' of ' + err.requestedBlocks + ' requested blocks)',
+        mined: err.minedBlocks,
+        requested: err.requestedBlocks,
+    };
+}
+
 function createBlockMethods(miner) {
     return {
         // Mine `count` empty blocks. Used by e2e tests to advance block height
@@ -162,7 +176,7 @@ function createBlockMethods(miner) {
                 let hashes = await miner.generateBlocks(count);
                 return { count: hashes.length, hashes: hashes };
             } catch (err) {
-                return { error: 'There was a problem generating blocks: ' + (err && err.message ? err.message : err) };
+                return generateBlocksError(err);
             }
         },
 
