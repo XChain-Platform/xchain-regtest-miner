@@ -44,6 +44,14 @@ function rpcSuccess(result) {
     return { data: { result, error: null, id: 1 } };
 }
 
+// Every console.error line this test emitted, joined (the module logger writes there).
+function loggedErrors() {
+    return console.error
+        .getCalls()
+        .map((c) => c.args.join(' '))
+        .join('\n');
+}
+
 function rpcNoResult() {
     return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } };
 }
@@ -65,11 +73,32 @@ describe('BlockchainConnector', function () {
         it('throws and logs when result is falsy', async function () {
             axiosPostStub.resolves(rpcNoResult());
             await assert.rejects(() => connector.sendRawTransaction('hex'), /Error sending raw transaction/);
+            assert.match(loggedErrors(), /sendrawtransaction RPC error: fail/);
         });
 
         it('throws on network error', async function () {
             axiosPostStub.rejects(new Error('refused'));
             await assert.rejects(() => connector.sendRawTransaction('hex'), /Error sending raw transaction/);
+            assert.doesNotMatch(loggedErrors(), /sendrawtransaction RPC error/);
+        });
+
+        // Pre-JSON-RPC-2.0 daemons (LTC v0.21, DOGE v1.14) carry the rejection on HTTP 500.
+        it('logs the node rejection reason from an HTTP 500 reply but throws a static message', async function () {
+            const err = new Error('Request failed with status code 500');
+            err.response = {
+                status: 500,
+                data: { result: null, error: { code: -26, message: 'dust' }, id: 1 },
+            };
+            axiosPostStub.rejects(err);
+            await assert.rejects(() => connector.sendRawTransaction('hex'), /^Error: Error sending raw transaction$/);
+            assert.match(loggedErrors(), /sendrawtransaction RPC error: dust/);
+        });
+
+        it('logs a 200 error reply once, not again from the catch', async function () {
+            axiosPostStub.resolves(rpcNoResult());
+            await assert.rejects(() => connector.sendRawTransaction('hex'), /^Error: Error sending raw transaction$/);
+            const hits = loggedErrors().match(/sendrawtransaction RPC error/g) || [];
+            assert.strictEqual(hits.length, 1);
         });
     });
 });

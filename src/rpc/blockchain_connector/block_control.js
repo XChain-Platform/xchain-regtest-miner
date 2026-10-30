@@ -216,12 +216,22 @@ module.exports = {
                 },
             });
 
-            if (response.data.result) {
+            // Log the node's rejection reason (dust, fee, mempool chain) from a 200 error reply.
+            if (response.data && response.data.error) {
+                logger.error(
+                    'sendrawtransaction RPC error: ' +
+                        (response.data.error.message || JSON.stringify(response.data.error)),
+                );
+                throw new Error('Error sending raw transaction');
+            }
+            if (response.data && response.data.result) {
                 return response.data.result;
             } else {
                 throw new Error('Error sending raw transaction');
             }
         } catch (error) {
+            logRejectedRpcError(error, 'sendrawtransaction RPC error: ');
+            // Static message: a transport axios error.message leaks the RPC host:port.
             throw new Error('Error sending raw transaction');
         }
     },
