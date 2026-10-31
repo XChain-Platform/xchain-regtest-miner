@@ -238,6 +238,18 @@ module.exports = {
         await runMineLoop.call(this, loop);
     },
 
+    async getFreshStatus() {
+        try {
+            const rawMempool = await this.connector.getRawMempool();
+            this._mempoolSize = Array.isArray(rawMempool) ? rawMempool.length : 0;
+            this._mempoolReadAt = Date.now();
+            this._consecutiveErrors = 0;
+        } catch (error) {
+            this._consecutiveErrors++;
+        }
+        return this.getStatus();
+    },
+
     getStatus() {
         return {
             wallet_ready: this.walletReady,
@@ -247,6 +259,7 @@ module.exports = {
             wallet_funded: typeof this.balance === 'number' && this.balance >= walletFundedFloor(),
             wallet_balance_at: this._balanceReadAt,
             mempool_size: this._mempoolSize,
+            mempool_size_at: this._mempoolReadAt,
             // 0 = mempool-driven mining only (the default). Non-zero = the loop
             // also mines one empty block per interval while the mempool is empty,
             // so height-gated states (stake activation, confirmation depth) advance

@@ -22,9 +22,11 @@ function createObservabilityMethods(miner, health) {
         },
 
         // Return current loop state so operators and CI can distinguish
-        // idle-healthy from stuck-retrying without watching stdout.
+        // idle-healthy from stuck-retrying without watching stdout. Refresh the
+        // mempool first so a caller after a wallet action cannot receive a value
+        // from the ordinary loop sleep that began before that action.
         async status() {
-            return miner.getStatus();
+            return miner.getFreshStatus();
         },
 
         health,

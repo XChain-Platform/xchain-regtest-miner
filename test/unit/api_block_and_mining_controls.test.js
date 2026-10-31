@@ -25,6 +25,7 @@ function createMinerStub() {
         generateBlocks: sinon.stub(),
         invalidateBlock: sinon.stub(),
         reconsiderBlock: sinon.stub(),
+        getFreshStatus: sinon.stub(),
         getStatus: sinon.stub(),
         start: sinon.stub(),
     };
@@ -50,7 +51,7 @@ describe('api.js', function () {
         describe('status', function () {
             it('returns the miner status snapshot unchanged', async function () {
                 const snapshot = { wallet_ready: true, mine_failures: 0 };
-                miner.getStatus.returns(snapshot);
+                miner.getFreshStatus.resolves(snapshot);
                 const result = await controller.status();
                 assert.strictEqual(result, snapshot);
             });

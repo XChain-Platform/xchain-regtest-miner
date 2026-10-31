@@ -26,6 +26,7 @@ function createMinerStub() {
         generateBlocks: sinon.stub(),
         invalidateBlock: sinon.stub(),
         reconsiderBlock: sinon.stub(),
+        getFreshStatus: sinon.stub(),
         getStatus: sinon.stub(),
         start: sinon.stub(),
     };
@@ -74,6 +75,16 @@ describe('api.js', function () {
 
             it('uses the complete production controller surface', function () {
                 assert.deepStrictEqual(Object.keys(controller), PRODUCTION_CONTROLLER_METHODS);
+            });
+        });
+
+        describe('status', function () {
+            it('returns a mempool snapshot read after the status request starts', async function () {
+                const snapshot = { mempool_size: 1, mempool_size_at: 1234 };
+                miner.getFreshStatus.resolves(snapshot);
+                assert.deepStrictEqual(await controller.status(), snapshot);
+                assert.strictEqual(miner.getFreshStatus.callCount, 1);
+                assert.strictEqual(miner.getStatus.callCount, 0);
             });
         });
 

@@ -57,6 +57,7 @@ const MINER_PROTOTYPE_ROWS = [
     ['generateBlocks', false, true, true, 'function', 1],
     ['generateBlocksQueued', false, true, true, 'function', 1],
     ['generateBlocksRaw', false, true, true, 'function', 1],
+    ['getFreshStatus', false, true, true, 'function', 0],
     ['getStatus', false, true, true, 'function', 0],
     ['idleMineDue', false, true, true, 'function', 2],
     ['invalidateBlock', false, true, true, 'function', 1],

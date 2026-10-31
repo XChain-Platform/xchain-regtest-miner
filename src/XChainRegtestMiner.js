@@ -114,6 +114,7 @@ function initStatusFields() {
     this.walletReloadInFlight = null;
     this.walletReloadStartedAt = null;
     this._mempoolSize = 0;
+    this._mempoolReadAt = null;
     this._blocksMined = 0;
     this._lastMineAt = null;
     this._consecutiveErrors = 0;
