@@ -25,6 +25,7 @@ const {
     FUNDING_FEE_RATE_COINS_PER_KB,
 } = require('../../src/XChainRegtestMiner/constants');
 const { DEST, withNode, createMiner, rawRpc, fundedNode } = require('./helpers/fee_pin_fixtures');
+const RestartingDogeMockNode = require('./helpers/RestartingDogeMockNode');
 
 // Sends one funding payment and asserts it carried the per-call fee_rate. Resolves the txid.
 async function sendAndAssertPerCallFeeRate(node, miner) {
@@ -111,6 +112,8 @@ describe('E2E: Funding fee pin on a Dogecoin 1.14 node', function () {
         await testSettxfeePinOnDoge('regtest');
     });
 
+    it('re-pins settxfee after a restart keeps the DOGE wallet loaded', testRestartRepinsDoge);
+
     it('prepares a fresh node without any multi-wallet RPC', async function () {
         await withNode('doge114', async (node) => {
             const miner = createMiner('dogecoin-regtest', node);
@@ -138,6 +141,29 @@ describe('E2E: Funding fee pin on a Dogecoin 1.14 node', function () {
         });
     });
 });
+
+async function testRestartRepinsDoge() {
+    await withNode(
+        'doge114',
+        async (node) => {
+            await fundedNode(node);
+            const miner = createMiner('dogecoin-regtest', node);
+            await miner.prepareWallet();
+            node.restartWalletState();
+
+            assert.strictEqual(typeof (await miner.refreshWalletFunds()), 'number');
+            await miner.fundingFeePinCheckInFlight;
+
+            assert.strictEqual(node.loadedWallets().length, 1);
+            assert.deepStrictEqual(
+                node.callsFor('settxfee').map((c) => c.params),
+                [[FUNDING_FEE_RATE_COINS_PER_KB], [FUNDING_FEE_RATE_COINS_PER_KB]],
+            );
+            assert.strictEqual(node.walletFeeRate, FUNDING_FEE_RATE_COINS_PER_KB);
+        },
+        RestartingDogeMockNode,
+    );
+}
 
 // Prepares a miner for `network` against a doge114 node and sends one funding payment.
 async function testSettxfeePinOnDoge(network) {

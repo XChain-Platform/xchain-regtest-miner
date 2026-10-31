@@ -21,8 +21,8 @@ const StatefulMockNode = require('./StatefulMockNode');
 
 const DEST = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080';
 
-async function withNode(daemon, fn) {
-    const node = new StatefulMockNode({ daemon });
+async function withNode(daemon, fn, NodeClass = StatefulMockNode) {
+    const node = new NodeClass({ daemon });
     await node.start();
     try {
         return await fn(node);

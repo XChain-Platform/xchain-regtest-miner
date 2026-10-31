@@ -113,6 +113,7 @@ function initStatusFields() {
     // startWalletReload in mempool_fill.js); both null until a read finds the wallet lost.
     this.walletReloadInFlight = null;
     this.walletReloadStartedAt = null;
+    this.fundingFeePinCheckInFlight = null;
     this._mempoolSize = 0;
     this._mempoolReadAt = null;
     this._blocksMined = 0;

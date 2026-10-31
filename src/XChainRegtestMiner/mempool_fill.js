@@ -22,7 +22,14 @@
 'use strict';
 
 const bitcoin = require('bitcoinjs-lib');
-const { WALLET_BALANCE_REFRESH_MS, MAX_FILL_MEMPOOL_QUANTITY, logger, ECPair } = require('./constants.js');
+const {
+    WALLET_BALANCE_REFRESH_MS,
+    MAX_FILL_MEMPOOL_QUANTITY,
+    FUNDING_FEE_RATE_COINS_PER_KB,
+    SETTXFEE_COINS,
+    logger,
+    ECPair,
+} = require('./constants.js');
 const { deriveFillKeys, fundMainAddress, findFundingUtxos } = require('./fill_plan.js');
 const { confirmSplitTxs } = require('./split_confirmation.js');
 
@@ -152,6 +159,28 @@ function startWalletReload() {
     return this.walletReloadInFlight;
 }
 
+// A legacy daemon can restart with its wallet loaded but its in-memory settxfee
+// reset. Check in the background so a slow wallet RPC never stalls auto-mining.
+function startFundingFeePinCheck() {
+    const coin = String(this.network || '')
+        .split('-')[0]
+        .toLowerCase();
+    if (!SETTXFEE_COINS.includes(coin) || this.fundingFeePinCheckInFlight) return null;
+    this.fundingFeePinCheckInFlight = (async () => {
+        try {
+            const info = await this.connector.getWalletInfo(1);
+            if (!info || info.paytxfee !== FUNDING_FEE_RATE_COINS_PER_KB) {
+                await this.pinFundingFeeRate();
+            }
+        } catch (err) {
+            logger.info('Could not verify the wallet funding fee pin: ' + (err && err.message ? err.message : err));
+        } finally {
+            this.fundingFeePinCheckInFlight = null;
+        }
+    })();
+    return this.fundingFeePinCheckInFlight;
+}
+
 module.exports = {
     async fillMempool(txQuantity) {
         if (this.fillMempoolRunning) {
@@ -223,6 +252,7 @@ module.exports = {
         try {
             const observed = await this.connector.getBalance();
             this.balance = typeof observed === 'number' ? observed : null;
+            if (this.balance !== null) startFundingFeePinCheck.call(this);
         } catch (err) {
             logger.info('Could not re-read the wallet balance: ' + (err && err.message ? err.message : err));
             this.balance = null;
