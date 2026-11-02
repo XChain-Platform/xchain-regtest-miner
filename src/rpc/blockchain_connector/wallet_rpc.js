@@ -20,6 +20,21 @@ const { isTimeout, isWalletMissingMessage, rejectedRpcErrorMessage, rpcErrorCode
 // other code repeats on each try, such as "Database already exists".
 const RPC_IN_WARMUP = -28;
 
+// The node echoes caller input back in its error text ("Invalid Bitcoin address:
+// <address>"), and send_funds takes that input from an unauthenticated API, so a
+// 20000-char address became a 20 KB log line. Cap what reaches the log; callers
+// still classify on the full message.
+const MAX_LOGGED_NODE_ERROR = 200;
+
+function logSendFailure(nodeErr) {
+    const text = String(nodeErr);
+    const shown =
+        text.length > MAX_LOGGED_NODE_ERROR
+            ? text.slice(0, MAX_LOGGED_NODE_ERROR) + '... [' + text.length + ' chars]'
+            : text;
+    logger.error('sendtoaddress returned no txid: ' + shown);
+}
+
 // Builds a wallet call's fixed-message error carrying only primitive classification
 // (never the axios error, whose config holds the RPC credentials).
 function walletCallError(message, rpcCode, timedOut) {
@@ -315,7 +330,7 @@ module.exports = {
             // Log the node's own (safe) RPC error for diagnosis, but throw a static
             // message: a transport axios error.message leaks the RPC host:port, and the
             // sanitization security suite requires a clean static thrown message.
-            logger.error('sendtoaddress returned no txid: ' + nodeErr);
+            logSendFailure(nodeErr);
             throw this.sendError(nodeErr);
         } catch (error) {
             if (error && error.walletMissing) throw error;
@@ -323,7 +338,7 @@ module.exports = {
             // still flagged on daemons that answer RPC errors with HTTP 500.
             const nodeErr = rejectedRpcErrorMessage(error);
             if (nodeErr === null) throw new Error('Error sending funds to address');
-            logger.error('sendtoaddress returned no txid: ' + nodeErr);
+            logSendFailure(nodeErr);
             throw this.sendError(nodeErr);
         }
     },

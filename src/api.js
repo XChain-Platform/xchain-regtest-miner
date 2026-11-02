@@ -18,6 +18,7 @@
  *
  ********************************************************************/
 
+const crypto = require('crypto');
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -87,20 +88,6 @@ function createHealthController(miner, { uptime = process.uptime } = {}) {
     return jsonRpcController;
 }
 
-// The router resolves a method with `method in controller` and looks hooks up by
-// plain index, both of which walk the prototype chain, so names such as
-// `constructor`, `toString` or `__proto__` reached Object.prototype and answered
-// 200 (or a 500-class error) instead of -32601. Dispatch from prototype-less
-// objects so only the methods registered here can ever match; the hook maps the
-// router would otherwise default to `{}` are supplied the same way.
-function createPrototypeSafeRouter(jsonRpcController) {
-    return jsonRouter({
-        methods: Object.assign(Object.create(null), jsonRpcController),
-        beforeMethods: Object.create(null),
-        afterMethods: Object.create(null),
-    });
-}
-
 function mountJsonRpc(app, jsonRpcController) {
     // Express 5 / body-parser 2.x leaves req.body undefined when a request carries
     // no JSON body (a GET, or a POST without application/json), whereas body-parser
@@ -151,7 +138,63 @@ function mountJsonRpc(app, jsonRpcController) {
         next();
     });
 
+    app.use(rejectEmptyBatch);
+    app.use(answerNullIds);
     app.use(createPrototypeSafeRouter(jsonRpcController));
+}
+
+// The router resolves a method with `method in controller` and looks hooks up by
+// plain index, both of which walk the prototype chain, so names such as
+// `constructor`, `toString` or `__proto__` reached Object.prototype and answered
+// 200 (or a 500-class error) instead of -32601. Dispatch from prototype-less
+// objects so only the methods registered here can ever match; the hook maps the
+// router would otherwise default to `{}` are supplied the same way. Defined after
+// mountJsonRpc so the guards above read first, in source order, before the mount.
+function createPrototypeSafeRouter(jsonRpcController) {
+    return jsonRouter({
+        methods: Object.assign(Object.create(null), jsonRpcController),
+        beforeMethods: Object.create(null),
+        afterMethods: Object.create(null),
+    });
+}
+
+// JSON-RPC 2.0 answers an empty batch with ONE Invalid Request error object
+// (id null), not with an empty array; the router would reply `[]`.
+function rejectEmptyBatch(req, res, next) {
+    if (Array.isArray(req.body) && req.body.length === 0) {
+        res.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } });
+        return;
+    }
+    next();
+}
+
+// A request whose id member is present and null is still a request: only an
+// ABSENT id makes a notification. The router tests the id with `== null`, so it
+// treated `"id": null` as a notification and sent an empty 200 body. Swap each
+// null id for a per-request token the router will answer, and map the token
+// back to null in the reply (a single object or each element of a batch).
+function answerNullIds(req, res, next) {
+    const token = 'null-id-' + crypto.randomUUID();
+    const isNullId = (rpc) => rpc && typeof rpc === 'object' && Object.hasOwn(rpc, 'id') && rpc.id === null;
+    const elements = Array.isArray(req.body) ? req.body : [req.body];
+    const nullIds = elements.filter(isNullId);
+    if (nullIds.length === 0) {
+        next();
+        return;
+    }
+    nullIds.forEach((rpc) => {
+        rpc.id = token;
+    });
+    const restore = (reply) => {
+        if (reply && typeof reply === 'object' && reply.id === token) reply.id = null;
+    };
+    const send = res.send.bind(res);
+    res.send = (payload) => {
+        if (Array.isArray(payload)) payload.forEach(restore);
+        else restore(payload);
+        return send(payload);
+    };
+    next();
 }
 
 const startApi = createStartApi({

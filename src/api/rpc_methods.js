@@ -64,12 +64,25 @@ function createTransactionMethods(miner) {
     };
 }
 
+// The pause/continue controls take no arguments. Accept the shapes callers
+// send for "nothing" (absent, null, {} or []) and refuse a scalar or a
+// non-empty positional list, so a malformed request never flips mining state.
+// A named-params object is not inspected; its keys are simply unused.
+function hasJunkParams(params) {
+    if (params === undefined || params === null) return false;
+    if (Array.isArray(params)) return params.length > 0;
+    return typeof params !== 'object';
+}
+
+const NO_PARAMS_ERROR = 'This method takes no params';
+
 function createMiningControlMethods(miner) {
     return {
         // Stop the auto-mine loop from firing further blocks. Any block already
         // in flight at the moment of the call completes normally. Use
         // continue_mining to resume.
-        async pause_mining({} = {}) {
+        async pause_mining(params) {
+            if (hasJunkParams(params)) return { error: NO_PARAMS_ERROR };
             try {
                 await miner.pauseMining();
             } catch (err) {
@@ -79,7 +92,8 @@ function createMiningControlMethods(miner) {
             return 'ok';
         },
 
-        async continue_mining({} = {}) {
+        async continue_mining(params) {
+            if (hasJunkParams(params)) return { error: NO_PARAMS_ERROR };
             try {
                 await miner.continueMining();
             } catch (err) {
