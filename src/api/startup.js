@@ -159,11 +159,37 @@ function startMinerDetached(miner, logger) {
     });
 }
 
-function createApiApp() {
+// A client-input error from the body parser (malformed JSON, oversized body) is
+// answered as a JSON 4xx and logged as one line. Left to Express's default final
+// handler it prints err.stack for every unauthenticated bad request.
+function createBodyParseErrorHandler(logger) {
+    return function bodyParseErrorHandler(err, req, res, next) {
+        const status = err && Number.isInteger(err.status) ? err.status : null;
+        if (status === null || status < 400 || status >= 500 || res.headersSent) {
+            next(err);
+            return;
+        }
+        if (logger && typeof logger.log === 'function') {
+            logger.log('Rejected request body: ' + status + ' ' + (err.type || 'client error'));
+        }
+        const tooLarge = status === 413;
+        res.status(status).json({
+            jsonrpc: '2.0',
+            id: null,
+            error: {
+                code: tooLarge ? -32600 : -32700,
+                message: tooLarge ? 'Request body too large' : 'Invalid request body',
+            },
+        });
+    };
+}
+
+function createApiApp(logger) {
     const app = express();
     app.use(helmet());
     app.use(bodyParser.json());
     app.use(cors());
+    app.use(createBodyParseErrorHandler(logger));
     return app;
 }
 
@@ -209,7 +235,7 @@ function createStartApi({ config, environment, logger, createHealthController, m
 
         startMinerDetached(miner, logger);
 
-        const app = createApiApp();
+        const app = createApiApp(logger);
         warnWhenApiIsOpen();
         installAuthentication(app, config.apiKey, logger);
         const healthController = createHealthController(miner);
