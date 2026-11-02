@@ -133,6 +133,13 @@
       "Fuzz: RPC response handling wallet setup with fuzzed responses handles probe failing then loadWallet succeeding",
       "Fuzz: RPC response handling wallet setup with fuzzed responses handles probe returning no usable address"
     ],
+    "1ab65af698be670e": [
+      "miner status and health while fill_mempool runs a fill never masks a consecutive error stall",
+      "miner status and health while fill_mempool runs a fill never masks a mine failure stall, paused or not",
+      "miner status and health while fill_mempool runs leaves the health body shape unchanged while no fill runs",
+      "miner status and health while fill_mempool runs names the fill in health, distinct from an operator pause, and returns to ok after it",
+      "miner status and health while fill_mempool runs reports mining paused after continue_mining lands mid-fill, until the fill ends"
+    ],
     "1b6f025ebc780ed1": [
       "T1 Regression: BlockchainConnector RPC Methods REG-T1-A01: getNetworkInfo returns result and sends correct RPC call",
       "T1 Regression: BlockchainConnector RPC Methods REG-T1-A01: getNetworkInfo throws clean error on network error",
@@ -250,23 +257,6 @@
       "Seam A: HTTP \u2194 JSON-RPC controller send_funds returns txid on success",
       "Seam A: HTTP \u2194 JSON-RPC controller set_default_mining_time delegates to miner and returns ok",
       "Seam A: HTTP \u2194 JSON-RPC controller set_mining_time delegates parameters to miner"
-    ],
-    "33a2c9ffc8ebdb64": [
-      "api.js JSON-RPC controller logic continue_mining returns error object on failure",
-      "api.js JSON-RPC controller logic continue_mining returns ok on success",
-      "api.js JSON-RPC controller logic fill_mempool returns error object on failure",
-      "api.js JSON-RPC controller logic fill_mempool returns ok on success",
-      "api.js JSON-RPC controller logic fill_mempool surfaces an error (not ok) when fillMempool rejects on invalid tx_quantity",
-      "api.js JSON-RPC controller logic ping returns success status",
-      "api.js JSON-RPC controller logic send_funds returns error object on failure",
-      "api.js JSON-RPC controller logic send_funds returns txid on success",
-      "api.js JSON-RPC controller logic set_default_mining_time delegates to miner and returns ok",
-      "api.js JSON-RPC controller logic set_default_mining_time returns error object on failure",
-      "api.js JSON-RPC controller logic set_mining_time delegates parameters to miner and returns ok",
-      "api.js JSON-RPC controller logic set_mining_time returns error object on failure",
-      "api.js JSON-RPC controller logic set_mock_time delegates the timestamp to miner and returns ok",
-      "api.js JSON-RPC controller logic set_mock_time returns an error envelope when the miner refuses (e.g. mainnet)",
-      "api.js environment variable parsing reads required env vars"
     ],
     "34982ab520e9895b": [
       "T1 Regression: Error Recovery & Backoff REG-T1-E01: Backoff on consecutive mempool errors logs backoff messages with increasing delays",
@@ -488,6 +478,15 @@
     ],
     "5d3ce1b81ea05e74": [
       "Boundary: Adaptive Mining Timer Logic T-12: floating-point timer values rejects float values via Number.isInteger check"
+    ],
+    "5dcf6d2e9d2d2168": [
+      "cancel_fill_mempool contract answers cancelled false and changes nothing when no fill runs",
+      "cancel_fill_mempool contract refuses junk params and stays behind the API key",
+      "cancel_fill_mempool mid-broadcast stops a run mid-broadcast, releases its hold on mining and lets continue_mining resume",
+      "cancel_fill_mempool outside the broadcast loop a cancel aimed at an earlier run never aborts the next one",
+      "cancel_fill_mempool outside the broadcast loop stops during the confirmation mines before any stress transaction is sent",
+      "cancel_fill_mempool without continue_mining leaves the miner paused when no continue_mining landed, as a finished fill does",
+      "fill_mempool progress in status reports a rising sent count against the requested total while the run broadcasts"
     ],
     "5e4e9ac46d4098df": [
       "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console generateToAddress does not log password",
@@ -875,6 +874,10 @@
       "XChainRegtestMiner setMiningTime rejects zero values",
       "XChainRegtestMiner setMiningTime updates both timing values with valid integers"
     ],
+    "8b087cfaf3084c81": [
+      "mempool status freshness while the mine loop is idle marks an on-demand read failure stale without replacing the prior size",
+      "mempool status freshness while the mine loop is idle reads the node after a transaction arrives during the ordinary paused sleep"
+    ],
     "906040fe4a8a748f": [
       "BlockchainConnector getWalletInfo defaults to 50 max retries",
       "BlockchainConnector getWalletInfo retries on failure and returns on success",
@@ -1074,6 +1077,15 @@
       "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences prepareWallet call sequences stores the balance after checking",
       "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences prepareWallet call sequences stores the new address after wallet is ready"
     ],
+    "b0f0b7e9c4f35d71": [
+      "status mempool read after this miner changes the mempool does not join a read that began before the caller finished a mine",
+      "status mempool read after this miner changes the mempool reads again inside the window after a mine, a send or a reorg by this miner",
+      "status mempool read is bounded under a flood keeps the window short and documented",
+      "status mempool read is bounded under a flood reads at most once per window under a sequential flood",
+      "status mempool read is bounded under a flood serves 50 concurrent status calls from one getrawmempool",
+      "status mempool read stays inside its window bounds a failing node the same way and counts each shared failure once",
+      "status mempool read stays inside its window never serves a size from a read that started more than one window ago"
+    ],
     "b1f9526761a35b1c": [
       "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline distribution PSBT (main address \u2192 child addresses) adds correct number of outputs with correct values",
       "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline distribution PSBT (main address \u2192 child addresses) constructs a valid PSBT with correct input",
@@ -1105,6 +1117,25 @@
     ],
     "b7240968c0c65fdc": [
       "Boundary: Adaptive Mining Timer Logic T-20: mempool transitions from 0 to 1 tx sets both initialStartToMine and extendedStartToMine"
+    ],
+    "b9cca43fc8cd5efd": [
+      "api.js JSON-RPC controller logic continue_mining returns error object on failure",
+      "api.js JSON-RPC controller logic continue_mining returns ok on success",
+      "api.js JSON-RPC controller logic fill_mempool returns error object on failure",
+      "api.js JSON-RPC controller logic fill_mempool returns ok on success",
+      "api.js JSON-RPC controller logic fill_mempool surfaces an error (not ok) when fillMempool rejects on invalid tx_quantity",
+      "api.js JSON-RPC controller logic ping returns success status",
+      "api.js JSON-RPC controller logic ping uses the complete production controller surface",
+      "api.js JSON-RPC controller logic send_funds returns error object on failure",
+      "api.js JSON-RPC controller logic send_funds returns txid on success",
+      "api.js JSON-RPC controller logic set_default_mining_time delegates to miner and returns ok",
+      "api.js JSON-RPC controller logic set_default_mining_time returns error object on failure",
+      "api.js JSON-RPC controller logic set_mining_time delegates parameters to miner and returns ok",
+      "api.js JSON-RPC controller logic set_mining_time returns error object on failure",
+      "api.js JSON-RPC controller logic set_mock_time delegates the timestamp to miner and returns ok",
+      "api.js JSON-RPC controller logic set_mock_time returns an error envelope when the miner refuses (e.g. mainnet)",
+      "api.js JSON-RPC controller logic status returns a mempool snapshot read after the status request starts",
+      "api.js environment variable parsing reads required env vars"
     ],
     "bb00bce9d839766b": [
       "Boundary: API Input Validation A-01: set_mining_time with both values = 0 rejects zero for both timers",
@@ -1717,13 +1748,15 @@
       }
     },
     "test:unit": {
-      "fileCount": 54,
-      "titleCount": 421,
+      "fileCount": 58,
+      "titleCount": 444,
       "files": {
+        "test/unit/XChainRegtestMiner/fill_mempool_cancel_progress.test.js": "5dcf6d2e9d2d2168",
         "test/unit/XChainRegtestMiner/invalidate_block_refused_keeps_mining.test.js": "7515eec3e311a336",
         "test/unit/XChainRegtestMiner/mine_timeout_settle.test.js": "42496d6ec749e27d",
         "test/unit/XChainRegtestMiner/mining_schedule.test.js": "761a7616d5566d05",
-        "test/unit/api.test.js": "33a2c9ffc8ebdb64",
+        "test/unit/XChainRegtestMiner/status_paused_during_fill.test.js": "1ab65af698be670e",
+        "test/unit/api.test.js": "b9cca43fc8cd5efd",
         "test/unit/api.test/body_parse_error_logging.test.js": "d01b9a6edbee9ca4",
         "test/unit/api/api_body_parser_json_errors.test.js": "0761c3aeace943e1",
         "test/unit/api/envelope_leniency_notes.test.js": "6d58e53e79c9bc3e",
@@ -1758,6 +1791,8 @@
         "test/unit/idle_mine_heartbeat.test.js": "7b49b18b1c656b04",
         "test/unit/jsonrpc_body_guard.test.js": "58706b2a54fa0008",
         "test/unit/jsonrpc_null_params.test.js": "a3697a617b189cfb",
+        "test/unit/mempool_status_freshness/paused_polling.test.js": "8b087cfaf3084c81",
+        "test/unit/mempool_status_freshness/status_read_bound.test.js": "b0f0b7e9c4f35d71",
         "test/unit/mine_loop_turns.test.js": "1ea3ecec22eb8b8a",
         "test/unit/miner_health_probe.test.js": "071ce9df115b49d3",
         "test/unit/no_key_boot_warning.test.js": "71884b7dd048eb3b",
