@@ -117,6 +117,26 @@ function mountJsonRpc(app, jsonRpcController) {
         next();
     });
 
+    // Replace every non-object batch element (null, number, string, array) with a
+    // request that cannot match a method. The router's batch loop calls its async
+    // single-request handler, which destructures the element, and then reads
+    // `.id` on the same element: for null that read throws synchronously after the
+    // handler already returned a rejected promise, which nothing collects. The
+    // orphaned rejection is an unhandledRejection and ends the process, so one
+    // unauthenticated `[null]` stopped the only regtest block producer. The
+    // placeholder carries a string id so the router answers it with an error entry
+    // (Invalid Request in spirit) while valid elements in the batch still run.
+    app.use((req, res, next) => {
+        if (Array.isArray(req.body)) {
+            req.body = req.body.map((rpc, i) =>
+                rpc && typeof rpc === 'object' && !Array.isArray(rpc)
+                    ? rpc
+                    : { jsonrpc: '2.0', id: `invalid-request-${i}`, method: '__invalid_request__' }
+            );
+        }
+        next();
+    });
+
     app.use(jsonRouter({ methods: jsonRpcController }));
 }
 
