@@ -34,10 +34,28 @@ module.exports = {
         // pauseMining() is draining would otherwise run the instant the drain
         // resolves, overlapping the invalidate below.
         const mineHold = this.enterReorgMineHold();
+        const wasMining = this.keepMining;
         let result;
         try {
-            await this.pauseMining();
-            result = await this.connector.invalidateBlock(blockHash);
+            // pauseMining claims its generation synchronously, so reading it right
+            // after the call (before its barrier await) names this pause's claim.
+            const paused = this.pauseMining();
+            const claimed = this._miningStateGeneration;
+            await paused;
+            try {
+                result = await this.connector.invalidateBlock(blockHash);
+            } catch (err) {
+                // A refused or failed node call invalidated nothing, so the pause
+                // is not the start of a reorg the caller must close with
+                // continueMining(): hand back the auto-mining state this call took.
+                // Skipped when another writer (operator pause/continue, fillMempool)
+                // moved the state meanwhile, so their intent wins.
+                if (wasMining && this._miningStateGeneration === claimed) {
+                    this.keepMining = true;
+                    this._miningStateGeneration++;
+                }
+                throw err;
+            }
         } finally {
             this.exitReorgMineHold(mineHold);
         }
