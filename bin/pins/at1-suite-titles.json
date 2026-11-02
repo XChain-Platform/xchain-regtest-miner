@@ -18,6 +18,14 @@
     "03ed940e766ba274": [
       "Boundary: fillMempool Chunking and Calculations F-06: tx_quantity = 5000 (exactly two chunks) creates 2 full chunks with no remainder"
     ],
+    "06577b6c23ce9142": [
+      "prototype method descriptors (split surface pin) BlockchainConnector a constructed connector has no enumerable prototype key in its for...in view",
+      "prototype method descriptors (split surface pin) BlockchainConnector keeps every installed method non-enumerable and callable",
+      "prototype method descriptors (split surface pin) BlockchainConnector prototype descriptor rows match the unsplit class",
+      "prototype method descriptors (split surface pin) XChainRegtestMiner a constructed miner has no enumerable prototype key in its for...in view",
+      "prototype method descriptors (split surface pin) XChainRegtestMiner keeps every installed method non-enumerable and callable",
+      "prototype method descriptors (split surface pin) XChainRegtestMiner prototype descriptor rows match the unsplit class"
+    ],
     "071ce9df115b49d3": [
       "miner health probe verdict against a real XChainRegtestMiner accumulates mine_failures when only generatetoaddress fails, and stalls",
       "miner health probe verdict against a real XChainRegtestMiner reports a started loop healthy, and an operator pause healthy too",
@@ -43,6 +51,13 @@
     "073ff31bc214849d": [
       "Boundary: fillMempool Chunking and Calculations F-10: negative tx_quantity Math.ceil of negative produces 0 or negative chunks",
       "Boundary: fillMempool Chunking and Calculations F-10: negative tx_quantity address array loop with negative count creates no addresses"
+    ],
+    "0761c3aeace943e1": [
+      "body parser errors are JSON and leak no stack refuses a body over 100 KB with a JSON 413",
+      "body parser errors are JSON and leak no stack refuses bare string with a JSON 400",
+      "body parser errors are JSON and leak no stack refuses not json with a JSON 400",
+      "body parser errors are JSON and leak no stack refuses null with a JSON 400",
+      "body parser errors are JSON and leak no stack still delivers a valid JSON body to the handler"
     ],
     "09017d9bcfe5cdc8": [
       "BlockchainConnector setTxFee calls settxfee with the fee rate and returns true on success",
@@ -199,6 +214,16 @@
     "290463c72104a20c": [
       "Boundary: fillMempool Chunking and Calculations F-07: tx_quantity = 47500 (19 chunks, below mining threshold) does not trigger intermediate block mining (threshold is 20)"
     ],
+    "2a65261ac0792d59": [
+      "JSON-RPC batch with non-object elements CONTROL: without the guard a null element produces an unhandled rejection",
+      "JSON-RPC batch with non-object elements [\"x\"] gets JSON-RPC error content and no unhandled rejection",
+      "JSON-RPC batch with non-object elements [1] gets JSON-RPC error content and no unhandled rejection",
+      "JSON-RPC batch with non-object elements [[]] gets JSON-RPC error content and no unhandled rejection",
+      "JSON-RPC batch with non-object elements [[null]] gets JSON-RPC error content and no unhandled rejection",
+      "JSON-RPC batch with non-object elements [null] gets JSON-RPC error content and no unhandled rejection",
+      "JSON-RPC batch with non-object elements a valid element in the same batch still returns its result",
+      "JSON-RPC batch with non-object elements src/api.js wires the element guard before the jsonRouter mount"
+    ],
     "2e20a614bd0a6433": [
       "Boundary: Combined Parameter Interactions C-01: maxTimeToMineTxs=0 with 10000 txs in mempool mines immediately on first poll regardless of mempool size",
       "Boundary: Combined Parameter Interactions C-02: addedTimeToMineTxs=0 with transactions arriving every poll mines on every poll that detects mempool change",
@@ -274,6 +299,22 @@
       "BlockchainConnector createWallet returns wallet info on first success",
       "BlockchainConnector createWallet sends correct RPC method and params",
       "BlockchainConnector createWallet sleeps between retries"
+    ],
+    "42496d6ec749e27d": [
+      "a failed generatetoaddress bounds the mined count it reports a failure that is not a timeout reads the height once and reports what landed",
+      "a failed generatetoaddress bounds the mined count it reports caps the count at the request, so blocks mined by another caller are not claimed",
+      "a failed generatetoaddress bounds the mined count it reports floors a height drop at zero, since a reorg that lowered the tip mined nothing",
+      "a failed generatetoaddress reports the blocks the node actually mined a timeout after the node mined part before and part after the abort reports all 4",
+      "a failed generatetoaddress reports the blocks the node actually mined a timeout with nothing mined still errors, with a zero count",
+      "a failed generatetoaddress reports the blocks the node actually mined an unreadable height leaves the count unknown and the error in its plain shape",
+      "a failed generatetoaddress reports the blocks the node actually mined generate_blocks answers with the mined count, not a bare error",
+      "a generatetoaddress client timeout holds the mine queue until the node stops CONTROL: an unflagged mine failure releases the barriers while the node is still mining",
+      "a generatetoaddress client timeout holds the mine queue until the node stops keeps pause, reconsider and the next mine waiting until the node height settles",
+      "a generatetoaddress client timeout holds the mine queue until the node stops releases the queue at the settle deadline when the node never stops",
+      "a timed-out mine settles on the node finishing the call, not on a pause between blocks a failing getrpcinfo read falls back to the quiet window rather than calling the node idle",
+      "a timed-out mine settles on the node finishing the call, not on a pause between blocks reports all 300 mined and holds every barrier when getrpcinfo shows the call active",
+      "a timed-out mine settles on the node finishing the call, not on a pause between blocks reports all 300 mined and holds every barrier when the node has no getrpcinfo",
+      "a timed-out mine settles on the node finishing the call, not on a pause between blocks settles at once when getrpcinfo shows no generatetoaddress, without waiting out the quiet window"
     ],
     "4405034a199528ec": [
       "coverage ratchet floors enforces every declared floor, at the declared value",
@@ -448,6 +489,36 @@
     "5d3ce1b81ea05e74": [
       "Boundary: Adaptive Mining Timer Logic T-12: floating-point timer values rejects float values via Number.isInteger check"
     ],
+    "5e4e9ac46d4098df": [
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console generateToAddress does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBalance does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBlock does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBlockHash does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBlockchainInfo does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getMempoolEntry does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getNetworkInfo does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getNewAddress does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getRawMempool does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getRpcInfo does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console loadWallet does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console sendRawTransaction does not log password",
+      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console sendToAddress does not log password",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors createWallet error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors generateToAddress error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBalance error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBlock error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBlockHash error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBlockchainInfo error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getMempoolEntry error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getNetworkInfo error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getNewAddress error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getRawMempool error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getRpcInfo error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getWalletInfo error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors loadWallet error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors sendRawTransaction error has no .config property",
+      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors sendToAddress error has no .config property"
+    ],
     "5eeda98f25283817": [
       "T2 Regression: Full E2E Pipeline REG-T2-007: send_funds creates a real transaction send_funds produces a transaction in the mempool"
     ],
@@ -585,6 +656,32 @@
     "6c604ce0bd6197e6": [
       "Boundary: fillMempool Chunking and Calculations F-08: tx_quantity = 50000 (20 chunks, exact mining threshold) triggers exactly one intermediate block mine"
     ],
+    "6d58e53e79c9bc3e": [
+      "JSON-RPC envelope leniencies and log hygiene batch null ids and notifications answers null-id elements inside a batch and still drops true notifications",
+      "JSON-RPC envelope leniencies and log hygiene batch null ids and notifications still sends no body for a notification (no id member)",
+      "JSON-RPC envelope leniencies and log hygiene empty batch and null id answers a null-id error with id null",
+      "JSON-RPC envelope leniencies and log hygiene empty batch and null id answers a request whose id is null, echoing id null",
+      "JSON-RPC envelope leniencies and log hygiene empty batch and null id answers an empty batch with one Invalid Request error, id null",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params \"str\" is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params 7 is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params [1,2] is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params [] still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params null still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params true is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params undefined still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params {} still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params \"str\" is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params 7 is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params [1,2] is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params [] still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params null still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params true is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params undefined still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params {} still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene send failure log line bounds the logged node error when the node answers HTTP 200 with an error",
+      "JSON-RPC envelope leniencies and log hygiene send failure log line bounds the logged node error when the node answers HTTP 500",
+      "JSON-RPC envelope leniencies and log hygiene send failure log line still flags a lost wallet from a long node message"
+    ],
     "71884b7dd048eb3b": [
       "no-API-key boot warning @regression the warning states authentication is disabled (fail-open)",
       "no-API-key boot warning @regression warns at boot when MINER_API_KEY is unset"
@@ -611,6 +708,39 @@
       "Fuzz: JSON-RPC API parameters send_funds with arbitrary address values never throws for any string address",
       "Fuzz: JSON-RPC API parameters set_mining_time with arbitrary parameters handles miner throwing for any input",
       "Fuzz: JSON-RPC API parameters set_mining_time with arbitrary parameters never throws for any pair of values"
+    ],
+    "7515eec3e311a336": [
+      "invalidateBlock refused by the node does not override an operator pause that lands during the node call",
+      "invalidateBlock refused by the node keeps the documented pause after a successful invalidate",
+      "invalidateBlock refused by the node leaves an operator-paused miner paused after a refused invalidate",
+      "invalidateBlock refused by the node leaves auto-mining running and releases the mine hold"
+    ],
+    "761a7616d5566d05": [
+      "setIdleMineInterval accepts a bounded non-zero interval",
+      "setIdleMineInterval throws for a negative interval",
+      "setMiningTime accepts bounded positive integers",
+      "setMiningTime throws for a value below the minimum",
+      "setMockTime accepts a finite timestamp and delegates its numeric value",
+      "setMockTime refuses \" \" without touching the clock",
+      "setMockTime refuses \"\" without touching the clock",
+      "setMockTime refuses \"0x0\" without touching the clock",
+      "setMockTime refuses \"1e3\" without touching the clock",
+      "setMockTime refuses \"abc\" without touching the clock",
+      "setMockTime refuses -1 without touching the clock",
+      "setMockTime refuses NaN without touching the clock",
+      "setMockTime refuses [1] without touching the clock",
+      "setMockTime refuses [] without touching the clock",
+      "setMockTime refuses false without touching the clock",
+      "setMockTime refuses null without touching the clock",
+      "setMockTime refuses null without touching the clock",
+      "setMockTime refuses true without touching the clock",
+      "setMockTime refuses undefined without touching the clock",
+      "setMockTime refuses {} without touching the clock",
+      "setMockTime still accepts \"0\"",
+      "setMockTime still accepts 0",
+      "setMockTime still accepts 1900000000",
+      "setMockTime throws for a negative timestamp without delegating",
+      "sleep resolves only after the requested delay"
     ],
     "77974a1b36c1001b": [
       "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline ECPair network parameter creates key pair with regtest network",
@@ -1058,6 +1188,10 @@
       "Boundary: fillMempool Chunking and Calculations F-02: tx_quantity = 1 calculates correct funding amount for 1 address (resolved \"bitcoin-regtest\" coin config)",
       "Boundary: fillMempool Chunking and Calculations F-02: tx_quantity = 1 creates exactly 1 chunk with 1 output"
     ],
+    "d01b9a6edbee9ca4": [
+      "body parse error logging answers an oversized body with a JSON 413 and no stack trace",
+      "body parse error logging answers malformed JSON with a JSON 400 and no stack trace"
+    ],
     "d4519a4a9c594ea3": [
       "Seam D: BlockchainConnector \u2194 MockRpcServer HTTP Basic Auth sends correct Authorization header",
       "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips generateToAddress: sends count and address params",
@@ -1325,6 +1459,24 @@
       "Boundary: fillMempool Chunking and Calculations PSBT output distribution per chunk first chunk processes addresses 0 to 2499",
       "Boundary: fillMempool Chunking and Calculations PSBT output distribution per chunk second chunk processes addresses 2500 to 4999"
     ],
+    "f670f2b540da8369": [
+      "api.js ensureJsonRpcBody defaults an undefined body to {} and calls next",
+      "api.js ensureJsonRpcBody leaves an already-populated body untouched",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name __proto__ with -32601 and no result",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name constructor with -32601 and no result",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name hasOwnProperty with -32601 and no result",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name toLocaleString with -32601 and no result",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name toString with -32601 and no result",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name valueOf with -32601 and no result",
+      "api.js mountJsonRpc method dispatch still dispatches a real method",
+      "api.js normalizeJsonRpcParams coalesces an explicit null params to {} on a single request",
+      "api.js normalizeJsonRpcParams coalesces null params on every entry of a batch request",
+      "api.js normalizeJsonRpcParams leaves already-present params untouched and still calls next",
+      "api.js timingSafeStringEqual returns false for strings of different length rather than throwing",
+      "api.js timingSafeStringEqual returns false for two different strings of the same length",
+      "api.js timingSafeStringEqual returns true for two equal strings",
+      "api.js timingSafeStringEqual treats a missing header (undefined) as the empty string and fails closed"
+    ],
     "f95579d047e3480a": [
       "T1 Regression: Security REG-T1-D01: sendFundsToAddress input validation rejects -Infinity amount",
       "T1 Regression: Security REG-T1-D01: sendFundsToAddress input validation rejects Infinity amount",
@@ -1545,11 +1697,12 @@
       }
     },
     "test:security": {
-      "fileCount": 6,
-      "titleCount": 159,
+      "fileCount": 7,
+      "titleCount": 187,
       "files": {
         "test/security/api_hardening_security.test.js": "ae2962b0ca51d81a",
         "test/security/connector_sanitization_security.test.js": "7da8bb2e5e171546",
+        "test/security/connector_sanitization_surface_security.test.js": "5e4e9ac46d4098df",
         "test/security/env_validation_security.test.js": "9b5bfd0cd5515696",
         "test/security/error_sanitization_security.test.js": "6bbb6ea0661ff52d",
         "test/security/input_validation_security.test.js": "d459b9fc4347a8dc",
@@ -1564,10 +1717,18 @@
       }
     },
     "test:unit": {
-      "fileCount": 45,
-      "titleCount": 317,
+      "fileCount": 54,
+      "titleCount": 421,
       "files": {
+        "test/unit/XChainRegtestMiner/invalidate_block_refused_keeps_mining.test.js": "7515eec3e311a336",
+        "test/unit/XChainRegtestMiner/mine_timeout_settle.test.js": "42496d6ec749e27d",
+        "test/unit/XChainRegtestMiner/mining_schedule.test.js": "761a7616d5566d05",
         "test/unit/api.test.js": "33a2c9ffc8ebdb64",
+        "test/unit/api.test/body_parse_error_logging.test.js": "d01b9a6edbee9ca4",
+        "test/unit/api/api_body_parser_json_errors.test.js": "0761c3aeace943e1",
+        "test/unit/api/envelope_leniency_notes.test.js": "6d58e53e79c9bc3e",
+        "test/unit/api/jsonrpc_null_batch_element.test.js": "2a65261ac0792d59",
+        "test/unit/api_body_and_key_guards.test.js": "f670f2b540da8369",
         "test/unit/api_key_exemption.test.js": "9fb04900c6b508bd",
         "test/unit/blockchain_connector.test.js": "671fa2c590201b73",
         "test/unit/blockchain_connector.test/01_get_network_info.test.js": "7eda23ba590cdcee",
@@ -1601,6 +1762,7 @@
         "test/unit/miner_health_probe.test.js": "071ce9df115b49d3",
         "test/unit/no_key_boot_warning.test.js": "71884b7dd048eb3b",
         "test/unit/pause_mining_barrier.test.js": "a5f61984809250ef",
+        "test/unit/prototype/method_descriptors.test.js": "06577b6c23ce9142",
         "test/unit/reorg_mine_barrier.test.js": "d7f7b80a68b84a33",
         "test/unit/reorg_wallet_funds.test.js": "26d6ee08948e6531",
         "test/unit/security/configuration/dependency_advisories.test.js": "0f2abe37f99c5a17",

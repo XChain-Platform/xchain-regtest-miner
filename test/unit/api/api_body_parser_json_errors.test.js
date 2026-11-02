@@ -14,7 +14,7 @@
 
 const assert = require('assert');
 const http = require('http');
-const { createApiApp } = require('../../src/api/startup');
+const { createApiApp } = require('../../../src/api/startup');
 
 function post(port, body) {
     return new Promise((resolve, reject) => {

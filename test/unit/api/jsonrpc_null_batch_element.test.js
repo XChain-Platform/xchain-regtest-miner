@@ -19,7 +19,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const jsonRouter = require('express-json-rpc-router');
 
-const API_SRC = path.join(__dirname, '../../src/api.js');
+const API_SRC = path.join(__dirname, '../../../src/api.js');
 
 // Run the real mountJsonRpc against a recording app, then replay its middlewares.
 function realMiddlewares() {

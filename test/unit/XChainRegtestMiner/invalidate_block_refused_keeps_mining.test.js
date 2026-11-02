@@ -19,7 +19,7 @@ const HASH = 'ff'.repeat(32);
 let miner;
 
 function setupMiner(invalidate) {
-    const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+    const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
     miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
     sinon.stub(console, 'log');
     miner.walletReady = true;
@@ -31,7 +31,7 @@ function setupMiner(invalidate) {
 describe('invalidateBlock refused by the node', function () {
     afterEach(() => {
         sinon.restore();
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')];
+        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
     });
 
     it('leaves auto-mining running and releases the mine hold', async function () {
