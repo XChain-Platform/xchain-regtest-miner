@@ -87,3 +87,57 @@ describe('api.js', function () {
         });
     });
 });
+
+describe('api.js', function () {
+    describe('mountJsonRpc method dispatch', function () {
+        const express = require('express');
+        const http = require('http');
+        let server;
+        let port;
+
+        before(async function () {
+            const app = express();
+            app.use(express.json());
+            mountJsonRpc(app, { ping: async () => 'pong' });
+            await new Promise((resolve) => {
+                server = app.listen(0, '127.0.0.1', resolve);
+            });
+            port = server.address().port;
+        });
+
+        after(function () {
+            return new Promise((resolve) => server.close(resolve));
+        });
+
+        function post(body) {
+            return new Promise((resolve, reject) => {
+                const req = http.request(
+                    { host: '127.0.0.1', port, method: 'POST', headers: { 'Content-Type': 'application/json' } },
+                    (res) => {
+                        let data = '';
+                        res.on('data', (c) => (data += c));
+                        res.on('end', () => resolve(JSON.parse(data)));
+                    },
+                );
+                req.on('error', reject);
+                req.end(body);
+            });
+        }
+
+        for (const name of ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf', 'toLocaleString']) {
+            it(`refuses Object.prototype name ${name} with -32601 and no result`, async function () {
+                const reply = await post(
+                    `{"jsonrpc":"2.0","method":"${name}","params":{"probe":1},"id":1}`,
+                );
+                assert.ok(reply.error, 'expected an error member');
+                assert.strictEqual(reply.error.code, -32601);
+                assert.ok(!('result' in reply));
+            });
+        }
+
+        it('still dispatches a real method', async function () {
+            const reply = await post('{"jsonrpc":"2.0","method":"ping","params":{},"id":1}');
+            assert.strictEqual(reply.result, 'pong');
+        });
+    });
+});

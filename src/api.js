@@ -87,6 +87,20 @@ function createHealthController(miner, { uptime = process.uptime } = {}) {
     return jsonRpcController;
 }
 
+// The router resolves a method with `method in controller` and looks hooks up by
+// plain index, both of which walk the prototype chain, so names such as
+// `constructor`, `toString` or `__proto__` reached Object.prototype and answered
+// 200 (or a 500-class error) instead of -32601. Dispatch from prototype-less
+// objects so only the methods registered here can ever match; the hook maps the
+// router would otherwise default to `{}` are supplied the same way.
+function createPrototypeSafeRouter(jsonRpcController) {
+    return jsonRouter({
+        methods: Object.assign(Object.create(null), jsonRpcController),
+        beforeMethods: Object.create(null),
+        afterMethods: Object.create(null),
+    });
+}
+
 function mountJsonRpc(app, jsonRpcController) {
     // Express 5 / body-parser 2.x leaves req.body undefined when a request carries
     // no JSON body (a GET, or a POST without application/json), whereas body-parser
@@ -137,7 +151,7 @@ function mountJsonRpc(app, jsonRpcController) {
         next();
     });
 
-    app.use(jsonRouter({ methods: jsonRpcController }));
+    app.use(createPrototypeSafeRouter(jsonRpcController));
 }
 
 const startApi = createStartApi({
