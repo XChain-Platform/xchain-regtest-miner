@@ -104,4 +104,30 @@ describe('setMockTime', function () {
         );
         assert(connector.setMockTime.notCalled);
     });
+
+    const malformed = [null, undefined, '', ' ', [], [1], false, true, '0x0', '1e3', {}, NaN, Infinity, -1, 'abc'];
+    for (const bad of malformed) {
+        it(`refuses ${Object.is(bad, NaN) ? 'NaN' : JSON.stringify(bad) || 'undefined'} without touching the clock`, async function () {
+            const connector = { setMockTime: sinon.stub().resolves() };
+            const state = { network: 'bitcoin-regtest', connector };
+
+            await assert.rejects(() => miningSchedule.setMockTime.call(state, bad), /non-negative unix time/);
+            assert(connector.setMockTime.notCalled);
+        });
+    }
+
+    for (const [input, expected] of [
+        [0, 0],
+        ['0', 0],
+        [1900000000, 1900000000],
+    ]) {
+        it(`still accepts ${JSON.stringify(input)}`, async function () {
+            const connector = { setMockTime: sinon.stub().resolves('set') };
+            const state = { network: 'bitcoin-regtest', connector };
+
+            await miningSchedule.setMockTime.call(state, input);
+
+            assert(connector.setMockTime.calledOnceWithExactly(expected));
+        });
+    }
 });

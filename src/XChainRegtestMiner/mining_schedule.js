@@ -127,7 +127,13 @@ module.exports = {
     // `this.network` is the coin-network form (e.g. bitcoin-regtest); guard on
     // its network half so 'bitcoin-mainnet' and a bare 'mainnet' both trip.
     async setMockTime(timestamp) {
-        if (!Number.isFinite(Number(timestamp)) || Number(timestamp) < 0) {
+        // Accept only a real number or a plain decimal-digit string; Number() alone
+        // coerces null, '', [], false and '0x0' to 0, which would silently release a
+        // pinned mock clock on a missing or blank timestamp.
+        const isNumeric =
+            (typeof timestamp === 'number' && Number.isFinite(timestamp)) ||
+            (typeof timestamp === 'string' && /^\d+$/.test(timestamp));
+        if (!isNumeric || Number(timestamp) < 0) {
             throw new Error('setMockTime: timestamp must be a non-negative unix time (0 releases the mock clock)');
         }
         if (
