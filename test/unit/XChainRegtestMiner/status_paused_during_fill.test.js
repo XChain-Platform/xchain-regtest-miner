@@ -76,7 +76,9 @@ describe('miner status and health while fill_mempool runs', function () {
         miner.keepMining = true;
         assert.strictEqual(healthOf(miner).reason, 'ok');
     });
+});
 
+describe('miner status and health while fill_mempool runs', function () {
     it('a fill never masks a consecutive error stall', function () {
         const miner = readyMiner();
         miner.fillMempoolRunning = true;
