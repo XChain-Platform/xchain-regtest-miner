@@ -132,7 +132,7 @@ function mountJsonRpc(app, jsonRpcController) {
             req.body = req.body.map((rpc, i) =>
                 rpc && typeof rpc === 'object' && !Array.isArray(rpc)
                     ? rpc
-                    : { jsonrpc: '2.0', id: `invalid-request-${i}`, method: '__invalid_request__' }
+                    : { jsonrpc: '2.0', id: `invalid-request-${i}`, method: '__invalid_request__' },
             );
         }
         next();

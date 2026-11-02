@@ -126,9 +126,7 @@ describe('api.js', function () {
 
         for (const name of ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf', 'toLocaleString']) {
             it(`refuses Object.prototype name ${name} with -32601 and no result`, async function () {
-                const reply = await post(
-                    `{"jsonrpc":"2.0","method":"${name}","params":{"probe":1},"id":1}`,
-                );
+                const reply = await post(`{"jsonrpc":"2.0","method":"${name}","params":{"probe":1},"id":1}`);
                 assert.ok(reply.error, 'expected an error member');
                 assert.strictEqual(reply.error.code, -32601);
                 assert.ok(!('result' in reply));
