@@ -100,6 +100,36 @@ module.exports = {
         }
     },
 
+    // The node's RPC server state, whose active_commands names every call still
+    // running server side (a generatetoaddress the client already gave up on
+    // included). Bitcoin Core 0.18 and later, Litecoin 0.21; Dogecoin 1.14 has no
+    // getrpcinfo, so callers treat a throw here as "unknown", not "idle".
+    async getRpcInfo() {
+        try {
+            const data = {
+                jsonrpc: '2.0',
+                method: 'getrpcinfo',
+                id: 1,
+            };
+
+            const response = await axios.post(this.url, data, {
+                auth: {
+                    username: this.rpcUser,
+                    password: this.rpcPassword,
+                },
+            });
+
+            const result = response.data.result;
+            if (result && Array.isArray(result.active_commands)) {
+                return result;
+            } else {
+                throw new Error('Error getting rpc info');
+            }
+        } catch (error) {
+            throw new Error('Error getting rpc info');
+        }
+    },
+
     async getBlockHash(blockindex) {
         try {
             const data = {

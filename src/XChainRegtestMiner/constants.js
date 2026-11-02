@@ -46,11 +46,17 @@ const MAX_FILL_MEMPOOL_QUANTITY = 50000; //max number of transactions to fill th
 const MAX_SEND_RETRIES = 50; //max retries for sending funds in fillMempool
 const MAX_GENERATE_BLOCKS = 10000; //max blocks a single generateBlocks call may mine (see the cap note in block_generation.js)
 
-// Bound the wait for the node to stop mining after a generatetoaddress timeout:
-// poll the height each second, call it settled after three equal reads, give up at five minutes.
+// Bound the wait for the node to stop mining after a generatetoaddress timeout
+// (see mine_settle.js). Poll each second. A node with getrpcinfo is settled once
+// no generatetoaddress is active. One without it (Dogecoin 1.14), or a failed
+// getrpcinfo read, falls back to the height holding still for QUIET_READS reads:
+// about two minutes, since a regtest node has been seen pausing 49 s between
+// blocks mid-call, so a short window declared it stopped while it still mined.
+// Give up at thirty minutes: a 300-block call has needed about six minutes past
+// the client timeout, and the reply waits on this hold.
 const MINE_SETTLE_POLL_MS = 1000;
-const MINE_SETTLE_QUIET_READS = 3;
-const MINE_SETTLE_DEADLINE_MS = 5 * 60 * 1000;
+const MINE_SETTLE_QUIET_READS = 120;
+const MINE_SETTLE_DEADLINE_MS = 30 * 60 * 1000;
 
 // The funding-send fee ceiling, once per fee mechanism. Both are the SAME rate (0.001
 // coins/kB = 100000 sat per 1000 vB = 100 sat/vB), so change them together. It is 100x

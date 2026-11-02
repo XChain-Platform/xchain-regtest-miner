@@ -33,17 +33,40 @@ async function readNodeHeight() {
     }
 }
 
-// Wait until the node's height holds still for MINE_SETTLE_QUIET_READS reads, or
-// the deadline passes. A failed read counts as unsettled and never extends it.
-// Resolves to the settled height, or null at the deadline: the last read there is
-// only a lower bound while the node may still be mining.
+// Whether the node is still running a generatetoaddress: true or false from
+// getrpcinfo's active_commands, null when that is unknown (no getrpcinfo on this
+// daemon, or the read failed).
+async function readMineActive() {
+    if (typeof this.connector.getRpcInfo !== 'function') return null;
+    try {
+        const info = await this.connector.getRpcInfo();
+        if (!info || !Array.isArray(info.active_commands)) return null;
+        return info.active_commands.some((cmd) => cmd && cmd.method === 'generatetoaddress');
+    } catch (err) {
+        return null;
+    }
+}
+
+// Wait until the node stops mining, or the deadline passes. Where getrpcinfo
+// answers, the node has stopped once no generatetoaddress is active, and the
+// height read after that is the settled one. Where it cannot answer, the height
+// must hold still for MINE_SETTLE_QUIET_READS reads; that window has to outlast
+// the node's own gaps between blocks, or the hold ends mid-call. A failed read
+// counts as unsettled and never extends the deadline. Resolves to the settled
+// height, or null at the deadline: the last read there is only a lower bound
+// while the node may still be mining.
 async function settleAfterMineTimeout() {
     const deadline = Date.now() + MINE_SETTLE_DEADLINE_MS;
     let last = null;
     let quiet = 0;
     while (Date.now() < deadline) {
+        const active = await readMineActive.call(this);
         const height = await readNodeHeight.call(this);
-        quiet = height !== null && height === last ? quiet + 1 : 0;
+        if (active === false && height !== null) {
+            logger.warn('generatetoaddress timed out; the node stopped mining at height ' + height);
+            return height;
+        }
+        quiet = active === null && height !== null && height === last ? quiet + 1 : 0;
         if (height !== null) last = height;
         if (quiet >= MINE_SETTLE_QUIET_READS - 1) {
             logger.warn('generatetoaddress timed out; the node stopped mining at height ' + last);

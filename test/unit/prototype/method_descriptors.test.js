@@ -92,6 +92,7 @@ const CONNECTOR_PROTOTYPE_ROWS = [
     ['getNewAddress', false, true, true, 'function', 0],
     ['getRawMempool', false, true, true, 'function', 0],
     ['getRawTransaction', false, true, true, 'function', 1],
+    ['getRpcInfo', false, true, true, 'function', 0],
     ['getWalletInfo', false, true, true, 'function', 0],
     ['invalidateBlock', false, true, true, 'function', 1],
     ['listWallets', false, true, true, 'function', 0],
