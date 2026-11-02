@@ -43,15 +43,19 @@ function evaluateMinerHealth({ status = {}, uptimeMs = 0, errorThreshold = 5, wa
     // Wallet ready but the loop never entered (start() rejected between prepareWallet
     // and the loop): also a stall rather than a pause.
     if (status.mining_started !== true) return { healthy: false, reason: 'not_started' };
-    // A pause is an operator action (fill_mempool, invalidate_block) that holds
-    // keepMining=false until continue_mining; reporting it unhealthy would flap
-    // every stack that pauses mining as part of a drill.
-    if (status.mining_paused === true) return { healthy: true, reason: 'paused' };
+    // A running fill reads as paused (the loop cannot mine until it ends, even
+    // after continue_mining), so it is told apart here and answered after the
+    // streak checks: naming the fill must never hide a stall.
+    const filling = status.fill_running === true;
+    // A pause is an operator action (pause_mining, invalidate_block, a finished
+    // fill_mempool) that holds keepMining=false until continue_mining; reporting
+    // it unhealthy would flap every stack that pauses mining as part of a drill.
+    if (status.mining_paused === true && !filling) return { healthy: true, reason: 'paused' };
     if (consecutiveErrors >= errorThreshold) return { healthy: false, reason: 'consecutive_errors' };
     // Same threshold, second streak. Kept below the pause shortcut on purpose: a
-    // deliberate pause_mining / fill_mempool is never a stall whatever either
-    // counter reads.
+    // deliberate pause_mining is never a stall whatever either counter reads.
     if (mineFailures >= errorThreshold) return { healthy: false, reason: 'mine_failures' };
+    if (filling) return { healthy: true, reason: 'filling' };
     return { healthy: true, reason: 'ok' };
 }
 

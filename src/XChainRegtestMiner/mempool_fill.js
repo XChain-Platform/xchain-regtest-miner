@@ -32,6 +32,14 @@ const {
 } = require('./constants.js');
 const { deriveFillKeys, fundMainAddress, findFundingUtxos } = require('./fill_plan.js');
 const { confirmSplitTxs } = require('./split_confirmation.js');
+const {
+    startFillProgress,
+    throwIfFillCancelled,
+    enterFillPhase,
+    noteStressSent,
+    finishFillProgress,
+    fillProgressSnapshot,
+} = require('./fill_progress.js');
 
 // Spends each funding utxo into one output per derived address, recording the
 // signed tx and its txid on the utxo entry for the stress loop to spend.
@@ -131,7 +139,9 @@ async function stressMempool(
         psbt.finalizeAllInputs();
         let outputTxHex = psbt.extractTransaction().toHex();
 
+        throwIfFillCancelled.call(this);
         await this.connector.sendRawTransaction(outputTxHex);
+        noteStressSent.call(this);
     }
 }
 
@@ -181,6 +191,46 @@ function startFundingFeePinCheck() {
     return this.fundingFeePinCheckInFlight;
 }
 
+// Runs the claimed fill to its end, closing the progress record and releasing
+// the mutex however it ends.
+async function runFill(txQuantity) {
+    try {
+        await runFillPhases.call(this, txQuantity);
+        finishFillProgress.call(this, null);
+    } catch (err) {
+        finishFillProgress.call(this, err || new Error(String(err)));
+        throw err;
+    } finally {
+        this.fillMempoolRunning = false;
+        this._fillRun = null;
+    }
+}
+
+// The fill body. Each phase entry is a cancel point, as is every send loop inside.
+async function runFillPhases(txQuantity) {
+    // Mirror pauseMining's barrier: wait for any in-flight generateBlocks(1)
+    // to settle before proceeding, so a mine that started just before the
+    // flag flip can't land a new block while fillMempool is running.
+    await this._generateQueue;
+    logger.info('Filling mempool with ' + txQuantity + ' transactions');
+    const plan = deriveFillKeys.call(this, txQuantity);
+
+    enterFillPhase.call(this, 'funding');
+    logger.info('Sending funds to the main address');
+    const chunksTxids = await fundMainAddress.call(this, txQuantity, plan);
+    const utxos = await findFundingUtxos.call(this, chunksTxids, plan);
+
+    enterFillPhase.call(this, 'splitting');
+    logger.info('Creating the transactions to send funds to those addresses');
+    await splitFundingUtxos.call(this, utxos, plan);
+
+    enterFillPhase.call(this, 'confirming');
+    await confirmSplitTxs.call(this, utxos);
+
+    enterFillPhase.call(this, 'stressing');
+    await stressMempool.call(this, utxos, plan);
+}
+
 module.exports = {
     async fillMempool(txQuantity) {
         if (this.fillMempoolRunning) {
@@ -212,26 +262,27 @@ module.exports = {
         this.keepMining = false; //Stop the mining so the txs stay in mempool
         this._miningStateGeneration++;
         this._operatorMiningGeneration++;
-        try {
-            // Mirror pauseMining's barrier: wait for any in-flight generateBlocks(1)
-            // to settle before proceeding, so a mine that started just before the
-            // flag flip can't land a new block while fillMempool is running.
-            await this._generateQueue;
-            logger.info('Filling mempool with ' + txQuantity + ' transactions');
-            const plan = deriveFillKeys.call(this, txQuantity);
+        startFillProgress.call(this, txQuantity);
+        const run = runFill.call(this, txQuantity);
+        this._fillRun = run.catch(() => {});
+        return run;
+    },
 
-            logger.info('Sending funds to the main address');
-            const chunksTxids = await fundMainAddress.call(this, txQuantity, plan);
-            const utxos = await findFundingUtxos.call(this, chunksTxids, plan);
-
-            logger.info('Creating the transactions to send funds to those addresses');
-            await splitFundingUtxos.call(this, utxos, plan);
-            await confirmSplitTxs.call(this, utxos);
-
-            await stressMempool.call(this, utxos, plan);
-        } finally {
-            this.fillMempoolRunning = false;
+    // Asks the running fill to stop and waits until it has: the run ends after the
+    // node call in flight, and its own fill_mempool call answers with a cancelled
+    // error. Like a finished fill it leaves keepMining as it stands, so the miner
+    // stays paused unless a continue_mining already landed; call continue_mining
+    // to resume. With no fill running it answers cancelled: false and does nothing.
+    async cancelFillMempool() {
+        const run = this._fillRun;
+        if (!this.fillMempoolRunning || !run) {
+            return { cancelled: false, fill_mempool: fillProgressSnapshot.call(this) };
         }
+        this._fillCancelRequested = true;
+        logger.info('fill_mempool cancel requested; stopping after the node call in flight');
+        await run;
+        const progress = fillProgressSnapshot.call(this);
+        return { cancelled: !!progress && progress.phase === 'cancelled', fill_mempool: progress };
     },
 
     // Re-reads the spendable balance so a reorg that disconnected the matured

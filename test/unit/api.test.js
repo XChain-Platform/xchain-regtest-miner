@@ -39,6 +39,7 @@ const PRODUCTION_CONTROLLER_METHODS = [
     'health',
     'send_funds',
     'fill_mempool',
+    'cancel_fill_mempool',
     'pause_mining',
     'continue_mining',
     'set_mining_time',

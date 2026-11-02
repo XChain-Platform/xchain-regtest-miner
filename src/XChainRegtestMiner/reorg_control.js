@@ -21,6 +21,8 @@
 
 'use strict';
 
+const { noteMempoolChanged } = require('./status_mempool_read.js');
+
 module.exports = {
     // Invalidates a block by hash, triggering a node-side rollback to the fork
     // point. Auto-mining is paused beforehand so the miner does not race ahead
@@ -59,6 +61,8 @@ module.exports = {
         } finally {
             this.exitReorgMineHold(mineHold);
         }
+        // The disconnected blocks' transactions are back in the mempool.
+        noteMempoolChanged.call(this);
         // A deep invalidate is exactly the case that can strand the wallet at 0.
         await this.refreshWalletFunds();
         return result;
@@ -104,6 +108,7 @@ module.exports = {
             await this._generateQueue;
             const result = await this.connector.reconsiderBlock(blockHash);
             dropMineHold();
+            noteMempoolChanged.call(this);
             // The reorg terminus, so this is where a restored balance shows up.
             await this.refreshWalletFunds();
             return result;

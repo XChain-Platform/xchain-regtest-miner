@@ -25,6 +25,7 @@ const CryptoNetworks = require('../networks/crypto_networks.js');
 const bip39 = require('bip39');
 const bitcoin = require('bitcoinjs-lib');
 const { SATOSHI_UNIT, MAX_SEND_RETRIES, bip32, logger } = require('./constants.js');
+const { throwIfFillCancelled } = require('./fill_progress.js');
 
 // Stress-tx output and fee floors (base units) where mining is stricter than relay: Dogecoin
 // 1.14 mines at 0.01 DOGE/kB with a 0.01 DOGE soft dust limit, so a 0.001 DOGE fee on the
@@ -118,6 +119,7 @@ async function sendFundsWithRetry(address, amount) {
     let txid = null;
     let sendRetries = 0;
     while (!sent) {
+        throwIfFillCancelled.call(this);
         try {
             txid = await this.sendFundsToAddress(address, amount);
             sent = true;
@@ -187,6 +189,7 @@ async function findFundingUtxos(chunksTxids, { network, mainAddress }) {
         let getRawTxRetries = 0;
         const MAX_GET_RAW_TX_RETRIES = 50;
         while (rawTransaction == null) {
+            throwIfFillCancelled.call(this);
             rawTransaction = await this.connector.getRawTransaction(nextChunkTxid);
             if (rawTransaction == null) {
                 getRawTxRetries++;

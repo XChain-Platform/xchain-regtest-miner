@@ -25,6 +25,7 @@ const mempoolFill = require('./XChainRegtestMiner/mempool_fill.js');
 const reorgControl = require('./XChainRegtestMiner/reorg_control.js');
 const walletSetup = require('./XChainRegtestMiner/wallet_setup.js');
 const blockGeneration = require('./XChainRegtestMiner/block_generation.js');
+const { initStatusMempoolRead } = require('./XChainRegtestMiner/status_mempool_read.js');
 
 // Idle mine-empty heartbeat. The auto-mine loop only ever mines when the mempool
 // is non-empty, so a quiet chain never advances a block. Anything gated on HEIGHT
@@ -127,6 +128,7 @@ function initStatusFields() {
     // successful mine PERFORMED BY THE LOOP clears this one, so an operator
     // generate_blocks call cannot mask a broken loop.
     this._mineFailures = 0;
+    initStatusMempoolRead.call(this);
 }
 
 class XChainRegtestMiner {
@@ -153,6 +155,12 @@ class XChainRegtestMiner {
         this.nodeFlushIntervalMs = DEFAULT_NODE_FLUSH_INTERVAL_MS_CLASS;
         this._nodeFlushInFlight = null;
         this.fillMempoolRunning = false;
+        // The running fill as a promise cancelFillMempool can wait on, the cancel
+        // request its cancel points read, and the progress record status reports
+        // (see fill_progress.js). All three are empty until the first fill.
+        this._fillRun = null;
+        this._fillCancelRequested = false;
+        this._fillProgress = null;
         initMineExclusionState.call(this);
         initStatusFields.call(this);
     }

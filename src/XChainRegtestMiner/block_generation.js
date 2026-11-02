@@ -25,6 +25,8 @@ const { MAX_GENERATE_BLOCKS, logger } = require('./constants.js');
 const { sendFundsToAddress: sendFundsWithoutAmountCap } = require('./wallet_setup.js');
 const { readNodeHeight, settleAfterMineTimeout } = require('./mine_settle.js');
 const { runMineLoop } = require('./mine_loop.js');
+const { noteMempoolChanged, refreshStatusMempool } = require('./status_mempool_read.js');
+const { fillProgressSnapshot } = require('./fill_progress.js');
 const { PROCESS_ENV } = require('../config.js');
 
 const DEFAULT_WALLET_FUNDED_FLOOR = 1;
@@ -96,7 +98,11 @@ module.exports = {
                     ' coins (MINER_SEND_FUNDS_MAX_AMOUNT)',
             );
         }
-        return sendFundsWithoutAmountCap.call(this, address, amount);
+        try {
+            return await sendFundsWithoutAmountCap.call(this, address, amount);
+        } finally {
+            noteMempoolChanged.call(this);
+        }
     },
 
     // Throws on invalid count, like setMiningTime: a sentinel
@@ -176,6 +182,9 @@ module.exports = {
                 err && err.timedOut ? await settleAfterMineTimeout.call(this) : await readNodeHeight.call(this);
             reportPartialMine.call(this, err, numberOfBlocks, startHeight, endHeight);
             throw err;
+        } finally {
+            // Even a failed mine may have landed blocks and emptied the mempool.
+            noteMempoolChanged.call(this);
         }
 
         // Count every mine that flows through this serialized chokepoint (auto-mine
@@ -238,15 +247,10 @@ module.exports = {
         await runMineLoop.call(this, loop);
     },
 
+    // The mempool size is at most STATUS_MEMPOOL_FRESHNESS_MS old and never predates
+    // a mine, send or reorg this miner finished (see status_mempool_read.js).
     async getFreshStatus() {
-        try {
-            const rawMempool = await this.connector.getRawMempool();
-            this._mempoolSize = Array.isArray(rawMempool) ? rawMempool.length : 0;
-            this._mempoolReadAt = Date.now();
-            this._consecutiveErrors = 0;
-        } catch (error) {
-            this._consecutiveErrors++;
-        }
+        await refreshStatusMempool.call(this);
         return this.getStatus();
     },
 
@@ -278,7 +282,13 @@ module.exports = {
             // Surface the paused state so a fill_mempool / invalidate_block that was never
             // paired with continue_mining is observable as a deliberate pause rather than
             // reading as a node hang (the loop holds keepMining=false until resumed).
-            mining_paused: !this.keepMining,
+            // A running fill counts as paused whatever keepMining says: continue_mining
+            // can set it mid-fill, and the loop still cannot mine until the fill ends.
+            mining_paused: !this.keepMining || this.fillMempoolRunning === true,
+            fill_running: this.fillMempoolRunning === true,
+            // The current or last fill_mempool run (phase, requested, sent, times),
+            // null when none has run since boot.
+            fill_mempool: fillProgressSnapshot.call(this),
             // Distinguishes the identical keepMining=false of a miner still preparing
             // its wallet from that of a paused one, so a probe can call the first a
             // stall and the second healthy.

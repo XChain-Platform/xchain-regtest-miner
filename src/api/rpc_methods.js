@@ -48,18 +48,32 @@ function createTransactionMethods(miner) {
         },
 
         // Fills the mempool with tx_quantity randomly created transactions; this
-        // stops automatic mining until continue_mining is called.
+        // stops automatic mining until continue_mining is called. Progress shows
+        // in status as fill_mempool; a run stopped by cancel_fill_mempool answers
+        // with cancelled: true and how many stress transactions it sent.
         async fill_mempool({ tx_quantity }) {
             try {
                 await miner.fillMempool(tx_quantity);
             } catch (err) {
-                return {
-                    error:
-                        'There was a problem trying to fill the mempool: ' + (err && err.message ? err.message : err),
-                };
+                const error =
+                    'There was a problem trying to fill the mempool: ' + (err && err.message ? err.message : err);
+                if (!err || err.cancelled !== true) return { error };
+                return { error, cancelled: true, sent: err.sent, requested: err.requested };
             }
 
             return 'ok';
+        },
+
+        // Stops a running fill_mempool after the node call it is waiting on and
+        // answers once it has stopped, with the run's final progress. The miner
+        // stays paused as after a finished fill: call continue_mining to resume.
+        async cancel_fill_mempool(params) {
+            if (hasJunkParams(params)) return { error: NO_PARAMS_ERROR };
+            try {
+                return await miner.cancelFillMempool();
+            } catch (err) {
+                return { error: 'There was a problem cancelling the mempool fill' };
+            }
         },
     };
 }

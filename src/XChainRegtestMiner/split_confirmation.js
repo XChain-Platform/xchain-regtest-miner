@@ -21,6 +21,7 @@
 'use strict';
 
 const { logger } = require('./constants.js');
+const { throwIfFillCancelled } = require('./fill_progress.js');
 
 // Mines through the fill's private queue until no split tx is left in the mempool.
 // (A 50000 fill is 20 splits of ~85 KB, more than one default block holds; a child
@@ -29,6 +30,7 @@ async function confirmSplitTxs(utxos) {
     const splitTxids = utxos.map((u) => u.txIdSource);
     const maxMines = utxos.length + 1;
     for (let mines = 1; ; mines++) {
+        throwIfFillCancelled.call(this);
         await this.generateBlocksQueued(1);
         const inMempool = new Set(await this.connector.getRawMempool());
         const pending = splitTxids.filter((id) => inMempool.has(id));

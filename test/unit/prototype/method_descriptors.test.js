@@ -44,6 +44,7 @@ function row(obj, k) {
 }
 
 const MINER_PROTOTYPE_ROWS = [
+    ['cancelFillMempool', false, true, true, 'function', 0],
     ['claimPause', false, true, true, 'function', 0],
     ['constructor', false, true, true, 'function', 5],
     ['continueMining', false, true, true, 'function', 0],

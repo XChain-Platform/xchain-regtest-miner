@@ -31,6 +31,11 @@ const CHECK_BLOCK_DELAY_MS = 100; //100ms poll interval; decoupled from MIN_MINI
 // the refresh would issue 10 getbalance RPCs a second per miner.
 const WALLET_BALANCE_REFRESH_MS = 5000;
 const SATOSHI_UNIT = 100000000.0;
+// How long one status getrawmempool is served again before status asks the node
+// anew. status needs no API key, so this bounds what a flood of status calls can
+// cost the node: one read per window. Keep it well under 5000: a downstream
+// venue check rejects a mempool_size_at older than five seconds.
+const STATUS_MEMPOOL_FRESHNESS_MS = 1000;
 
 const DEFAULT_MAX_TIME_TO_MINE_TXS = 30000; //max 30 seconds to mine a block after the first tx is found in the mempool
 const DEFAULT_ADDED_TIME_TO_MINE_TXS = 5000; //5 seconds extra before mining a block every time a new tx appears in the mempool
@@ -92,6 +97,7 @@ const ECPair = ECPairFactory(ecc);
 module.exports = {
     CHECK_BLOCK_DELAY_MS,
     WALLET_BALANCE_REFRESH_MS,
+    STATUS_MEMPOOL_FRESHNESS_MS,
     SATOSHI_UNIT,
     DEFAULT_MAX_TIME_TO_MINE_TXS,
     DEFAULT_ADDED_TIME_TO_MINE_TXS,
