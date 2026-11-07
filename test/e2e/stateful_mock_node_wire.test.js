@@ -77,7 +77,9 @@ describe('E2E: StatefulMockNode wire contract', function () {
             assert.strictEqual(typeof body.result.txid, 'string');
         });
     });
+});
 
+describe('E2E: StatefulMockNode fee RPC contract', function () {
     it('rejects settxfee as method-not-found and reports 31.0.0 in core31 mode', async function () {
         await withNode('core31', async (node) => {
             const fee = await rpc(node, 'settxfee', [0.001]);
@@ -86,14 +88,30 @@ describe('E2E: StatefulMockNode wire contract', function () {
 
             const info = await rpc(node, 'getnetworkinfo', []);
             assert.ok(info.result.version >= 310000);
+
+            await fundedNode(node);
+            const walletInfo = await rpc(node, 'getwalletinfo', []);
+            assert.ok(!('paytxfee' in walletInfo.result));
         });
     });
 
-    it('honors settxfee in legacy mode', async function () {
+    it('validates, stores and reports settxfee in legacy mode', async function () {
         await withNode('legacy', async (node) => {
+            await fundedNode(node);
+            const missing = await rawRpc(node, '/', { jsonrpc: '2.0', method: 'settxfee', params: [], id: 1 });
+            assert.strictEqual(missing.body.error.code, -1);
+            const invalid = await rawRpc(node, '/', {
+                jsonrpc: '2.0',
+                method: 'settxfee',
+                params: ['not-an-amount'],
+                id: 2,
+            });
+            assert.strictEqual(invalid.body.error.code, -3);
             const fee = await rpc(node, 'settxfee', [0.001]);
             assert.strictEqual(fee.result, true);
             assert.strictEqual(fee.error, null);
+            const info = await rpc(node, 'getwalletinfo', []);
+            assert.strictEqual(info.result.paytxfee, 0.001);
         });
     });
 
@@ -122,6 +140,7 @@ describe('E2E: StatefulMockNode doge114 and no-wallet wire contract', function (
             assert.strictEqual(typeof body.result, 'string');
             const info = await rpc(node, 'getwalletinfo', []);
             assert.ok(!('walletname' in info.result));
+            assert.strictEqual(info.result.paytxfee, 0);
         });
     });
 

@@ -8,8 +8,7 @@
 // a Node 22 process. One unauthenticated request must get a JSON-RPC error, never
 // stop the only block producer.
 //
-// This builds the same middleware chain around the REAL normalizer lifted out of
-// src/api.js's mountJsonRpc, and counts unhandledRejection events.
+// This drives the owned dispatcher and counts unhandledRejection events.
 
 const assert = require('assert');
 const http = require('http');
@@ -21,20 +20,11 @@ const jsonRouter = require('express-json-rpc-router');
 
 const API_SRC = path.join(__dirname, '../../../src/api.js');
 
-// Run the real mountJsonRpc against a recording app, then replay its middlewares.
-function realMiddlewares() {
-    const api = require(API_SRC);
-    assert.strictEqual(typeof api.mountJsonRpc, 'function', 'src/api.js must export mountJsonRpc');
-    const stack = [];
-    api.mountJsonRpc({ use: (fn) => stack.push(fn) }, { ping: async () => 'pong' });
-    return stack.slice(0, -1); // all but the router itself
-}
-
 function buildApp(withGuards) {
     const app = express();
     app.use(bodyParser.json());
-    if (withGuards) for (const mw of realMiddlewares()) app.use(mw);
-    app.use(jsonRouter({ methods: { ping: async () => 'pong' } }));
+    if (withGuards) require(API_SRC).mountJsonRpc(app, { ping: async () => 'pong' });
+    else app.use(jsonRouter({ methods: { ping: async () => 'pong' } }));
     return app;
 }
 
@@ -100,11 +90,9 @@ describe('JSON-RPC batch with non-object elements', function () {
         assert.ok(r.some((x) => x.error));
     });
 
-    it('src/api.js wires the element guard before the jsonRouter mount', () => {
+    it('src/api.js mounts the owned dispatcher', () => {
         const src = fs.readFileSync(API_SRC, 'utf8');
-        const guardIdx = src.indexOf('Invalid Request');
-        const routerIdx = src.indexOf('jsonRouter({');
-        assert.notStrictEqual(guardIdx, -1, 'batch element guard missing from src/api.js');
-        assert.ok(guardIdx < routerIdx, 'guard must be registered before the jsonRouter mount');
+        assert.match(src, /createJsonRpcDispatcher\(jsonRpcController\)/);
+        assert.doesNotMatch(src, /express-json-rpc-router/);
     });
 });

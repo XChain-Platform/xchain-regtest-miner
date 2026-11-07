@@ -92,6 +92,10 @@ describe('E2E: Funding fee pin per daemon', function () {
             assert.deepStrictEqual(node.callsFor('sendtoaddress')[0].params, [DEST, 1.0]);
         });
     });
+
+    it('leaves a held legacy wallet fee pin alone across balance refreshes', async function () {
+        await assertHeldPin('legacy', 'litecoin-regtest');
+    });
 });
 
 describe('E2E: Funding fee pin on a Dogecoin 1.14 node', function () {
@@ -113,6 +117,10 @@ describe('E2E: Funding fee pin on a Dogecoin 1.14 node', function () {
     });
 
     it('re-pins settxfee after a restart keeps the DOGE wallet loaded', testRestartRepinsDoge);
+
+    it('leaves a held Dogecoin wallet fee pin alone across balance refreshes', async function () {
+        await assertHeldPin('doge114', 'dogecoin-regtest');
+    });
 
     it('prepares a fresh node without any multi-wallet RPC', async function () {
         await withNode('doge114', async (node) => {
@@ -163,6 +171,27 @@ async function testRestartRepinsDoge() {
         },
         RestartingDogeMockNode,
     );
+}
+
+async function assertHeldPin(daemon, network) {
+    await withNode(daemon, async (node) => {
+        await fundedNode(node);
+        const miner = createMiner(network, node);
+        await miner.prepareWallet();
+        const initialInfoCalls = node.callsFor('getwalletinfo').length;
+
+        for (let i = 0; i < 3; i++) {
+            assert.strictEqual(typeof (await miner.refreshWalletFunds()), 'number');
+            await miner.fundingFeePinCheckInFlight;
+        }
+
+        assert.strictEqual(node.callsFor('getwalletinfo').length, initialInfoCalls + 3);
+        assert.deepStrictEqual(
+            node.callsFor('settxfee').map((call) => call.params),
+            [[FUNDING_FEE_RATE_COINS_PER_KB]],
+        );
+        assert.strictEqual(node.walletFeeRate, FUNDING_FEE_RATE_COINS_PER_KB);
+    });
 }
 
 // Prepares a miner for `network` against a doge114 node and sends one funding payment.

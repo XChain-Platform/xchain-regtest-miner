@@ -30,6 +30,8 @@ const CHECK_BLOCK_DELAY_MS = 100; //100ms poll interval; decoupled from MIN_MINI
 // every CHECK_BLOCK_DELAY_MS, so this interval guard is load-bearing: without it
 // the refresh would issue 10 getbalance RPCs a second per miner.
 const WALLET_BALANCE_REFRESH_MS = 5000;
+// Pace recovery probes after a transient failure leaves a coin without a fee ceiling.
+const FUNDING_FEE_REPROBE_MS = 5 * 60 * 1000;
 const SATOSHI_UNIT = 100000000.0;
 // How long one status getrawmempool is served again before status asks the node
 // anew. status needs no API key, so this bounds what a flood of status calls can
@@ -97,6 +99,7 @@ const ECPair = ECPairFactory(ecc);
 module.exports = {
     CHECK_BLOCK_DELAY_MS,
     WALLET_BALANCE_REFRESH_MS,
+    FUNDING_FEE_REPROBE_MS,
     STATUS_MEMPOOL_FRESHNESS_MS,
     SATOSHI_UNIT,
     DEFAULT_MAX_TIME_TO_MINE_TXS,

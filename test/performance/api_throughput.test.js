@@ -21,6 +21,7 @@ const assert = require('assert');
 const sinon = require('sinon');
 const http = require('http');
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+const { mountJsonRpc } = require('../../src/api');
 const LatencyMockNode = require('./helpers/LatencyMockNode');
 const PerformanceCollector = require('./helpers/PerformanceCollector');
 const { assertP95Under, assertMeanUnder, assertThroughputAbove } = require('./helpers/perfAssert');
@@ -87,7 +88,6 @@ async function setupApi() {
     // Skip the mining loop; only set up the API server for these tests.
 
     const express = require('express');
-    const jsonRpcRouter = require('express-json-rpc-router');
     const app = express();
     app.use(express.json());
 
@@ -115,7 +115,7 @@ async function setupApi() {
         },
     };
 
-    app.use('/', jsonRpcRouter({ methods: controller }));
+    mountJsonRpc(app, controller);
 
     apiServer = await new Promise((resolve) => {
         const srv = app.listen(0, '127.0.0.1', () => {

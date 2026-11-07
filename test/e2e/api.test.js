@@ -24,8 +24,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const cors = require('cors');
-const jsonRouter = require('express-json-rpc-router');
 const XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+const { mountJsonRpc } = require('../../src/api');
 const StatefulMockNode = require('./helpers/StatefulMockNode');
 
 function createJsonRpcController(miner) {
@@ -119,7 +119,7 @@ async function startApiContext() {
     app.use(helmet());
     app.use(bodyParser.json());
     app.use(cors());
-    app.use(jsonRouter({ methods: createJsonRpcController(miner) }));
+    mountJsonRpc(app, createJsonRpcController(miner));
 
     let apiServer;
     await new Promise((resolve) => {

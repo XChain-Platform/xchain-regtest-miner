@@ -119,11 +119,8 @@ describe('JSON-RPC null params normalization', function () {
         assert.strictEqual(r.find((x) => x.id === 2).result, 'txid-bcrt1q-1');
     });
 
-    it('src/api.js wires the params normalizer before the jsonRouter mount', () => {
-        const src = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
-        const guardIdx = src.indexOf('rpc.params === null');
-        const routerIdx = src.indexOf('jsonRouter(');
-        assert.notStrictEqual(guardIdx, -1, 'params normalizer missing from src/api.js');
-        assert.ok(guardIdx < routerIdx, 'normalizer must be registered before the jsonRouter mount');
+    it('the owned dispatcher normalizes null params before the handler', () => {
+        const src = fs.readFileSync(path.join(__dirname, '../../src/api/jsonrpc_dispatch.js'), 'utf8');
+        assert.match(src, /rpc\.params === undefined \|\| rpc\.params === null \? \{\} : rpc\.params/);
     });
 });

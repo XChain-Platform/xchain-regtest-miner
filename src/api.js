@@ -18,13 +18,12 @@
  *
  ********************************************************************/
 
-const crypto = require('crypto');
 const dotenv = require('dotenv');
 dotenv.config();
 
-const jsonRouter = require('express-json-rpc-router');
 const { UNAUTHENTICATED_METHODS } = require('./api/auth');
 const { evaluateMinerHealth: evaluateMinerHealthPolicy, formatMinerHealth } = require('./api/health');
+const { createJsonRpcDispatcher } = require('./api/jsonrpc_dispatch');
 const { createStartApi } = require('./api/startup');
 const envConfig = require('./config');
 
@@ -89,112 +88,7 @@ function createHealthController(miner, { uptime = process.uptime } = {}) {
 }
 
 function mountJsonRpc(app, jsonRpcController) {
-    // Express 5 / body-parser 2.x leaves req.body undefined when a request carries
-    // no JSON body (a GET, or a POST without application/json), whereas body-parser
-    // 1.x set it to {}. express-json-rpc-router requires req.body to be an object or
-    // it throws ("req.body is required"). Restore the {} default so unmatched requests
-    // that fall through to this root-mounted router get a normal JSON-RPC error
-    // response instead of crashing the request.
-    app.use((req, res, next) => {
-        if (req.body === undefined) req.body = {};
-        next();
-    });
-
-    // Coalesce an explicit `"params": null` to {} for the same reason, one layer up.
-    // The router defaults only an ABSENT params (`params = {}` destructuring default,
-    // which null does not trigger), so a body that spells params out as null reaches
-    // a parameterized handler like send_funds({address, amount}) and throws during
-    // ARGUMENT BINDING, before the handler's own try/catch exists. Every one of these
-    // handlers reports failure as a truthy `{error: "..."}` result; a binding throw
-    // instead escapes to the router's top-level JSON-RPC error member, so one failure
-    // class answers in two different shapes and leaks a raw JS destructuring message
-    // to the client. Normalizing here covers every handler, including ones added later.
-    app.use((req, res, next) => {
-        const normalize = (rpc) => {
-            if (rpc && typeof rpc === 'object' && rpc.params === null) rpc.params = {};
-        };
-        if (Array.isArray(req.body)) req.body.forEach(normalize);
-        else normalize(req.body);
-        next();
-    });
-
-    // Replace every non-object batch element (null, number, string, array) with a
-    // request that cannot match a method. The router's batch loop calls its async
-    // single-request handler, which destructures the element, and then reads
-    // `.id` on the same element: for null that read throws synchronously after the
-    // handler already returned a rejected promise, which nothing collects. The
-    // orphaned rejection is an unhandledRejection and ends the process, so one
-    // unauthenticated `[null]` stopped the only regtest block producer. The
-    // placeholder carries a string id so the router answers it with an error entry
-    // (Invalid Request in spirit) while valid elements in the batch still run.
-    app.use((req, res, next) => {
-        if (Array.isArray(req.body)) {
-            req.body = req.body.map((rpc, i) =>
-                rpc && typeof rpc === 'object' && !Array.isArray(rpc)
-                    ? rpc
-                    : { jsonrpc: '2.0', id: `invalid-request-${i}`, method: '__invalid_request__' },
-            );
-        }
-        next();
-    });
-
-    app.use(rejectEmptyBatch);
-    app.use(answerNullIds);
-    app.use(createPrototypeSafeRouter(jsonRpcController));
-}
-
-// The router resolves a method with `method in controller` and looks hooks up by
-// plain index, both of which walk the prototype chain, so names such as
-// `constructor`, `toString` or `__proto__` reached Object.prototype and answered
-// 200 (or a 500-class error) instead of -32601. Dispatch from prototype-less
-// objects so only the methods registered here can ever match; the hook maps the
-// router would otherwise default to `{}` are supplied the same way. Defined after
-// mountJsonRpc so the guards above read first, in source order, before the mount.
-function createPrototypeSafeRouter(jsonRpcController) {
-    return jsonRouter({
-        methods: Object.assign(Object.create(null), jsonRpcController),
-        beforeMethods: Object.create(null),
-        afterMethods: Object.create(null),
-    });
-}
-
-// JSON-RPC 2.0 answers an empty batch with ONE Invalid Request error object
-// (id null), not with an empty array; the router would reply `[]`.
-function rejectEmptyBatch(req, res, next) {
-    if (Array.isArray(req.body) && req.body.length === 0) {
-        res.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } });
-        return;
-    }
-    next();
-}
-
-// A request whose id member is present and null is still a request: only an
-// ABSENT id makes a notification. The router tests the id with `== null`, so it
-// treated `"id": null` as a notification and sent an empty 200 body. Swap each
-// null id for a per-request token the router will answer, and map the token
-// back to null in the reply (a single object or each element of a batch).
-function answerNullIds(req, res, next) {
-    const token = 'null-id-' + crypto.randomUUID();
-    const isNullId = (rpc) => rpc && typeof rpc === 'object' && Object.hasOwn(rpc, 'id') && rpc.id === null;
-    const elements = Array.isArray(req.body) ? req.body : [req.body];
-    const nullIds = elements.filter(isNullId);
-    if (nullIds.length === 0) {
-        next();
-        return;
-    }
-    nullIds.forEach((rpc) => {
-        rpc.id = token;
-    });
-    const restore = (reply) => {
-        if (reply && typeof reply === 'object' && reply.id === token) reply.id = null;
-    };
-    const send = res.send.bind(res);
-    res.send = (payload) => {
-        if (Array.isArray(payload)) payload.forEach(restore);
-        else restore(payload);
-        return send(payload);
-    };
-    next();
+    app.use(createJsonRpcDispatcher(jsonRpcController));
 }
 
 const startApi = createStartApi({

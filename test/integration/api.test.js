@@ -14,7 +14,7 @@
  * Seam A Integration Tests: HTTP Client ↔ Express JSON-RPC Controller
  *
  * Tests send real HTTP requests through the full Express middleware stack
- * (helmet, CORS, body-parser, express-json-rpc-router) with a mocked miner.
+ * (helmet, CORS, body-parser, owned JSON-RPC dispatcher) with a mocked miner.
  */
 
 const assert = require('assert');
@@ -24,7 +24,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const cors = require('cors');
-const jsonRouter = require('express-json-rpc-router');
+const { mountJsonRpc } = require('../../src/api');
 
 let app, server, port, miner;
 
@@ -95,7 +95,7 @@ function startApp(done) {
     app.use(helmet());
     app.use(bodyParser.json());
     app.use(cors());
-    app.use(jsonRouter({ methods: createJsonRpcController() }));
+    mountJsonRpc(app, createJsonRpcController());
 
     server = app.listen(0, '127.0.0.1', () => {
         port = server.address().port;

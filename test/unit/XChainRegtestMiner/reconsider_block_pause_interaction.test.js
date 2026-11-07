@@ -113,7 +113,7 @@ describe('reconsiderBlock vs a concurrent pause_mining', function () {
     });
 });
 
-// api.js exposes reconsider_block as an independent express-json-rpc-router
+// api.js exposes reconsider_block as an independent JSON-RPC dispatcher
 // handler with no queue, so two of them can be in flight at once. reconsiderBlock
 // is itself a keepMining writer AND a generation bumper, so a restore guarded on
 // "my generation is still the latest" is cancelled by the OTHER reconsider: both

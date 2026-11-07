@@ -24,6 +24,7 @@
 const bitcoin = require('bitcoinjs-lib');
 const {
     WALLET_BALANCE_REFRESH_MS,
+    FUNDING_FEE_REPROBE_MS,
     MAX_FILL_MEMPOOL_QUANTITY,
     FUNDING_FEE_RATE_COINS_PER_KB,
     SETTXFEE_COINS,
@@ -169,15 +170,25 @@ function startWalletReload() {
     return this.walletReloadInFlight;
 }
 
-// A legacy daemon can restart with its wallet loaded but its in-memory settxfee
-// reset. Check in the background so a slow wallet RPC never stalls auto-mining.
+// Verify wallet-wide pins after restarts, and slowly retry only transient failures
+// that left a coin without any fee ceiling.
 function startFundingFeePinCheck() {
     const coin = String(this.network || '')
         .split('-')[0]
         .toLowerCase();
     if (!SETTXFEE_COINS.includes(coin) || this.fundingFeePinCheckInFlight) return null;
+    if (this.fundingFeeMechanism === 'fee_rate') return null;
+    const reprobeDue =
+        this.fundingFeeMechanism === 'none' &&
+        this.fundingFeeReprobeNeeded &&
+        Date.now() - (this.fundingFeePinnedAt || 0) >= FUNDING_FEE_REPROBE_MS;
+    if (this.fundingFeeMechanism === 'none' && !reprobeDue) return null;
     this.fundingFeePinCheckInFlight = (async () => {
         try {
+            if (reprobeDue) {
+                await this.pinFundingFeeRate();
+                return;
+            }
             const info = await this.connector.getWalletInfo(1);
             if (!info || info.paytxfee !== FUNDING_FEE_RATE_COINS_PER_KB) {
                 await this.pinFundingFeeRate();

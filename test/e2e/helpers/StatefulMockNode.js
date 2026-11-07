@@ -22,7 +22,7 @@
  * refuses the named sendtoaddress arguments Dogecoin v1.14 lacks (fee_rate,
  * verbose) and has no walletname, starts with its one unnamed wallet loaded and
  * answers createwallet, loadwallet and listwallets with method-not-found as a
- * single-wallet daemon does, and 'core31' answers settxfee with
+ * single-wallet daemon does, both report the current paytxfee, and 'core31' answers settxfee with
  * method-not-found as Bitcoin Core 31 does, on the base URL and on any
  * /wallet/<name> URI, loaded or not. It also picks the HTTP transport of
  * every RPC error reply (HTTP 500/404 on legacy and doge114, HTTP 200 on
@@ -102,6 +102,7 @@ class StatefulMockNode {
         this.addressCounter = 0;
         this.invalidatedBranches = []; // [[block, ...]] detached by invalidateblock
         this.mockTime = 0; // setmocktime clock in unix seconds; 0 = system time
+        this.walletFeeRate = 0;
 
         // ── RPC dispatch ────────────────────────────────────────────
         // Registered on both the base URL and the /wallet/<name> URI that the
@@ -160,6 +161,7 @@ class StatefulMockNode {
         this.addressCounter = 0;
         this.invalidatedBranches = [];
         this.mockTime = 0;
+        this.walletFeeRate = 0;
     }
 
     callsFor(method) {
@@ -169,6 +171,7 @@ class StatefulMockNode {
     /** Drop every loaded wallet, as a daemon restart does; the wallet files stay. */
     unloadWallet() {
         for (const wallet of this.wallets.values()) wallet.loaded = false;
+        this.walletFeeRate = 0;
     }
 
     /** Names of the loaded wallets, in creation order. */
@@ -329,6 +332,7 @@ class StatefulMockNode {
     _rpc_getwalletinfo(params, wallet = this._baseUrlWallet()) {
         this._assertWalletLoaded();
         const info = { walletversion: 210000, balance: this.matureBalance / 100000000 };
+        if (this.daemon !== 'core31') info.paytxfee = this.walletFeeRate;
         // Omit walletname on doge114: a single-wallet daemon predates the field.
         return this.daemon === 'doge114' ? info : { walletname: wallet, ...info };
     }
@@ -372,13 +376,19 @@ class StatefulMockNode {
         return addr;
     }
 
-    _rpc_settxfee() {
+    _rpc_settxfee(params) {
         // Bitcoin Core 31 deleted settxfee; the legacy daemons still honor it.
         if (this.daemon === 'core31') {
             const err = new Error('Method not found');
             err.rpcCode = -32601;
             throw err;
         }
+        const amount = Array.isArray(params) ? params[0] : params && params.amount;
+        if (amount === undefined) throw rpcError(-1, 'settxfee requires an amount');
+        if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) {
+            throw rpcError(-3, 'Invalid amount');
+        }
+        this.walletFeeRate = amount;
         return true;
     }
 

@@ -23,6 +23,7 @@ const {
     UNAUTHENTICATED_METHODS,
     STALL_ERROR_THRESHOLD,
     WALLET_GRACE_MS,
+    mountJsonRpc,
 } = require('../../src/api');
 const { createRpcMethods } = require('../../src/api/rpc_methods');
 
@@ -185,25 +186,20 @@ describe('miner health probe verdict', function () {
 
 describe('miner health probe verdict', function () {
     // The Dockerfile probe exits non-zero only on a non-200, so the whole fix rests on
-    // res.status(503) surviving express-json-rpc-router, which wraps every handler
+    // res.status(503) surviving the JSON-RPC dispatcher, which wraps every handler
     // result in a JSON-RPC envelope. Asserted over a real socket rather than trusted:
     // a router that always answered 200 would make the verdict decorative.
-    it('lets a handler 503 reach the wire through express-json-rpc-router', async function () {
+    it('lets a handler 503 reach the wire through the owned dispatcher', async function () {
         const express = require('express');
         const bodyParser = require('body-parser');
-        const jsonRouter = require('express-json-rpc-router');
 
         const app = express();
         app.use(bodyParser.json());
-        app.use((req, res, next) => {
-            if (req.body === undefined) req.body = {};
-            next();
-        });
         const miner = {
             getStatus: () => ({ wallet_ready: false, mining_paused: true, mining_started: false }),
         };
         const controller = createJsonRpcController(miner, { uptime: () => 10 * 60 });
-        app.use(jsonRouter({ methods: controller }));
+        mountJsonRpc(app, controller);
 
         const server = app.listen(0);
         try {

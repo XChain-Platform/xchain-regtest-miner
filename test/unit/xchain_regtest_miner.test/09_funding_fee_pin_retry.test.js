@@ -16,6 +16,8 @@ const assert = require('assert');
 const sinon = require('sinon');
 const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
 const {
+    FUNDING_FEE_RATE_COINS_PER_KB,
+    FUNDING_FEE_REPROBE_MS,
     FUNDING_FEE_RATE_SAT_PER_VB,
     PER_CALL_FEE_RATE_COINS,
     SETTXFEE_COINS,
@@ -36,6 +38,11 @@ function minerFor(network) {
 // A classified settxfee failure, shaped as the connector throws it.
 function settxfeeError(fields) {
     return Object.assign(new Error('Error setting wallet fee'), fields);
+}
+
+async function refreshAndWait(miner) {
+    await miner.refreshWalletFunds();
+    await miner.fundingFeePinCheckInFlight;
 }
 
 function settxfeeRetryTests() {
@@ -160,11 +167,61 @@ function settxfeeMissingPerCoinTests() {
     });
 }
 
+function fundingFeeRefreshTests() {
+    it('skips wallet re-checks while Litecoin uses the per-call rate', async function () {
+        connector.setTxFee.rejects(settxfeeError({ rpcCode: -32601 }));
+        const miner = minerFor('litecoin-regtest');
+
+        assert.strictEqual(await miner.pinFundingFeeRate(), 'fee_rate');
+        for (let i = 0; i < 3; i++) await refreshAndWait(miner);
+
+        assert.strictEqual(miner.fundingFeeMechanism, 'fee_rate');
+        assert.strictEqual(connector.setTxFee.callCount, 1);
+        assert.strictEqual(connector.getWalletInfo.callCount, 0);
+    });
+
+    it('retries a transient Dogecoin failure only after the slow interval', async function () {
+        connector.setTxFee.rejects(settxfeeError({ timedOut: true }));
+        const miner = minerFor('dogecoin-regtest');
+
+        assert.strictEqual(await miner.pinFundingFeeRate(), 'none');
+        const startupCalls = connector.setTxFee.callCount;
+        await refreshAndWait(miner);
+        assert.strictEqual(connector.setTxFee.callCount, startupCalls);
+
+        connector.setTxFee.resolves(true);
+        miner.fundingFeePinnedAt -= FUNDING_FEE_REPROBE_MS + 1;
+        await refreshAndWait(miner);
+        assert.strictEqual(connector.setTxFee.callCount, startupCalls + 1);
+        assert.strictEqual(miner.fundingFeeMechanism, 'settxfee');
+
+        connector.getWalletInfo.resolves({ paytxfee: FUNDING_FEE_RATE_COINS_PER_KB });
+        await refreshAndWait(miner);
+        assert.strictEqual(connector.setTxFee.callCount, startupCalls + 1);
+        assert.strictEqual(connector.getWalletInfo.callCount, 1);
+    });
+
+    it('does not retry a permanent Dogecoin refusal after the slow interval', async function () {
+        connector.setTxFee.rejects(settxfeeError({ rpcCode: -8 }));
+        const miner = minerFor('dogecoin-regtest');
+
+        assert.strictEqual(await miner.pinFundingFeeRate(), 'none');
+        const startupCalls = connector.setTxFee.callCount;
+        miner.fundingFeePinnedAt -= FUNDING_FEE_REPROBE_MS + 1;
+        await refreshAndWait(miner);
+
+        assert.strictEqual(connector.setTxFee.callCount, startupCalls);
+        assert.strictEqual(connector.getWalletInfo.callCount, 0);
+    });
+}
+
 describe('XChainRegtestMiner', function () {
     beforeEach(function () {
         connector = {
             setTxFee: sinon.stub().resolves(true),
             sendToAddress: sinon.stub().resolves('txid_abc'),
+            getBalance: sinon.stub().resolves(1),
+            getWalletInfo: sinon.stub().resolves({ paytxfee: FUNDING_FEE_RATE_COINS_PER_KB }),
         };
         sinon.stub(console, 'log');
         sinon.stub(console, 'error');
@@ -178,4 +235,5 @@ describe('XChainRegtestMiner', function () {
     describe('funding fee pin when settxfee is refused or unreachable', settxfeeRefusedOrUnreachablePerCoinTests);
     describe('funding fee pin when settxfee is missing', settxfeeMissingPerCoinTests);
     describe('funding fee pin coin classes', feePinCoinClassTests);
+    describe('funding fee pin refresh checks', fundingFeeRefreshTests);
 });

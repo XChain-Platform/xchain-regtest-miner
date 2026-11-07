@@ -81,12 +81,9 @@ describe('JSON-RPC body guard (Express 5 / body-parser 2.x regression)', functio
         assert.strictEqual(JSON.parse(r.text).result, 'pong');
     });
 
-    it('src/api.js wires the guard before the jsonRouter mount', () => {
+    it('src/api.js mounts the owned dispatcher instead of the lenient router', () => {
         const src = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
-        const guardIdx = src.indexOf('if (req.body === undefined) req.body = {}');
-        const routerIdx = src.indexOf('jsonRouter(');
-        assert.notStrictEqual(guardIdx, -1, 'req.body guard missing from src/api.js');
-        assert.notStrictEqual(routerIdx, -1, 'jsonRouter mount missing from src/api.js');
-        assert.ok(guardIdx < routerIdx, 'guard must be registered before the jsonRouter mount');
+        assert.match(src, /createJsonRpcDispatcher\(jsonRpcController\)/);
+        assert.doesNotMatch(src, /express-json-rpc-router/);
     });
 });

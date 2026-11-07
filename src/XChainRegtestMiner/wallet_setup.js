@@ -32,6 +32,23 @@ const {
 const { trySetTxFee } = require('./settxfee_probe.js');
 const { loadWalletOnce, WALLET_LOAD_MAX_ATTEMPTS, WALLET_LOAD_RETRY_INTERVAL_MS } = require('./wallet_load.js');
 
+function recordFundingFeeMechanism(mechanism, reprobeNeeded = false) {
+    this.fundingFeeMechanism = mechanism;
+    this.fundingFeePinnedAt = Date.now();
+    this.fundingFeeReprobeNeeded = reprobeNeeded;
+    return mechanism;
+}
+
+function usePerCallFundingFeeRate() {
+    this.fundingFeeRateSatPerVb = FUNDING_FEE_RATE_SAT_PER_VB;
+    logger.info(
+        'Funding sends pinned to ' +
+            FUNDING_FEE_RATE_SAT_PER_VB +
+            ' sat/vB via the per-call fee_rate argument (settxfee is gone as of Bitcoin Core 31)',
+    );
+    return recordFundingFeeMechanism.call(this, 'fee_rate');
+}
+
 // The wallet-availability probe prepareWallet opens with. Resolves the probed
 // address, or null when every attempt failed and the load/create path must run.
 async function probeWalletAddress() {
@@ -247,6 +264,7 @@ module.exports = {
      * A re-pin after a wallet reload that cannot reach settxfee keeps a per-call
      * rate already in force: only the wallet-wide settxfee pin is lost on reload.
      *
+     * Records the mechanism and whether a transient failure needs a later recovery probe.
      * @returns {Promise<'fee_rate'|'settxfee'|'none'>} the mechanism in force
      */
     async pinFundingFeeRate() {
@@ -254,18 +272,8 @@ module.exports = {
             .split('-')[0]
             .toLowerCase();
 
-        const useFeeRate = () => {
-            this.fundingFeeRateSatPerVb = FUNDING_FEE_RATE_SAT_PER_VB;
-            logger.info(
-                'Funding sends pinned to ' +
-                    FUNDING_FEE_RATE_SAT_PER_VB +
-                    ' sat/vB via the per-call fee_rate argument (settxfee is gone as of Bitcoin Core 31)',
-            );
-            return 'fee_rate';
-        };
-
         if (PER_CALL_FEE_RATE_COINS.includes(coin)) {
-            return useFeeRate();
+            return usePerCallFundingFeeRate.call(this);
         }
 
         const answer = await trySetTxFee.call(this);
@@ -278,36 +286,36 @@ module.exports = {
                     FUNDING_FEE_RATE_COINS_PER_KB +
                     '/kB via settxfee (regtest estimatesmartfee bypass)',
             );
-            return 'settxfee';
+            return recordFundingFeeMechanism.call(this, 'settxfee');
         }
         const takesFeeRate = SETTXFEE_COINS.includes(coin) && !FEE_RATE_REFUSING_COINS.includes(coin);
         if (answer === 'unreachable' && takesFeeRate) {
             // Nothing is known about the rate, and this daemon accepts fee_rate, so keep a ceiling.
             logger.warn('settxfee could not be reached on this ' + coin + ' daemon; pinning fee_rate per call');
-            return useFeeRate();
+            return usePerCallFundingFeeRate.call(this);
         }
         if (answer === 'unreachable' && this.fundingFeeRateSatPerVb != null) {
             // A re-pin after a wallet reload: the per-call rate holds no wallet state, so keep it.
             logger.warn('settxfee could not be reached on re-pin; keeping the per-call fee_rate already in force');
-            return 'fee_rate';
+            return recordFundingFeeMechanism.call(this, 'fee_rate');
         }
         if (answer === 'refused' || answer === 'unreachable') {
             // Stay on the positional no-rate form, which every supported daemon accepts.
             this.fundingFeeRateSatPerVb = null;
             logger.warn('settxfee could not be confirmed on this daemon; funding sends use the fee estimate');
-            return 'none';
+            return recordFundingFeeMechanism.call(this, 'none', answer === 'unreachable');
         }
 
         if (FEE_RATE_REFUSING_COINS.includes(coin)) {
             // Stay positional on a daemon that refuses fee_rate (DOGE v1.14).
             this.fundingFeeRateSatPerVb = null;
             logger.info('settxfee not found on this ' + coin + ' daemon; funding sends use the fee estimate');
-            return 'none';
+            return recordFundingFeeMechanism.call(this, 'none');
         }
         // Surface the daemon change: a coin that shipped settxfee losing it means a new release.
         if (SETTXFEE_COINS.includes(coin))
             logger.warn('settxfee not found on this ' + coin + ' daemon; pinning fee_rate per call');
-        return useFeeRate();
+        return usePerCallFundingFeeRate.call(this);
     },
 
     async prepareWallet() {

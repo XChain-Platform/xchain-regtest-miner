@@ -21,6 +21,7 @@ const assert = require('assert');
 const sinon = require('sinon');
 const http = require('http');
 const ChaosNode = require('./helpers/ChaosNode');
+const { mountJsonRpc } = require('../../src/api');
 const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor } = require('./helpers/chaosSetup');
 
 async function startChaosNode() {
@@ -75,7 +76,6 @@ function rpcCall(port, method, params = {}) {
 async function startApiContext() {
     const node = await startChaosNode();
     const express = require('express');
-    const jsonRpcRouter = require('express-json-rpc-router');
     // Spin up the Express API server (mirrors api.js setup)
     const app = express();
     app.use(express.json());
@@ -117,7 +117,7 @@ async function startApiContext() {
         },
     };
 
-    app.use(jsonRpcRouter({ methods: controller }));
+    mountJsonRpc(app, controller);
 
     let apiServer;
     await new Promise((resolve) => {

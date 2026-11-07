@@ -140,6 +140,9 @@ class XChainRegtestMiner {
         // wallet preparation. Null means the ceiling is wallet-wide (settxfee) or
         // absent, and funding sends go out positionally as they always have.
         this.fundingFeeRateSatPerVb = null;
+        this.fundingFeeMechanism = null;
+        this.fundingFeePinnedAt = null;
+        this.fundingFeeReprobeNeeded = false;
         this.keepMining = false;
         // Separates "never started" from "operator-paused". keepMining is false in both
         // states, so mining_paused alone cannot tell a wedged prepareWallet apart from a

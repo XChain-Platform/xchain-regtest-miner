@@ -26,28 +26,6 @@
       "prototype method descriptors (split surface pin) XChainRegtestMiner keeps every installed method non-enumerable and callable",
       "prototype method descriptors (split surface pin) XChainRegtestMiner prototype descriptor rows match the unsplit class"
     ],
-    "071ce9df115b49d3": [
-      "miner health probe verdict against a real XChainRegtestMiner accumulates mine_failures when only generatetoaddress fails, and stalls",
-      "miner health probe verdict against a real XChainRegtestMiner reports a started loop healthy, and an operator pause healthy too",
-      "miner health probe verdict against a real XChainRegtestMiner reports a wedged wallet preparation as stalled, not as paused",
-      "miner health probe verdict against a real XChainRegtestMiner reports that same miner healthy inside the cold-start grace",
-      "miner health probe verdict does not let a not-yet-prepared wallet hide behind mining_paused",
-      "miner health probe verdict exempts health from the MINER_API_KEY gate, as the probe sends no key",
-      "miner health probe verdict fails closed on a missing status payload past the grace window",
-      "miner health probe verdict is healthy when the wallet is ready and the loop is not failing",
-      "miner health probe verdict is unhealthy on a sustained run of FAILED MINES while RPC reads still succeed",
-      "miner health probe verdict is unhealthy on a sustained run of mining failures",
-      "miner health probe verdict is unhealthy when the wallet is ready but the mining loop never started",
-      "miner health probe verdict is unhealthy when the wallet never became ready past the cold-start grace",
-      "miner health probe verdict lets a handler 503 reach the wire through express-json-rpc-router",
-      "miner health probe verdict points the Docker HEALTHCHECK at health rather than ping",
-      "miner health probe verdict registers health on the JSON-RPC controller and 503s on the verdict",
-      "miner health probe verdict tolerates a mine-failure streak below the threshold",
-      "miner health probe verdict tolerates a not-yet-ready wallet inside the cold-start grace",
-      "miner health probe verdict tolerates a short failure streak below the threshold",
-      "miner health probe verdict treats a deliberate pause as healthy even with a failing MINE streak",
-      "miner health probe verdict treats a deliberate pause as healthy even with a failing streak"
-    ],
     "073ff31bc214849d": [
       "Boundary: fillMempool Chunking and Calculations F-10: negative tx_quantity Math.ceil of negative produces 0 or negative chunks",
       "Boundary: fillMempool Chunking and Calculations F-10: negative tx_quantity address array loop with negative count creates no addresses"
@@ -58,11 +36,6 @@
       "body parser errors are JSON and leak no stack refuses not json with a JSON 400",
       "body parser errors are JSON and leak no stack refuses null with a JSON 400",
       "body parser errors are JSON and leak no stack still delivers a valid JSON body to the handler"
-    ],
-    "09017d9bcfe5cdc8": [
-      "BlockchainConnector setTxFee calls settxfee with the fee rate and returns true on success",
-      "BlockchainConnector setTxFee returns false (tolerated) when the daemon rejects settxfee",
-      "BlockchainConnector setTxFee returns false on a network error rather than throwing"
     ],
     "0b25bc4bf4dd2797": [
       "BlockchainConnector getNewAddress returns address string",
@@ -75,6 +48,16 @@
       "E2E: Mempool Monitoring and Block Generation B4: does not mine when mempool is empty",
       "E2E: Mempool Monitoring and Block Generation B5: mines correctly after an idle period",
       "E2E: Mempool Monitoring and Block Generation B6: handles multiple mining cycles with state resets"
+    ],
+    "0e54263c921cefb3": [
+      "JSON-RPC batch with non-object elements CONTROL: without the guard a null element produces an unhandled rejection",
+      "JSON-RPC batch with non-object elements [\"x\"] gets JSON-RPC error content and no unhandled rejection",
+      "JSON-RPC batch with non-object elements [1] gets JSON-RPC error content and no unhandled rejection",
+      "JSON-RPC batch with non-object elements [[]] gets JSON-RPC error content and no unhandled rejection",
+      "JSON-RPC batch with non-object elements [[null]] gets JSON-RPC error content and no unhandled rejection",
+      "JSON-RPC batch with non-object elements [null] gets JSON-RPC error content and no unhandled rejection",
+      "JSON-RPC batch with non-object elements a valid element in the same batch still returns its result",
+      "JSON-RPC batch with non-object elements src/api.js mounts the owned dispatcher"
     ],
     "0eed39d9df2c3ddb": [
       "Boundary: Adaptive Mining Timer Logic T-09: maxTimeToMineTxs equals addedTimeToMineTxs produces exactly one generateBlocks call when both expire simultaneously"
@@ -210,6 +193,22 @@
       "coin-registry conformance (vendored copy) @regression pin == consensusHash over the vendored files LTC/testnet vendored pin matches the vendored consensusHash",
       "coin-registry conformance (vendored copy) @regression pin == consensusHash over the vendored files verifyConsensusPin passes for every network on the vendored bundle"
     ],
+    "249b7c3449489564": [
+      "E2E: Funding fee pin on a Dogecoin 1.14 node fails fast when the load path is forced on a node without loadwallet",
+      "E2E: Funding fee pin on a Dogecoin 1.14 node keeps a bare network on the settxfee pin",
+      "E2E: Funding fee pin on a Dogecoin 1.14 node keeps the settxfee pin and positional sends for dogecoin-regtest",
+      "E2E: Funding fee pin on a Dogecoin 1.14 node leaves a held Dogecoin wallet fee pin alone across balance refreshes",
+      "E2E: Funding fee pin on a Dogecoin 1.14 node prepares a fresh node without any multi-wallet RPC",
+      "E2E: Funding fee pin on a Dogecoin 1.14 node re-pins settxfee after a restart keeps the DOGE wallet loaded",
+      "E2E: Funding fee pin per daemon falls back to the per-call rate when a bare network meets a Core 31 node",
+      "E2E: Funding fee pin per daemon keeps the wallet-wide settxfee pin and positional sends on a legacy daemon",
+      "E2E: Funding fee pin per daemon leaves a held legacy wallet fee pin alone across balance refreshes",
+      "E2E: Funding fee pin per daemon pins BTC per call on Core 31 and never calls the deleted settxfee",
+      "E2E: RPC error transport per daemon answers RPC errors with HTTP 500 and method-not-found with 404 in legacy mode",
+      "E2E: RPC error transport per daemon answers a declared JSON-RPC 2.0 error with HTTP 200 in core31 mode",
+      "E2E: RPC error transport per daemon reloads a wallet lost to a restart when the daemon reports it with HTTP 200",
+      "E2E: RPC error transport per daemon reloads a wallet lost to a restart when the daemon reports it with HTTP 500"
+    ],
     "26d6ee08948e6531": [
       "reorg wallet-funds refresh leaves wallet_ready true across the invalidate (the health probe reads it as startup-completion)",
       "reorg wallet-funds refresh reports the wallet funded again once reconsider re-settles the chain",
@@ -218,18 +217,32 @@
       "reorg wallet-funds refresh restores prior auto-mining state after reconsider, refresh included",
       "reorg wallet-funds refresh still resolves the reorg RPC when the balance re-read throws"
     ],
+    "2810bbba4bba7063": [
+      "api.js JSON-RPC body handling answers an undefined body with Invalid Request",
+      "api.js JSON-RPC body handling dispatches an already-populated body without rewriting it",
+      "api.js JSON-RPC params handling passes explicit null params to a handler as an empty object",
+      "api.js JSON-RPC params handling passes null params as empty objects for every batch entry",
+      "api.js JSON-RPC params handling passes structured params through without rewriting them",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name __proto__ with -32601 and no result",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name constructor with -32601 and no result",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name hasOwnProperty with -32601 and no result",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name toLocaleString with -32601 and no result",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name toString with -32601 and no result",
+      "api.js mountJsonRpc method dispatch refuses Object.prototype name valueOf with -32601 and no result",
+      "api.js mountJsonRpc method dispatch still dispatches a real method",
+      "api.js timingSafeStringEqual returns false for strings of different length rather than throwing",
+      "api.js timingSafeStringEqual returns false for two different strings of the same length",
+      "api.js timingSafeStringEqual returns true for two equal strings",
+      "api.js timingSafeStringEqual treats a missing header (undefined) as the empty string and fails closed"
+    ],
     "290463c72104a20c": [
       "Boundary: fillMempool Chunking and Calculations F-07: tx_quantity = 47500 (19 chunks, below mining threshold) does not trigger intermediate block mining (threshold is 20)"
     ],
-    "2a65261ac0792d59": [
-      "JSON-RPC batch with non-object elements CONTROL: without the guard a null element produces an unhandled rejection",
-      "JSON-RPC batch with non-object elements [\"x\"] gets JSON-RPC error content and no unhandled rejection",
-      "JSON-RPC batch with non-object elements [1] gets JSON-RPC error content and no unhandled rejection",
-      "JSON-RPC batch with non-object elements [[]] gets JSON-RPC error content and no unhandled rejection",
-      "JSON-RPC batch with non-object elements [[null]] gets JSON-RPC error content and no unhandled rejection",
-      "JSON-RPC batch with non-object elements [null] gets JSON-RPC error content and no unhandled rejection",
-      "JSON-RPC batch with non-object elements a valid element in the same batch still returns its result",
-      "JSON-RPC batch with non-object elements src/api.js wires the element guard before the jsonRouter mount"
+    "2bcaee50cdcaf98a": [
+      "pin identity tool builds a fresh identity that compares equal to itself",
+      "pin identity tool hashes files in deterministic key order",
+      "pin identity tool reports the coins section when exactly one file digest changes",
+      "pin identity tool serializes deterministically with stable formatting and a final newline"
     ],
     "2e20a614bd0a6433": [
       "Boundary: Combined Parameter Interactions C-01: maxTimeToMineTxs=0 with 10000 txs in mempool mines immediately on first poll regardless of mempool size",
@@ -258,6 +271,22 @@
       "Seam A: HTTP \u2194 JSON-RPC controller set_default_mining_time delegates to miner and returns ok",
       "Seam A: HTTP \u2194 JSON-RPC controller set_mining_time delegates parameters to miner"
     ],
+    "30a8d9a98c1fcb16": [
+      "XChainRegtestMiner funding fee pin coin classes lists only settxfee coins as refusing fee_rate",
+      "XChainRegtestMiner funding fee pin coin classes puts every registered coin in exactly one of the per-call and settxfee lists",
+      "XChainRegtestMiner funding fee pin refresh checks does not retry a permanent Dogecoin refusal after the slow interval",
+      "XChainRegtestMiner funding fee pin refresh checks retries a transient Dogecoin failure only after the slow interval",
+      "XChainRegtestMiner funding fee pin refresh checks skips wallet re-checks while Litecoin uses the per-call rate",
+      "XChainRegtestMiner funding fee pin retry keeps the positional form when the daemon refuses settxfee with another code",
+      "XChainRegtestMiner funding fee pin retry never picks fee_rate on a bare network when settxfee keeps failing in transport",
+      "XChainRegtestMiner funding fee pin retry never throws out of the pin when settxfee keeps timing out",
+      "XChainRegtestMiner funding fee pin retry retries a timed-out settxfee and keeps the wallet-wide pin",
+      "XChainRegtestMiner funding fee pin when settxfee is missing keeps a Dogecoin daemon without settxfee on the positional form",
+      "XChainRegtestMiner funding fee pin when settxfee is missing moves a Litecoin daemon that dropped settxfee to the per-call rate",
+      "XChainRegtestMiner funding fee pin when settxfee is refused or unreachable keeps a Dogecoin daemon on the positional form when settxfee stays unreachable",
+      "XChainRegtestMiner funding fee pin when settxfee is refused or unreachable keeps a Litecoin daemon on the positional form when it refuses settxfee",
+      "XChainRegtestMiner funding fee pin when settxfee is refused or unreachable keeps a Litecoin daemon on the positional form when settxfee answers without pinning"
+    ],
     "34982ab520e9895b": [
       "T1 Regression: Error Recovery & Backoff REG-T1-E01: Backoff on consecutive mempool errors logs backoff messages with increasing delays",
       "T1 Regression: Error Recovery & Backoff REG-T1-E02: Backoff resets after success consecutive error counter resets on successful operation"
@@ -281,14 +310,20 @@
       "E2E: Chain State Consistency F4: sendFundsToAddress reduces wallet balance",
       "E2E: Chain State Consistency F5: sequential block generation maintains ascending heights"
     ],
-    "42340a17642bb547": [
-      "BlockchainConnector createWallet defaults to 50 retries",
-      "BlockchainConnector createWallet exhausts retries and throws",
-      "BlockchainConnector createWallet retries on failure and succeeds",
-      "BlockchainConnector createWallet retries on falsy result and succeeds",
-      "BlockchainConnector createWallet returns wallet info on first success",
-      "BlockchainConnector createWallet sends correct RPC method and params",
-      "BlockchainConnector createWallet sleeps between retries"
+    "40733de355536b95": [
+      "E2E: loadwallet failure classification core31 daemon stops createwallet after one \"Database already exists\" answer",
+      "E2E: loadwallet failure classification core31 daemon survives a send-time reload that finds the wallet already loaded",
+      "E2E: loadwallet failure classification core31 daemon treats loadwallet \"already loaded\" as loaded and never calls createwallet",
+      "E2E: loadwallet failure classification legacy daemon stops createwallet after one \"Database already exists\" answer",
+      "E2E: loadwallet failure classification legacy daemon survives a send-time reload that finds the wallet already loaded",
+      "E2E: loadwallet failure classification legacy daemon treats loadwallet \"already loaded\" as loaded and never calls createwallet"
+    ],
+    "4123fe6f739d24de": [
+      "BlockchainConnector sendRawTransaction logs a 200 error reply once, not again from the catch",
+      "BlockchainConnector sendRawTransaction logs the node rejection reason from an HTTP 500 reply but throws a static message",
+      "BlockchainConnector sendRawTransaction sends tx hex and returns txid",
+      "BlockchainConnector sendRawTransaction throws and logs when result is falsy",
+      "BlockchainConnector sendRawTransaction throws on network error"
     ],
     "42496d6ec749e27d": [
       "a failed generatetoaddress bounds the mined count it reports a failure that is not a timeout reads the height once and reports what landed",
@@ -326,6 +361,22 @@
       "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B04: generateBlocks delegation logs singular message for one block",
       "T1 Regression: Miner\u2194Connector Integration Seams REG-T1-B04: generateBlocks delegation passes count and wallet address to connector"
     ],
+    "45bd07eb1cb13602": [
+      "XChainRegtestMiner ensureWalletLoaded load-failure classification accepts a create that lost the race to another caller",
+      "XChainRegtestMiner ensureWalletLoaded load-failure classification fails fast with the create error when create fails and the wallet is not loaded",
+      "XChainRegtestMiner ensureWalletLoaded load-failure classification never creates over a load still in progress, and gives up with a clear error",
+      "XChainRegtestMiner ensureWalletLoaded load-failure classification rides out -28 warmup and loads on a later attempt without creating",
+      "XChainRegtestMiner ensureWalletLoaded load-failure classification treats -35 already loaded as loaded without asking listwallets",
+      "XChainRegtestMiner ensureWalletLoaded load-failure classification treats a timed-out load as loaded once listwallets names the wallet",
+      "XChainRegtestMiner ensureWalletLoaded with the wallet already loaded creates the wallet when loadwallet reports it not found, whatever listwallets says",
+      "XChainRegtestMiner ensureWalletLoaded with the wallet already loaded retries the load instead of creating when the daemon cannot list wallets",
+      "XChainRegtestMiner ensureWalletLoaded with the wallet already loaded treats its own wallet as loaded when loadwallet refuses because it already is",
+      "XChainRegtestMiner prepareWallet after a successful base-URL probe keeps the probed address when wallet info cannot be read, with few retries",
+      "XChainRegtestMiner prepareWallet after a successful base-URL probe loads and pins its own wallet when a foreign wallet answered the probe",
+      "XChainRegtestMiner prepareWallet after a successful base-URL probe pins its own wallet when the probe was answered by it",
+      "XChainRegtestMiner prepareWallet after a successful base-URL probe stays on the base URL when the daemon reports no wallet name (Dogecoin v1.14)",
+      "XChainRegtestMiner prepareWallet after a successful base-URL probe treats Core's unnamed default wallet as foreign"
+    ],
     "461fb74fe5da7ce2": [
       "E2E: Error Resilience E1: mining loop continues after transient RPC errors",
       "E2E: Error Resilience E2: send_funds handles insufficient balance gracefully",
@@ -336,6 +387,10 @@
     ],
     "4729331c168dff3d": [
       "Boundary: Adaptive Mining Timer Logic T-06: maxTimeToMineTxs = Number.MAX_SAFE_INTEGER never triggers initial timer; relies on addedTimeToMineTxs"
+    ],
+    "483c3ba651ef5bce": [
+      "E2E: balance read reloads a lost wallet recovers wallet_funded when the daemon reports the lost wallet with HTTP 200",
+      "E2E: balance read reloads a lost wallet recovers wallet_funded when the daemon reports the lost wallet with HTTP 500"
     ],
     "48b7a987053b1f3d": [
       "Boundary: fillMempool Chunking and Calculations Funding amount per-address calculation amount breakdown: 1000 (amount) + 1000 (fee) + 50 (buffer) = 2050 sat",
@@ -349,8 +404,39 @@
       "E2E: Startup and Wallet Lifecycle A4: mines 101 blocks when balance is zero even at height > 100",
       "E2E: Startup and Wallet Lifecycle A5: throws when wallet cannot be created"
     ],
+    "4cb37d794b2b4640": [
+      "NODE_RPC_TIMEOUT config coercion defaults to 60000 when unset",
+      "NODE_RPC_TIMEOUT config coercion falls back to 60000 for \"   \"",
+      "NODE_RPC_TIMEOUT config coercion falls back to 60000 for \"\"",
+      "NODE_RPC_TIMEOUT config coercion falls back to 60000 for \"-5\"",
+      "NODE_RPC_TIMEOUT config coercion falls back to 60000 for \"15000.5\"",
+      "NODE_RPC_TIMEOUT config coercion falls back to 60000 for \"1e3\"",
+      "NODE_RPC_TIMEOUT config coercion falls back to 60000 for \"60s\"",
+      "NODE_RPC_TIMEOUT config coercion falls back to 60000 for \"NaN\"",
+      "NODE_RPC_TIMEOUT config coercion falls back to 60000 for \"abc\"",
+      "NODE_RPC_TIMEOUT config coercion honors an explicit positive value",
+      "NODE_RPC_TIMEOUT config coercion keeps 0, which axios reads as no timeout"
+    ],
+    "4cb3ced9616e5ec0": [
+      "start(): mining controls that land during wallet preparation hands the resume to a reconsider_block still in flight at ready",
+      "start(): mining controls that land during wallet preparation keeps a fill_mempool stop that landed before ready, after the fill ends",
+      "start(): mining controls that land during wallet preparation keeps a pause_mining that landed before a finished reconsider_block",
+      "start(): mining controls that land during wallet preparation keeps a pause_mining that landed before ready",
+      "start(): mining controls that land during wallet preparation keeps the pause an invalidate_block took before ready",
+      "start(): mining controls that land during wallet preparation starts mining after a reconsider_block that finished before ready",
+      "start(): mining controls that land during wallet preparation starts mining when a pause and a continue both landed before ready",
+      "start(): mining controls that land during wallet preparation starts mining when nothing landed before ready"
+    ],
     "4dc9be5ab1ba17be": [
       "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences sendFundsToAddress delegation passes through to connector.sendToAddress"
+    ],
+    "4dd5a2413d687a64": [
+      "E2E: Reorg and mock-clock primitives over HTTP a standalone reconsiderblock restores prior auto-mining",
+      "E2E: Reorg and mock-clock primitives over HTTP an unknown block hash is refused with the node error logged",
+      "E2E: Reorg and mock-clock primitives over HTTP invalidateblock rolls the node back to the fork point",
+      "E2E: Reorg and mock-clock primitives over HTTP reconsiderblock re-activates a branch that outworks the competing one",
+      "E2E: Reorg and mock-clock primitives over HTTP refuses an error-less 2xx reply that is not result:null",
+      "E2E: Reorg and mock-clock primitives over HTTP setmocktime stamps the next block and 0 releases the clock"
     ],
     "506263d0668be715": [
       "Fuzz: RPC response handling generateToAddress returns unexpected values survives generateToAddress throwing for various errors",
@@ -442,12 +528,9 @@
       "XChainRegtestMiner prepareWallet throws when the probe fails and both load and create fail",
       "XChainRegtestMiner prepareWallet treats a never-succeeding probe as no wallet loaded (falls through to loadWallet)"
     ],
-    "58706b2a54fa0008": [
-      "JSON-RPC body guard (Express 5 / body-parser 2.x regression) does not crash WITH the guard (GET -> not 500)",
-      "JSON-RPC body guard (Express 5 / body-parser 2.x regression) does not crash WITH the guard on an empty POST (-> not 500)",
-      "JSON-RPC body guard (Express 5 / body-parser 2.x regression) reproduces the crash WITHOUT the guard (bodiless GET -> 500)",
-      "JSON-RPC body guard (Express 5 / body-parser 2.x regression) src/api.js wires the guard before the jsonRouter mount",
-      "JSON-RPC body guard (Express 5 / body-parser 2.x regression) still serves a valid JSON-RPC POST WITH the guard"
+    "5880a5abfa427509": [
+      "XChainRegtestMiner sendFundsToAddress wallet reload keeps the per-call BTC ceiling on the retry without calling settxfee",
+      "XChainRegtestMiner sendFundsToAddress wallet reload re-pins settxfee on LTC after reloading a lost wallet, before the retry"
     ],
     "58bc7d752838d3f3": [
       "Security: Resource Exhaustion & DoS Prevention fillMempool concurrent access protection (SEC-006) allows new fillMempool call after previous one completes",
@@ -476,6 +559,12 @@
       "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline UTXO identification from raw transaction finds the correct output when mainAddress is not at index 0",
       "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline UTXO identification from raw transaction finds the output matching the main address at index 0"
     ],
+    "5c121ed8a2c86ae2": [
+      "RPC error helpers reads a message and numeric code from an RPC error",
+      "RPC error helpers reads a message when the RPC error has no numeric code",
+      "RPC error helpers returns null for a non-error rejection value",
+      "RPC error helpers returns null for a plain Error"
+    ],
     "5d3ce1b81ea05e74": [
       "Boundary: Adaptive Mining Timer Logic T-12: floating-point timer values rejects float values via Number.isInteger check"
     ],
@@ -487,6 +576,19 @@
       "cancel_fill_mempool outside the broadcast loop stops during the confirmation mines before any stress transaction is sent",
       "cancel_fill_mempool without continue_mining leaves the miner paused when no continue_mining landed, as a finished fill does",
       "fill_mempool progress in status reports a rising sent count against the requested total while the run broadcasts"
+    ],
+    "5e236d03b2ab9372": [
+      "Boundary: Adaptive Mining Timer Logic T-26: keepMining re-enabled with stale timer values does not mine after a fill run ends when the pending tx was mined during it",
+      "Boundary: Adaptive Mining Timer Logic T-26: keepMining re-enabled with stale timer values does not mine on resume when the caller mined the pending tx during the pause",
+      "Boundary: Adaptive Mining Timer Logic T-26: keepMining re-enabled with stale timer values does not mine when a pause and resume inside one poll leave the mempool empty",
+      "Boundary: Adaptive Mining Timer Logic T-26: keepMining re-enabled with stale timer values re-arms the timers on resume for a tx still pending, then mines it once",
+      "Boundary: Adaptive Mining Timer Logic T-26: keepMining re-enabled with stale timer values stale timestamps may cause immediate mining on resume"
+    ],
+    "5e2d6318584ecb17": [
+      "XChainRegtestMiner funding fee re-pin after a wallet reload drops the per-call rate when the re-pin is refused outright",
+      "XChainRegtestMiner funding fee re-pin after a wallet reload ends on the estimate when the lost pin was settxfee and the re-pin cannot reach it",
+      "XChainRegtestMiner funding fee re-pin after a wallet reload keeps the per-call rate on Litecoin when a re-pin after a missing settxfee times out",
+      "XChainRegtestMiner funding fee re-pin after a wallet reload keeps the per-call rate on a bare network when the re-pin cannot reach settxfee"
     ],
     "5e4e9ac46d4098df": [
       "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console generateToAddress does not log password",
@@ -530,10 +632,18 @@
       "Boundary: fillMempool Chunking and Calculations F-05: tx_quantity = 2501 (one above chunk size) creates 2 chunks: one of 2500 and one of 1",
       "Boundary: fillMempool Chunking and Calculations F-05: tx_quantity = 2501 (one above chunk size) first chunk is full size, second is remainder"
     ],
-    "666fc4b8e265f889": [
-      "BlockchainConnector getBalance returns numeric balance",
-      "BlockchainConnector getBalance returns zero balance",
-      "BlockchainConnector getBalance throws when result is NaN"
+    "64303071b35f24ac": [
+      "JSON-RPC body guard (Express 5 / body-parser 2.x regression) does not crash WITH the guard (GET -> not 500)",
+      "JSON-RPC body guard (Express 5 / body-parser 2.x regression) does not crash WITH the guard on an empty POST (-> not 500)",
+      "JSON-RPC body guard (Express 5 / body-parser 2.x regression) reproduces the crash WITHOUT the guard (bodiless GET -> 500)",
+      "JSON-RPC body guard (Express 5 / body-parser 2.x regression) src/api.js mounts the owned dispatcher instead of the lenient router",
+      "JSON-RPC body guard (Express 5 / body-parser 2.x regression) still serves a valid JSON-RPC POST WITH the guard"
+    ],
+    "667ce6bf97b15120": [
+      "wallet funding floors and caps allows send_funds at the configured per-call cap",
+      "wallet funding floors and caps reports wallet_funded false below the configured floor",
+      "wallet funding floors and caps returns a clear reason without calling the node when send_funds exceeds the configured per-call cap",
+      "wallet funding floors and caps uses safe defaults for missing or invalid configuration"
     ],
     "671fa2c590201b73": [
       "BlockchainConnector constructor builds the correct URL from host and port",
@@ -553,6 +663,14 @@
     ],
     "675d44d420b96497": [
       "Boundary: fillMempool Chunking and Calculations F-01: tx_quantity = 0 rejects invalid input and does not change keepMining"
+    ],
+    "678f3f3fd43fd7d4": [
+      "BlockchainConnector invalidateBlock calls invalidateblock RPC and returns true on success",
+      "BlockchainConnector invalidateBlock logs the node RPC error but throws a static message",
+      "BlockchainConnector invalidateBlock logs the node RPC error from an HTTP 500 reply but throws a static message",
+      "BlockchainConnector invalidateBlock rejects a 2xx body whose result member is absent",
+      "BlockchainConnector invalidateBlock rejects an error-less body that carries no result",
+      "BlockchainConnector invalidateBlock throws a static message on network error (no transport detail leak)"
     ],
     "692fa0a1aa4cae1d": [
       "T0 Regression: Critical Gate REG-T0-001: Constructor defaults initializes with correct default values",
@@ -655,31 +773,12 @@
     "6c604ce0bd6197e6": [
       "Boundary: fillMempool Chunking and Calculations F-08: tx_quantity = 50000 (20 chunks, exact mining threshold) triggers exactly one intermediate block mine"
     ],
-    "6d58e53e79c9bc3e": [
-      "JSON-RPC envelope leniencies and log hygiene batch null ids and notifications answers null-id elements inside a batch and still drops true notifications",
-      "JSON-RPC envelope leniencies and log hygiene batch null ids and notifications still sends no body for a notification (no id member)",
-      "JSON-RPC envelope leniencies and log hygiene empty batch and null id answers a null-id error with id null",
-      "JSON-RPC envelope leniencies and log hygiene empty batch and null id answers a request whose id is null, echoing id null",
-      "JSON-RPC envelope leniencies and log hygiene empty batch and null id answers an empty batch with one Invalid Request error, id null",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params \"str\" is refused and leaves state alone",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params 7 is refused and leaves state alone",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params [1,2] is refused and leaves state alone",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params [] still answers ok",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params null still answers ok",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params true is refused and leaves state alone",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params undefined still answers ok",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params {} still answers ok",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params \"str\" is refused and leaves state alone",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params 7 is refused and leaves state alone",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params [1,2] is refused and leaves state alone",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params [] still answers ok",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params null still answers ok",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params true is refused and leaves state alone",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params undefined still answers ok",
-      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params {} still answers ok",
-      "JSON-RPC envelope leniencies and log hygiene send failure log line bounds the logged node error when the node answers HTTP 200 with an error",
-      "JSON-RPC envelope leniencies and log hygiene send failure log line bounds the logged node error when the node answers HTTP 500",
-      "JSON-RPC envelope leniencies and log hygiene send failure log line still flags a lost wallet from a long node message"
+    "701fd72da4138468": [
+      "Seam D: BlockchainConnector \u2194 MockRpcServer wallet-context routing flags a lost wallet that Core 28+ reports with HTTP 200",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer wallet-context routing flags a lost wallet that a legacy daemon reports with HTTP 500",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer wallet-context routing refuses a daemon no double models",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer wallet-context routing settxfee and sendtoaddress reach the pinned wallet",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer wallet-context routing wallet RPCs target the /wallet/<name> URI once a wallet is pinned"
     ],
     "71884b7dd048eb3b": [
       "no-API-key boot warning @regression the warning states authentication is disabled (fail-open)",
@@ -741,14 +840,7 @@
       "setMockTime throws for a negative timestamp without delegating",
       "sleep resolves only after the requested delay"
     ],
-    "77974a1b36c1001b": [
-      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline ECPair network parameter creates key pair with regtest network",
-      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline ECPair network parameter produces the same address as direct P2PKH derivation"
-    ],
-    "78a7eebc2e596bbb": [
-      "Boundary: Adaptive Mining Timer Logic T-03: both timers set to 0 mines on the very next poll after first tx detected"
-    ],
-    "7b49b18b1c656b04": [
+    "77697e5e8bb25a0d": [
       "XChainRegtestMiner idle mine-empty heartbeat _idleMineDue does not fire before the interval elapses",
       "XChainRegtestMiner idle mine-empty heartbeat _idleMineDue fires once the interval has elapsed with an empty mempool",
       "XChainRegtestMiner idle mine-empty heartbeat _idleMineDue measures from when the loop started watching when nothing has been mined yet",
@@ -758,66 +850,28 @@
       "XChainRegtestMiner idle mine-empty heartbeat default posture never reports a block due while disabled, however long the chain idles",
       "XChainRegtestMiner idle mine-empty heartbeat default posture surfaces the setting in status so an operator can see which mode a venue runs",
       "XChainRegtestMiner idle mine-empty heartbeat setIdleMineInterval 0 disables it again",
+      "XChainRegtestMiner idle mine-empty heartbeat setIdleMineInterval does not change the boot interval reported by status",
       "XChainRegtestMiner idle mine-empty heartbeat setIdleMineInterval enables the heartbeat",
       "XChainRegtestMiner idle mine-empty heartbeat setIdleMineInterval enforces the same bounds as the mining timers",
       "XChainRegtestMiner idle mine-empty heartbeat setIdleMineInterval throws (never returns a sentinel) on non-integers and negatives"
     ],
-    "7da8bb2e5e171546": [
-      "Security: BlockchainConnector Error Sanitization createWallet does not log credentials",
-      "Security: BlockchainConnector Error Sanitization createWallet throws clean error without credentials after retries",
-      "Security: BlockchainConnector Error Sanitization generateToAddress does not log credentials",
-      "Security: BlockchainConnector Error Sanitization generateToAddress throws clean error without credentials",
-      "Security: BlockchainConnector Error Sanitization getBalance does not log credentials",
-      "Security: BlockchainConnector Error Sanitization getBalance throws clean error without credentials",
-      "Security: BlockchainConnector Error Sanitization getBlock does not log credentials",
-      "Security: BlockchainConnector Error Sanitization getBlock throws clean error without credentials",
-      "Security: BlockchainConnector Error Sanitization getBlockHash does not log credentials",
-      "Security: BlockchainConnector Error Sanitization getBlockHash throws clean error without credentials",
-      "Security: BlockchainConnector Error Sanitization getBlockchainInfo does not log credentials",
-      "Security: BlockchainConnector Error Sanitization getBlockchainInfo throws clean error without credentials",
-      "Security: BlockchainConnector Error Sanitization getMempoolEntry does not log credentials",
-      "Security: BlockchainConnector Error Sanitization getMempoolEntry throws clean error without credentials",
-      "Security: BlockchainConnector Error Sanitization getNetworkInfo does not log credentials",
-      "Security: BlockchainConnector Error Sanitization getNetworkInfo throws clean error without credentials",
-      "Security: BlockchainConnector Error Sanitization getNewAddress does not log credentials",
-      "Security: BlockchainConnector Error Sanitization getNewAddress throws clean error without credentials",
-      "Security: BlockchainConnector Error Sanitization getRawMempool does not log credentials",
-      "Security: BlockchainConnector Error Sanitization getRawMempool throws clean error without credentials",
-      "Security: BlockchainConnector Error Sanitization getRawTransaction returns null on error without logging credentials",
-      "Security: BlockchainConnector Error Sanitization getWalletInfo does not log credentials during retries",
-      "Security: BlockchainConnector Error Sanitization getWalletInfo throws clean error without credentials after retries",
-      "Security: BlockchainConnector Error Sanitization loadWallet does not log credentials",
-      "Security: BlockchainConnector Error Sanitization loadWallet throws clean error without credentials",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console generateToAddress does not log password",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBalance does not log password",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBlock does not log password",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBlockHash does not log password",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getBlockchainInfo does not log password",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getMempoolEntry does not log password",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getNetworkInfo does not log password",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getNewAddress does not log password",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console getRawMempool does not log password",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console loadWallet does not log password",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console sendRawTransaction does not log password",
-      "Security: BlockchainConnector Error Sanitization no method ever logs credentials to console sendToAddress does not log password",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors createWallet error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors generateToAddress error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBalance error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBlock error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBlockHash error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getBlockchainInfo error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getMempoolEntry error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getNetworkInfo error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getNewAddress error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getRawMempool error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors getWalletInfo error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors loadWallet error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors sendRawTransaction error has no .config property",
-      "Security: BlockchainConnector Error Sanitization no method exposes .config on thrown errors sendToAddress error has no .config property",
-      "Security: BlockchainConnector Error Sanitization sendRawTransaction does not log credentials",
-      "Security: BlockchainConnector Error Sanitization sendRawTransaction throws clean error without credentials",
-      "Security: BlockchainConnector Error Sanitization sendToAddress does not log credentials",
-      "Security: BlockchainConnector Error Sanitization sendToAddress throws clean error without credentials"
+    "77974a1b36c1001b": [
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline ECPair network parameter creates key pair with regtest network",
+      "Seam C: fillMempool \u2194 bitcoinjs-lib crypto pipeline ECPair network parameter produces the same address as direct P2PKH derivation"
+    ],
+    "78a7eebc2e596bbb": [
+      "Boundary: Adaptive Mining Timer Logic T-03: both timers set to 0 mines on the very next poll after first tx detected"
+    ],
+    "7af20fadcd840e3c": [
+      "miner health probe verdict against a real XChainRegtestMiner accumulates mine_failures when only generatetoaddress fails, and stalls",
+      "miner health probe verdict against a real XChainRegtestMiner counts an empty generatetoaddress answer as a failed mine, not a mined block",
+      "miner health probe verdict against a real XChainRegtestMiner reports a started loop healthy, and an operator pause healthy too",
+      "miner health probe verdict against a real XChainRegtestMiner reports a wedged wallet preparation as stalled, not as paused",
+      "miner health probe verdict against a real XChainRegtestMiner reports that same miner healthy inside the cold-start grace"
+    ],
+    "7c57cbec3a550ef9": [
+      "source layout keeps crypto networks in the networks directory",
+      "source layout keeps the blockchain connector in the rpc directory"
     ],
     "7eda23ba590cdcee": [
       "BlockchainConnector getNetworkInfo returns the result on success",
@@ -832,6 +886,14 @@
     "82becc1ea033f724": [
       "Boundary: Adaptive Mining Timer Logic T-23: mempool empties completely between polls resets all timers and does not mine"
     ],
+    "83ba7d2c3b87481a": [
+      "JSON-RPC null params normalization CONTROL: without the normalizer, params:null escapes to a top-level JSON-RPC error",
+      "JSON-RPC null params normalization a well-formed call is untouched",
+      "JSON-RPC null params normalization an ABSENT params was already fine and still is (router default, not this guard)",
+      "JSON-RPC null params normalization normalizes each member of a batch body rather than replacing the array",
+      "JSON-RPC null params normalization the owned dispatcher normalizes null params before the handler",
+      "JSON-RPC null params normalization with the normalizer, params:null returns the controller error envelope"
+    ],
     "8413db92098da15f": [
       "Boundary: fillMempool Chunking and Calculations BIP32 derivation index boundaries first address uses derive(1).derive(0)",
       "Boundary: fillMempool Chunking and Calculations BIP32 derivation index boundaries last address for tx_quantity=N uses derive(N).derive(0)",
@@ -840,6 +902,20 @@
     "88085445af960ca9": [
       "Boundary: fillMempool Chunking and Calculations Stress transaction output index calculation output index wraps correctly within chunk",
       "Boundary: fillMempool Chunking and Calculations Stress transaction output index calculation utxo index selects correct chunk"
+    ],
+    "88e4479fb518776e": [
+      "XChainRegtestMiner node flush gating and failure handling does not flush while mining is paused",
+      "XChainRegtestMiner node flush gating and failure handling is disabled at 0",
+      "XChainRegtestMiner node flush gating and failure handling never awaits a slow flush: mining proceeds and no second flush overlaps it",
+      "XChainRegtestMiner node flush gating and failure handling survives a rejected flush: the loop keeps mining and the failure does not throw",
+      "XChainRegtestMiner node flush gating and failure handling survives a synchronous throw from the flush call"
+    ],
+    "8944cfd09cd3681b": [
+      "formatMinerHealth coerces flags to booleans and passes counters through",
+      "formatMinerHealth formats a healthy status without changing its counters or flags",
+      "formatMinerHealth formats missing status fields with boolean defaults",
+      "formatMinerHealth with evaluated verdicts formats an operator pause as successful",
+      "formatMinerHealth with evaluated verdicts formats an unready wallet as degraded"
     ],
     "8aa317e8fb38fb47": [
       "XChainRegtestMiner constructor creates a BlockchainConnector instance",
@@ -878,6 +954,15 @@
       "mempool status freshness while the mine loop is idle marks an on-demand read failure stale without replacing the prior size",
       "mempool status freshness while the mine loop is idle reads the node after a transaction arrives during the ordinary paused sleep"
     ],
+    "8b5308012a6f6424": [
+      "BlockchainConnector listWallets returns null on a transport error instead of throwing",
+      "BlockchainConnector listWallets returns null when the daemon has no listwallets RPC",
+      "BlockchainConnector listWallets returns the loaded wallet names from the base URL",
+      "BlockchainConnector sendToAddress on the base RPC URL does NOT flag a several-wallets-loaded refusal as a lost wallet",
+      "BlockchainConnector sendToAddress on the base RPC URL flags a lost wallet reported with the base-URL text over HTTP 200",
+      "BlockchainConnector sendToAddress on the base RPC URL flags a lost wallet reported with the base-URL text over HTTP 500",
+      "BlockchainConnector sendToAddress on the base RPC URL flags the pre-0.21 wallet-disabled wording as a lost wallet"
+    ],
     "906040fe4a8a748f": [
       "BlockchainConnector getWalletInfo defaults to 50 max retries",
       "BlockchainConnector getWalletInfo retries on failure and returns on success",
@@ -903,8 +988,79 @@
     "92924e9ce2b2d4ed": [
       "Boundary: Adaptive Mining Timer Logic T-21: mempool grows during extension window resets extendedStartToMine but not initialStartToMine"
     ],
+    "946900acd5e42cf5": [
+      "api.js JSON-RPC controller logic generate_blocks returns error object on failure",
+      "api.js JSON-RPC controller logic generate_blocks returns the count and hashes on success",
+      "api.js JSON-RPC controller logic invalidate_block returns error object on failure",
+      "api.js JSON-RPC controller logic invalidate_block returns ok on success",
+      "api.js JSON-RPC controller logic pause_mining returns error object on failure",
+      "api.js JSON-RPC controller logic pause_mining returns ok on success",
+      "api.js JSON-RPC controller logic reconsider_block returns error object on failure",
+      "api.js JSON-RPC controller logic reconsider_block returns ok on success",
+      "api.js JSON-RPC controller logic set_idle_mine_interval delegates the interval to miner and returns ok",
+      "api.js JSON-RPC controller logic set_idle_mine_interval returns error object on failure",
+      "api.js JSON-RPC controller logic status returns the miner status snapshot unchanged"
+    ],
     "948d96ff2404b44b": [
       "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences generateBlocks delegation passes count and wallet address to connector"
+    ],
+    "95bf4b21c848776e": [
+      "Security: BlockchainConnector Error Sanitization createWallet does not log credentials",
+      "Security: BlockchainConnector Error Sanitization createWallet throws clean error without credentials after retries",
+      "Security: BlockchainConnector Error Sanitization generateToAddress does not log credentials",
+      "Security: BlockchainConnector Error Sanitization generateToAddress throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getBalance does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getBalance throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getBlock does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getBlock throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getBlockHash does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getBlockHash throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getBlockchainInfo does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getBlockchainInfo throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getMempoolEntry does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getMempoolEntry throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getNetworkInfo does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getNetworkInfo throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getNewAddress does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getNewAddress throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getRawMempool does not log credentials",
+      "Security: BlockchainConnector Error Sanitization getRawMempool throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization getRawTransaction returns null on error without logging credentials",
+      "Security: BlockchainConnector Error Sanitization getWalletInfo does not log credentials during retries",
+      "Security: BlockchainConnector Error Sanitization getWalletInfo throws clean error without credentials after retries",
+      "Security: BlockchainConnector Error Sanitization loadWallet does not log credentials",
+      "Security: BlockchainConnector Error Sanitization loadWallet throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization sendRawTransaction does not log credentials",
+      "Security: BlockchainConnector Error Sanitization sendRawTransaction throws clean error without credentials",
+      "Security: BlockchainConnector Error Sanitization sendToAddress does not log credentials",
+      "Security: BlockchainConnector Error Sanitization sendToAddress throws clean error without credentials"
+    ],
+    "9a6495bd9894f7a2": [
+      "Seam D: BlockchainConnector \u2194 MockRpcServer HTTP Basic Auth sends correct Authorization header",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips generateToAddress: sends count and address params",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBalance: returns positive balance",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBalance: returns zero correctly (falsy but valid)",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlock: sends blockhash with verbose=false (hex format)",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlock: sends blockhash with verbose=true (JSON format)",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlockHash: sends blockindex param",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlockchainInfo: sends correct payload and parses response",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getMempoolEntry: sends txid param",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getNetworkInfo: round-trip",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getNewAddress: returns address string",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getRawMempool: returns empty array",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getRawMempool: returns populated array",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips sendRawTransaction: sends tx hex param",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips sendToAddress: sends positional params (DOGE v1.14 compat)",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer createWallet refusals createWallet: stops at once when the wallet database already exists",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer error handling loadWallet: throws on RPC error",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer error handling throws on unregistered method (null result)",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer getRawTransaction error handling returns null when server returns RPC error",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer getRawTransaction error handling returns result on success",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior createWallet: exhausts retries on a node that stays in warmup and throws",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior createWallet: retries on warmup and succeeds",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior getWalletInfo: exhausts max retries and throws",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior getWalletInfo: retries on failure and succeeds",
+      "Seam D: BlockchainConnector \u2194 MockRpcServer sequential call patterns full wallet setup sequence through real HTTP"
     ],
     "9aeab30acdc92870": [
       "Boundary: Adaptive Mining Timer Logic T-13: non-numeric timer values rejects Infinity",
@@ -953,26 +1109,49 @@
       "Fuzz: RPC response handling sendFundsToAddress with arbitrary inputs propagates connector errors for valid inputs",
       "Fuzz: RPC response handling sendFundsToAddress with arbitrary inputs rejects invalid inputs without reaching connector"
     ],
+    "9c2cf2ebfee61805": [
+      "BlockchainConnector setTxFee calls settxfee with the fee rate and returns true on success",
+      "BlockchainConnector setTxFee carries method-not-found answered over HTTP 200",
+      "BlockchainConnector setTxFee carries method-not-found answered over HTTP 404",
+      "BlockchainConnector setTxFee flags a timed-out call",
+      "BlockchainConnector setTxFee returns false (tolerated) when the daemon rejects settxfee",
+      "BlockchainConnector setTxFee throws a static error with no rpcCode on a network error"
+    ],
     "9c4aeeddbe42a3d0": [
       "Boundary: Adaptive Mining Timer Logic T-08: both timers = Number.MAX_SAFE_INTEGER mining never triggers via timer"
     ],
-    "9f3bc35ced2d361c": [
-      "BlockchainConnector sendToAddress carries a supplied fee rate to the daemon as the fee_rate argument",
-      "BlockchainConnector sendToAddress does NOT flag an ordinary send failure as a lost wallet",
-      "BlockchainConnector sendToAddress flags a lost wallet so the caller can reload it, without saying anything in the message",
-      "BlockchainConnector sendToAddress keeps the legacy positional form when no fee rate is supplied",
-      "BlockchainConnector sendToAddress logs the node RPC error when result is falsy but throws a static message",
-      "BlockchainConnector sendToAddress still surfaces a lost wallet on the fee_rate path",
-      "BlockchainConnector sendToAddress throws a static message on a transport error (no host:port leak)",
-      "BlockchainConnector sendToAddress tolerates the verbose-form {txid: ...} response shape",
-      "BlockchainConnector sendToAddress uses positional params and returns the txid"
+    "9d7b0a77e9b7a0fe": [
+      "XChainRegtestMiner constants the funding fee pin is at or above the bitcoin default relay floor",
+      "XChainRegtestMiner constants the funding fee pin is at or above the dogecoin default relay floor",
+      "XChainRegtestMiner constants the funding fee pin is at or above the litecoin default relay floor",
+      "XChainRegtestMiner constants the funding fee pin states the same rate in coins/kB and sat/vB"
     ],
-    "9f982bd37d35fcf5": [
-      "BlockchainConnector invalidateBlock calls invalidateblock RPC and returns true on success",
-      "BlockchainConnector invalidateBlock logs the node RPC error but throws a static message",
-      "BlockchainConnector invalidateBlock rejects a 2xx body whose result member is absent",
-      "BlockchainConnector invalidateBlock rejects an error-less body that carries no result",
-      "BlockchainConnector invalidateBlock throws a static message on network error (no transport detail leak)"
+    "9de3cc8024465c44": [
+      "E2E: StatefulMockNode routed settxfee contract answers a routed settxfee to a loaded wallet with -32601 in core31 mode",
+      "E2E: StatefulMockNode routed settxfee contract answers a routed settxfee to a wallet that does not exist with -32601 in core31 mode",
+      "E2E: StatefulMockNode routed settxfee contract answers a routed settxfee to an unloaded wallet with -32601 in core31 mode",
+      "E2E: StatefulMockNode routed settxfee contract still answers a routed settxfee to an unloaded wallet with -18 in legacy mode"
+    ],
+    "9dee18984c76a630": [
+      "BlockchainConnector createWallet defaults to 50 retries",
+      "BlockchainConnector createWallet exhausts retries and throws",
+      "BlockchainConnector createWallet node answers retries a warmup answer and succeeds",
+      "BlockchainConnector createWallet node answers stops at once on \"Database already exists\" (HTTP 500 body)",
+      "BlockchainConnector createWallet node answers stops at once on a node error it would repeat (HTTP 200 body)",
+      "BlockchainConnector createWallet retries on an empty answer and succeeds",
+      "BlockchainConnector createWallet retries on failure and succeeds",
+      "BlockchainConnector createWallet returns wallet info on first success",
+      "BlockchainConnector createWallet sends correct RPC method and params",
+      "BlockchainConnector createWallet sleeps between retries"
+    ],
+    "9ea71ce714cb65c3": [
+      "BlockchainConnector getBalance returns numeric balance",
+      "BlockchainConnector getBalance returns zero balance",
+      "BlockchainConnector getBalance throws when result is NaN",
+      "BlockchainConnector getBalance wallet-missing classification flags a -18 delivered as an HTTP 500 rejection (legacy daemons)",
+      "BlockchainConnector getBalance wallet-missing classification flags a -18 delivered with HTTP 200 (Core 28+), keeping the static message",
+      "BlockchainConnector getBalance wallet-missing classification flags the base-URL \"No wallet is loaded\" answer too",
+      "BlockchainConnector getBalance wallet-missing classification sets no flag for a transport failure or another RPC error"
     ],
     "9fb04900c6b508bd": [
       "MINER_API_KEY exemption contract @regression does NOT exempt mutating/spend methods (the gate still protects them)",
@@ -990,39 +1169,25 @@
       "Chaos: Startup Under Node Unavailability (CE-05) CE-05b: miner initialization fails after exhausting retry windows (documented W-2)",
       "Chaos: Startup Under Node Unavailability (CE-05) CE-05c: miner re-initializes with existing wallet after node outage and recovery"
     ],
-    "a3697a617b189cfb": [
-      "JSON-RPC null params normalization CONTROL: without the normalizer, params:null escapes to a top-level JSON-RPC error",
-      "JSON-RPC null params normalization a well-formed call is untouched",
-      "JSON-RPC null params normalization an ABSENT params was already fine and still is (router default, not this guard)",
-      "JSON-RPC null params normalization normalizes each member of a batch body rather than replacing the array",
-      "JSON-RPC null params normalization src/api.js wires the params normalizer before the jsonRouter mount",
-      "JSON-RPC null params normalization with the normalizer, params:null returns the controller error envelope"
+    "a3224b91e2f2c481": [
+      "BlockchainConnector sendToAddress carries a supplied fee rate to the daemon as the fee_rate argument",
+      "BlockchainConnector sendToAddress does NOT flag an ordinary send failure as a lost wallet",
+      "BlockchainConnector sendToAddress flags a lost wallet reported over HTTP 500, as LTC v0.21 and DOGE v1.14 report it",
+      "BlockchainConnector sendToAddress flags a lost wallet so the caller can reload it, without saying anything in the message",
+      "BlockchainConnector sendToAddress keeps the legacy positional form when no fee rate is supplied",
+      "BlockchainConnector sendToAddress keeps the static message when a rejection carries a non-JSON body",
+      "BlockchainConnector sendToAddress logs an ordinary HTTP 500 send failure without flagging a lost wallet",
+      "BlockchainConnector sendToAddress logs the node RPC error when result is falsy but throws a static message",
+      "BlockchainConnector sendToAddress still surfaces a lost wallet on the fee_rate path",
+      "BlockchainConnector sendToAddress throws a static message on a transport error (no host:port leak)",
+      "BlockchainConnector sendToAddress tolerates the verbose-form {txid: ...} response shape",
+      "BlockchainConnector sendToAddress uses positional params and returns the txid"
     ],
     "a53a8286edcd4b5c": [
       "Boundary: Adaptive Mining Timer Logic T-01: maxTimeToMineTxs = 0 mines immediately on next poll after first tx detected"
     ],
-    "a5f61984809250ef": [
-      "pauseMining barrier vs the auto-mine loop CONTROL: without the guard a block lands after pauseMining() resolved",
-      "pauseMining barrier vs the auto-mine loop an in-flight mine still holds the barrier open (the queue drain is unchanged)",
-      "pauseMining barrier vs the auto-mine loop the shipped loop carries the guard at both auto-mine sites",
-      "pauseMining barrier vs the auto-mine loop with the guard no block lands after pauseMining() resolved",
-      "reconsiderBlock vs a concurrent pause_mining CONTROL: the unconditional restore resumes mining an operator just paused",
-      "reconsiderBlock vs a concurrent pause_mining leaves a miner that was already paused paused",
-      "reconsiderBlock vs a concurrent pause_mining still restores auto-mining when nothing else touched the flag",
-      "reconsiderBlock vs a concurrent pause_mining the concurrent pause survives the finally",
-      "reconsiderBlock vs a concurrent reconsider_block CONTROL: an epoch-only guard silently stalls the miner",
-      "reconsiderBlock vs a concurrent reconsider_block an operator pause between two overlapping reconsiders still wins",
-      "reconsiderBlock vs a concurrent reconsider_block leaves no reorg-pause hold behind when the node RPC throws",
-      "reconsiderBlock vs a concurrent reconsider_block the last reconsider out is the one that restores",
-      "reconsiderBlock vs a concurrent reconsider_block two overlapping reconsiders still leave auto-mining running"
-    ],
     "a76524c338212afe": [
       "Fuzz: mining loop state machine timer state resets after block generation resets all timer state after successful mining"
-    ],
-    "a809b314e6383258": [
-      "BlockchainConnector loadWallet returns wallet info on success",
-      "BlockchainConnector loadWallet throws clean error on network error",
-      "BlockchainConnector loadWallet throws when result is falsy"
     ],
     "a881885342b3f349": [
       "Chaos: RPC Response Corruption & Auth Failure CE-04: RPC Returns Unexpected Data Shapes CE-04a: string result is rejected by Array.isArray check (W-1 fixed)",
@@ -1188,11 +1353,6 @@
       "Boundary: Mempool Polling M-09: mempool non-empty after generateBlocks returns begins new mining cycle for remaining transactions",
       "Boundary: Mempool Polling M-10: rapid mempool changes between polls only sees snapshot at each poll; intermediate states invisible"
     ],
-    "be20180b82010b3b": [
-      "BlockchainConnector sendRawTransaction sends tx hex and returns txid",
-      "BlockchainConnector sendRawTransaction throws and logs when result is falsy",
-      "BlockchainConnector sendRawTransaction throws on network error"
-    ],
     "bf035dc937c62161": [
       "Boundary: Adaptive Mining Timer Logic T-07: addedTimeToMineTxs = Number.MAX_SAFE_INTEGER never triggers extension timer; relies on maxTimeToMineTxs"
     ],
@@ -1200,6 +1360,24 @@
       "Boundary: fillMempool Chunking and Calculations Chunk mining threshold (processedChunkCount >= 20) does not mine at exactly 19 processed chunks",
       "Boundary: fillMempool Chunking and Calculations Chunk mining threshold (processedChunkCount >= 20) mines at exactly 20 processed chunks",
       "Boundary: fillMempool Chunking and Calculations Chunk mining threshold (processedChunkCount >= 20) resets to 0 after mining at 20 (counter does not stay at 21)"
+    ],
+    "c37516aaa6eda2f1": [
+      "BlockchainConnector generateToAddress does not override the timeout, inheriting the NODE_RPC_TIMEOUT default",
+      "BlockchainConnector generateToAddress does not surface a transport error host:port in the thrown message",
+      "BlockchainConnector generateToAddress flags a client timeout as timedOut with a static, host-free message",
+      "BlockchainConnector generateToAddress leaves a non-timeout failure unflagged",
+      "BlockchainConnector generateToAddress logs the node RPC error for diagnosis but throws a static message",
+      "BlockchainConnector generateToAddress logs the node RPC error from an HTTP 500 reply but throws a static message",
+      "BlockchainConnector generateToAddress returns array of block hashes",
+      "BlockchainConnector generateToAddress throws a static message when result is falsy",
+      "BlockchainConnector generateToAddress throws a static message when the node returns an empty hash list",
+      "BlockchainConnector generateToAddress throws a static message when the result is truthy but not an array",
+      "BlockchainConnector generateToAddress throws and logs both counts when the node returns fewer hashes than requested"
+    ],
+    "c4a3043967337dd0": [
+      "fillMempool confirms every split tx before the stress loop ignores unrelated mempool txs and mines once after the split",
+      "fillMempool confirms every split tx before the stress loop mines again while a split tx is still in the mempool",
+      "fillMempool confirms every split tx before the stress loop stops with a clear error when a split tx never confirms"
     ],
     "c7022ea59c9bf473": [
       "BlockchainConnector reconsiderBlock calls reconsiderblock RPC and returns true on success",
@@ -1214,6 +1392,18 @@
     "cc33601c162a7ea5": [
       "Boundary: Adaptive Mining Timer Logic T-25: keepMining toggled false mid-timer pauses mining; timer check skipped"
     ],
+    "cdfb097c7e47e742": [
+      "node chain verification exits 1 and names the reported chain on a mainnet or mismatched node",
+      "node chain verification fails closed after the last attempt when the node never answers",
+      "node chain verification inside startApi boots as before against a regtest node",
+      "node chain verification inside startApi never starts the miner or mounts the API against a node on mainnet",
+      "node chain verification inside startApi reports the resolved boot heartbeat for an explicit non-zero environment value",
+      "node chain verification inside startApi reports the resolved boot heartbeat for an explicit zero environment value",
+      "node chain verification inside startApi reports the resolved boot heartbeat for an unset environment value",
+      "node chain verification pairs each NETWORK label only with the chains its node may report",
+      "node chain verification resolves without exiting when the node reports the matching chain",
+      "node chain verification retries a node that is still warming up"
+    ],
     "cff2b23e68673921": [
       "Boundary: fillMempool Chunking and Calculations F-02: tx_quantity = 1 calculates correct funding amount for 1 address (bare-\"regtest\" FALLBACK path)",
       "Boundary: fillMempool Chunking and Calculations F-02: tx_quantity = 1 calculates correct funding amount for 1 address (resolved \"bitcoin-regtest\" coin config)",
@@ -1222,32 +1412,6 @@
     "d01b9a6edbee9ca4": [
       "body parse error logging answers an oversized body with a JSON 413 and no stack trace",
       "body parse error logging answers malformed JSON with a JSON 400 and no stack trace"
-    ],
-    "d4519a4a9c594ea3": [
-      "Seam D: BlockchainConnector \u2194 MockRpcServer HTTP Basic Auth sends correct Authorization header",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips generateToAddress: sends count and address params",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBalance: returns positive balance",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBalance: returns zero correctly (falsy but valid)",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlock: sends blockhash with verbose=false (hex format)",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlock: sends blockhash with verbose=true (JSON format)",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlockHash: sends blockindex param",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getBlockchainInfo: sends correct payload and parses response",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getMempoolEntry: sends txid param",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getNetworkInfo: round-trip",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getNewAddress: returns address string",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getRawMempool: returns empty array",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips getRawMempool: returns populated array",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips sendRawTransaction: sends tx hex param",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer RPC round-trips sendToAddress: sends positional params (DOGE v1.14 compat)",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer error handling loadWallet: throws on RPC error",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer error handling throws on unregistered method (null result)",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer getRawTransaction error handling returns null when server returns RPC error",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer getRawTransaction error handling returns result on success",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior createWallet: exhausts retries and throws",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior createWallet: retries on failure and succeeds",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior getWalletInfo: exhausts max retries and throws",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer retry behavior getWalletInfo: retries on failure and succeeds",
-      "Seam D: BlockchainConnector \u2194 MockRpcServer sequential call patterns full wallet setup sequence through real HTTP"
     ],
     "d459b9fc4347a8dc": [
       "Security: Input Validation fillMempool quantity cap (SEC-002) accepts txQuantity at maximum boundary (50000)",
@@ -1287,6 +1451,22 @@
       "Security: Input Validation setMiningTime timer bounds (SEC-008) throws for non-integer maxTime",
       "Security: Input Validation setMiningTime timer bounds (SEC-008) throws for non-integer txAddedTime",
       "Security: Input Validation setMiningTime timer bounds (SEC-008) throws for zero values"
+    ],
+    "d68eba471a0ad241": [
+      "fill_mempool vs a concurrent generate_blocks CONTROL: the ungated mine path drains the mempool mid-fill",
+      "fill_mempool vs a concurrent generate_blocks lets the fill run its own funding mines while the public entry point is shut",
+      "fill_mempool vs a concurrent generate_blocks mines again normally once the fill has settled",
+      "fill_mempool vs a concurrent generate_blocks refuses an external generate_blocks for the whole fill",
+      "fill_mempool vs a concurrent generate_blocks rejects synchronously, before the queue append, so the guard cannot straddle an await",
+      "fill_mempool vs a concurrent generate_blocks still validates the block count when no fill is running",
+      "fill_mempool vs a mid-fill continue_mining keeps the idle heartbeat mine idle until the fill ends",
+      "fill_mempool vs a mid-fill continue_mining keeps the pending-mempool timer mine idle until the fill ends"
+    ],
+    "d712c5bc3037a72f": [
+      "pauseMining barrier source guards in the auto-mine loop the shipped loop carries the guard at both auto-mine sites",
+      "pauseMining barrier vs the auto-mine loop CONTROL: without the guard a block lands after pauseMining() resolved",
+      "pauseMining barrier vs the auto-mine loop an in-flight mine still holds the barrier open (the queue drain is unchanged)",
+      "pauseMining barrier vs the auto-mine loop with the guard no block lands after pauseMining() resolved"
     ],
     "d7f7b80a68b84a33": [
       "reorg primitives vs a concurrent generate_blocks CONTROL: the drain-only invalidate lets a mine land mid-reorg",
@@ -1359,16 +1539,14 @@
       "BlockchainConnector getRawMempool throws clean error on network error",
       "BlockchainConnector getRawMempool throws when result is falsy"
     ],
+    "deb3bf4ff79f08c2": [
+      "XChainRegtestMiner node flush cadence does not flush before the interval has passed",
+      "XChainRegtestMiner node flush cadence flushes after an idle block once the interval has passed",
+      "XChainRegtestMiner node flush cadence is off on a bare instance and on at the service default of five minutes",
+      "XChainRegtestMiner node flush cadence never flushes twice inside one interval, however fast it mines"
+    ],
     "deba678e2a24e6f6": [
       "Boundary: Adaptive Mining Timer Logic T-10: maxTimeToMineTxs < addedTimeToMineTxs initial timer fires first, extension timer is irrelevant"
-    ],
-    "df1e698cc29dbe12": [
-      "fill_mempool vs a concurrent generate_blocks CONTROL: the ungated mine path drains the mempool mid-fill",
-      "fill_mempool vs a concurrent generate_blocks lets the fill run its own funding mines while the public entry point is shut",
-      "fill_mempool vs a concurrent generate_blocks mines again normally once the fill has settled",
-      "fill_mempool vs a concurrent generate_blocks refuses an external generate_blocks for the whole fill",
-      "fill_mempool vs a concurrent generate_blocks rejects synchronously, before the queue append, so the guard cannot straddle an await",
-      "fill_mempool vs a concurrent generate_blocks still validates the block count when no fill is running"
     ],
     "e02b043673d67d6a": [
       "Boundary: Block Generation G-01: generateBlocks(0) does not log any block generation message",
@@ -1417,6 +1595,24 @@
       "T1 Regression: Boundary Conditions REG-T1-C06: fillMempool chunking math correct remainder for last chunk (2501 \u2192 remainder 1)",
       "T1 Regression: Boundary Conditions REG-T1-C06: fillMempool chunking math zero remainder for evenly divisible (5000)"
     ],
+    "e3761d8abe19146f": [
+      "miner health probe verdict does not let a not-yet-prepared wallet hide behind mining_paused",
+      "miner health probe verdict exempts health from the MINER_API_KEY gate, as the probe sends no key",
+      "miner health probe verdict fails closed on a missing status payload past the grace window",
+      "miner health probe verdict is healthy when the wallet is ready and the loop is not failing",
+      "miner health probe verdict is unhealthy on a sustained run of FAILED MINES while RPC reads still succeed",
+      "miner health probe verdict is unhealthy on a sustained run of mining failures",
+      "miner health probe verdict is unhealthy when the wallet is ready but the mining loop never started",
+      "miner health probe verdict is unhealthy when the wallet never became ready past the cold-start grace",
+      "miner health probe verdict lets a handler 503 reach the wire through the owned dispatcher",
+      "miner health probe verdict points the Docker HEALTHCHECK at health rather than ping",
+      "miner health probe verdict registers health on the JSON-RPC controller and 503s on the verdict",
+      "miner health probe verdict tolerates a mine-failure streak below the threshold",
+      "miner health probe verdict tolerates a not-yet-ready wallet inside the cold-start grace",
+      "miner health probe verdict tolerates a short failure streak below the threshold",
+      "miner health probe verdict treats a deliberate pause as healthy even with a failing MINE streak",
+      "miner health probe verdict treats a deliberate pause as healthy even with a failing streak"
+    ],
     "e3f5f5c8a4bf3db2": [
       "Chaos: RPC Disruption CE-01: RPC Connection Loss CE-01a: mining loop survives RPC outage and resumes after recovery",
       "Chaos: RPC Disruption CE-01: RPC Connection Loss CE-01b: miner does not crash during extended outage",
@@ -1438,6 +1634,75 @@
       "XChainRegtestMiner start (mining loop) sets keepMining to true",
       "XChainRegtestMiner start (mining loop) starts initial timer when first tx appears in mempool",
       "XChainRegtestMiner start (mining loop) tracks lastRawMempoolLength correctly (bug fix verification)"
+    ],
+    "e57f442e7943f2a9": [
+      "JSON-RPC envelope leniencies and log hygiene batch null ids and notifications answers arbitrary invalid envelopes with canonical replies and no unhandled rejection",
+      "JSON-RPC envelope leniencies and log hygiene batch null ids and notifications answers null-id elements inside a batch and still drops true notifications",
+      "JSON-RPC envelope leniencies and log hygiene batch null ids and notifications settles every batch notification rejection and sends no body",
+      "JSON-RPC envelope leniencies and log hygiene batch null ids and notifications still sends no body for a notification (no id member)",
+      "JSON-RPC envelope leniencies and log hygiene empty batch and null id answers a null-id error with id null",
+      "JSON-RPC envelope leniencies and log hygiene empty batch and null id answers a request whose id is null, echoing id null",
+      "JSON-RPC envelope leniencies and log hygiene empty batch and null id answers an empty batch with one Invalid Request error, id null",
+      "JSON-RPC envelope leniencies and log hygiene empty batch and null id answers malformed versions and ids with a canonical error envelope",
+      "JSON-RPC envelope leniencies and log hygiene empty batch and null id echoes numeric id zero on an unknown-method error",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params \"str\" is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params 7 is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params [1,2] is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params [] still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params null still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params true is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params undefined still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params continue_mining with params {} still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params \"str\" is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params 7 is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params [1,2] is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params [] still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params null still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params true is refused and leaves state alone",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params undefined still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene mining controls refuse junk params pause_mining with params {} still answers ok",
+      "JSON-RPC envelope leniencies and log hygiene send failure log line bounds the logged node error when the node answers HTTP 200 with an error",
+      "JSON-RPC envelope leniencies and log hygiene send failure log line bounds the logged node error when the node answers HTTP 500",
+      "JSON-RPC envelope leniencies and log hygiene send failure log line still flags a lost wallet from a long node message"
+    ],
+    "e5b8d8ba196e7969": [
+      "observability logger: fields, blank line and fallback drops a string, number, null or omitted fields value from the call",
+      "observability logger: fields, blank line and fallback emits a blank line for an empty message",
+      "observability logger: fields, blank line and fallback falls back to console.log when the mapped console method is absent",
+      "observability logger: fields, blank line and fallback passes an object, array or Error fields value as a second argument",
+      "observability logger: level routing routes debug to console.debug and no other console method",
+      "observability logger: level routing routes error to console.error and no other console method",
+      "observability logger: level routing routes info to console.log and no other console method",
+      "observability logger: level routing routes warn to console.warn and no other console method",
+      "observability logger: shape and prefix keeps each named instance on its own prefix",
+      "observability logger: shape and prefix prefixes a named logger line with [name] and one space",
+      "observability logger: shape and prefix prints an unnamed logger line with no prefix and one argument",
+      "observability logger: shape and prefix returns debug, info, warn and error functions"
+    ],
+    "e6cf5796361752d3": [
+      "BlockchainConnector loadWallet carries the node code from an HTTP 200 error body",
+      "BlockchainConnector loadWallet carries the node code from an HTTP 500 rejection",
+      "BlockchainConnector loadWallet flags a timeout without an rpc code",
+      "BlockchainConnector loadWallet returns wallet info on success",
+      "BlockchainConnector loadWallet throws clean error on network error",
+      "BlockchainConnector loadWallet throws when result is falsy"
+    ],
+    "e7b977d294483a92": [
+      "API authentication seam does not install a request gate when no API key is configured",
+      "API authentication seam lets an unauthenticated health request reach its handler",
+      "API authentication seam rejects a mutating request with the wrong API key",
+      "API startup HTTP seams installs JSON parsing, security headers, and CORS on the API app",
+      "API startup HTTP seams stores the listening handle on the miner and logs the bound port",
+      "API startup configuration seams accepts a complete local regtest configuration without warnings",
+      "API startup configuration seams creates a miner with the supplied node connection settings",
+      "API startup configuration seams starts the miner without waiting for the long-running loop",
+      "API startup configuration seams warns when node RPC points away from loopback"
+    ],
+    "e7f857e9f44e248e": [
+      "buildSendToAddressData falls back to positional for null, zero, negative, NaN, Infinity and non-number rates",
+      "buildSendToAddressData never includes a verbose parameter",
+      "buildSendToAddressData sends named params with fee_rate for a positive finite rate",
+      "buildSendToAddressData sends positional [address, amount] when no fee rate is given"
     ],
     "e84ae18c9ef78b12": [
       "BlockchainConnector setMockTime calls setmocktime RPC with the numeric timestamp and returns true",
@@ -1476,8 +1741,34 @@
     "ec3024fe0a8eaa51": [
       "Boundary: Adaptive Mining Timer Logic T-27: mempool non-empty after generateBlocks resets timers and starts new cycle for remaining txs"
     ],
-    "edc346175129551c": [
-      "Boundary: Adaptive Mining Timer Logic T-26: keepMining re-enabled with stale timer values stale timestamps may cause immediate mining on resume"
+    "edf481765c74ba7e": [
+      "E2E: wallet binding after a successful probe creates, pins and matures its own wallet when only an unfunded foreign wallet is loaded",
+      "E2E: wallet binding after a successful probe loads and pins its own wallet when only a foreign wallet is loaded",
+      "E2E: wallet binding after a successful probe reloads a wallet lost to a restart after a probed start (HTTP 200 daemon)",
+      "E2E: wallet binding after a successful probe reloads a wallet lost to a restart after a probed start (HTTP 500 daemon)"
+    ],
+    "f0b7f84ad0726af5": [
+      "reconsiderBlock vs a concurrent pause_mining CONTROL: the unconditional restore resumes mining an operator just paused",
+      "reconsiderBlock vs a concurrent pause_mining leaves a miner that was already paused paused",
+      "reconsiderBlock vs a concurrent pause_mining still restores auto-mining when nothing else touched the flag",
+      "reconsiderBlock vs a concurrent pause_mining the concurrent pause survives the finally",
+      "reconsiderBlock vs a concurrent reconsider_block CONTROL: an epoch-only guard silently stalls the miner",
+      "reconsiderBlock vs a concurrent reconsider_block an operator pause between two overlapping reconsiders still wins",
+      "reconsiderBlock vs a concurrent reconsider_block leaves no reorg-pause hold behind when the node RPC throws",
+      "reconsiderBlock vs a concurrent reconsider_block the last reconsider out is the one that restores",
+      "reconsiderBlock vs a concurrent reconsider_block two overlapping reconsiders still leave auto-mining running"
+    ],
+    "f1040e66b0f96b59": [
+      "fill_mempool stress txs clear the coin mining floor keeps every Dogecoin stress output at or above the soft dust limit",
+      "fill_mempool stress txs clear the coin mining floor leaves Bitcoin, Litecoin and the bare-regtest fallback at their dust-scaled values",
+      "fill_mempool stress txs clear the coin mining floor pays at least the Dogecoin block minimum fee rate on every stress tx"
+    ],
+    "f144c7b29a3998fd": [
+      "XChainRegtestMiner refreshWalletFunds wallet reload failures and pacing does not reload on a failure that is not a lost wallet",
+      "XChainRegtestMiner refreshWalletFunds wallet reload failures and pacing starts at most one reload per refresh interval while the wallet stays lost",
+      "XChainRegtestMiner refreshWalletFunds wallet reload failures and pacing still resolves, with a null balance, when the reload itself fails",
+      "XChainRegtestMiner refreshWalletFunds wallet reload never makes the balance read wait on the reload",
+      "XChainRegtestMiner refreshWalletFunds wallet reload reloads a lost wallet, re-pins settxfee on LTC, and the next read is numeric"
     ],
     "f19903a0c9068d45": [
       "BlockchainConnector getBlock sends boolean false verbose for hex format (default)",
@@ -1485,28 +1776,24 @@
       "BlockchainConnector getBlock throws clean error on network error",
       "BlockchainConnector getBlock throws when result is falsy"
     ],
+    "f5aa3537d105fd6a": [
+      "E2E: StatefulMockNode doge114 and no-wallet wire contract accepts a named address and amount and omits walletname in doge114 mode",
+      "E2E: StatefulMockNode doge114 and no-wallet wire contract answers base-URL wallet calls with -18 over HTTP 200 when no wallet is loaded in core31 mode",
+      "E2E: StatefulMockNode doge114 and no-wallet wire contract answers base-URL wallet calls with -18 over HTTP 500 when no wallet is loaded in legacy mode",
+      "E2E: StatefulMockNode doge114 and no-wallet wire contract refuses a named fee_rate send in doge114 mode",
+      "E2E: StatefulMockNode doge114 and no-wallet wire contract refuses a named verbose send in doge114 mode",
+      "E2E: StatefulMockNode doge114 and no-wallet wire contract starts with its wallet loaded and refuses the multi-wallet RPCs over HTTP 404 in doge114 mode",
+      "E2E: StatefulMockNode fee RPC contract keeps the daemon mode across reset and refuses an unknown one",
+      "E2E: StatefulMockNode fee RPC contract rejects settxfee as method-not-found and reports 31.0.0 in core31 mode",
+      "E2E: StatefulMockNode fee RPC contract validates, stores and reports settxfee in legacy mode",
+      "E2E: StatefulMockNode wire contract answers a named sendtoaddress without verbose with a bare txid string",
+      "E2E: StatefulMockNode wire contract answers a positional sendtoaddress with a bare txid string",
+      "E2E: StatefulMockNode wire contract answers the verbose object only when verbose is requested"
+    ],
     "f5c56c81dbf860a3": [
       "Boundary: fillMempool Chunking and Calculations PSBT output distribution per chunk address index capped by addresses.length for partial last chunk",
       "Boundary: fillMempool Chunking and Calculations PSBT output distribution per chunk first chunk processes addresses 0 to 2499",
       "Boundary: fillMempool Chunking and Calculations PSBT output distribution per chunk second chunk processes addresses 2500 to 4999"
-    ],
-    "f670f2b540da8369": [
-      "api.js ensureJsonRpcBody defaults an undefined body to {} and calls next",
-      "api.js ensureJsonRpcBody leaves an already-populated body untouched",
-      "api.js mountJsonRpc method dispatch refuses Object.prototype name __proto__ with -32601 and no result",
-      "api.js mountJsonRpc method dispatch refuses Object.prototype name constructor with -32601 and no result",
-      "api.js mountJsonRpc method dispatch refuses Object.prototype name hasOwnProperty with -32601 and no result",
-      "api.js mountJsonRpc method dispatch refuses Object.prototype name toLocaleString with -32601 and no result",
-      "api.js mountJsonRpc method dispatch refuses Object.prototype name toString with -32601 and no result",
-      "api.js mountJsonRpc method dispatch refuses Object.prototype name valueOf with -32601 and no result",
-      "api.js mountJsonRpc method dispatch still dispatches a real method",
-      "api.js normalizeJsonRpcParams coalesces an explicit null params to {} on a single request",
-      "api.js normalizeJsonRpcParams coalesces null params on every entry of a batch request",
-      "api.js normalizeJsonRpcParams leaves already-present params untouched and still calls next",
-      "api.js timingSafeStringEqual returns false for strings of different length rather than throwing",
-      "api.js timingSafeStringEqual returns false for two different strings of the same length",
-      "api.js timingSafeStringEqual returns true for two equal strings",
-      "api.js timingSafeStringEqual treats a missing header (undefined) as the empty string and fails closed"
     ],
     "f95579d047e3480a": [
       "T1 Regression: Security REG-T1-D01: sendFundsToAddress input validation rejects -Infinity amount",
@@ -1539,13 +1826,6 @@
       "Boundary: fillMempool Chunking and Calculations F-02b: split-tx fee scales to coin dust threshold scales to 100000 koinu/output for dogecoin-regtest",
       "Boundary: fillMempool Chunking and Calculations F-02b: split-tx fee scales to coin dust threshold scales to 5460 litoshi/output for litecoin-regtest",
       "Boundary: fillMempool Chunking and Calculations F-02b: split-tx fee scales to coin dust threshold uses 546 sat/output for the resolved bitcoin-regtest coin config"
-    ],
-    "ff313fe7b4fabc63": [
-      "BlockchainConnector generateToAddress does not override the timeout, inheriting the NODE_RPC_TIMEOUT default",
-      "BlockchainConnector generateToAddress does not surface a transport error host:port in the thrown message",
-      "BlockchainConnector generateToAddress logs the node RPC error for diagnosis but throws a static message",
-      "BlockchainConnector generateToAddress returns array of block hashes",
-      "BlockchainConnector generateToAddress throws a static message when result is falsy"
     ]
   },
   "scripts": {
@@ -1554,7 +1834,7 @@
     },
     "test:boundary": {
       "fileCount": 45,
-      "titleCount": 189,
+      "titleCount": 193,
       "files": {
         "test/boundary/api_boundary.test.js": "bb00bce9d839766b",
         "test/boundary/combined_boundary.test.js": "2e20a614bd0a6433",
@@ -1598,7 +1878,7 @@
         "test/boundary/timer_boundary.test/16_t_23_mempool_empties_completely_between_polls.test.js": "82becc1ea033f724",
         "test/boundary/timer_boundary.test/17_t_24_mempool_burst_from_0_to_n_in_single_poll.test.js": "171e36155ca4a255",
         "test/boundary/timer_boundary.test/18_t_25_keep_mining_toggled_false_mid_timer.test.js": "cc33601c162a7ea5",
-        "test/boundary/timer_boundary.test/19_t_26_keep_mining_re_enabled_with_stale_timer_values.test.js": "edc346175129551c",
+        "test/boundary/timer_boundary.test/19_t_26_keep_mining_re_enabled_with_stale_timer_values.test.js": "5e236d03b2ab9372",
         "test/boundary/timer_boundary.test/20_t_27_mempool_non_empty_after_generate_blocks.test.js": "ec3024fe0a8eaa51",
         "test/boundary/wallet_boundary.test.js": "b52e97ba49c25a4d"
       }
@@ -1616,18 +1896,27 @@
       }
     },
     "test:e2e": {
-      "fileCount": 6,
-      "titleCount": 26,
+      "error": "mocha exited 1 with 1 failure(s)",
+      "fileCount": 13,
+      "titleCount": 74,
       "files": {
         "test/e2e/api.test.js": "71e1b7f9a9d64a57",
+        "test/e2e/balance_read_wallet_reload.test.js": "483c3ba651ef5bce",
         "test/e2e/chain_state.test.js": "3c97a1ee3d28ebdd",
+        "test/e2e/fee_pinning.test.js": "249b7c3449489564",
         "test/e2e/fill_mempool.test.js": "a0d7818c7e9c64f7",
         "test/e2e/mining_loop.test.js": "0c35eb34f3d791ca",
+        "test/e2e/reorg_control.test.js": "4dd5a2413d687a64",
         "test/e2e/resilience.test.js": "461fb74fe5da7ce2",
-        "test/e2e/startup.test.js": "491dcf628d743c23"
+        "test/e2e/routed_settxfee_contract.test.js": "9de3cc8024465c44",
+        "test/e2e/startup.test.js": "491dcf628d743c23",
+        "test/e2e/stateful_mock_node_wire.test.js": "f5aa3537d105fd6a",
+        "test/e2e/wallet_binding.test.js": "edf481765c74ba7e",
+        "test/e2e/wallet_load_classification.test.js": "40733de355536b95"
       }
     },
     "test:fuzz": {
+      "error": "mocha exited 2 with 2 failure(s)",
       "fileCount": 9,
       "titleCount": 124,
       "files": {
@@ -1643,6 +1932,7 @@
       }
     },
     "test:fuzz:quick": {
+      "error": "mocha exited 2 with 2 failure(s)",
       "fileCount": 9,
       "titleCount": 124,
       "files": {
@@ -1658,17 +1948,19 @@
       }
     },
     "test:integration": {
-      "fileCount": 12,
-      "titleCount": 80,
+      "fileCount": 14,
+      "titleCount": 89,
       "files": {
         "test/integration/api.test.js": "2f5f62c0490d67ca",
-        "test/integration/connector_rpc.test.js": "d4519a4a9c594ea3",
+        "test/integration/connector_rpc.test.js": "9a6495bd9894f7a2",
+        "test/integration/connector_wallet_routing.test.js": "701fd72da4138468",
         "test/integration/fill_mempool_crypto.test.js": "aa89d162b15525bf",
         "test/integration/fill_mempool_crypto.test/01_utxo_identification_from_raw_transaction.test.js": "5b031e69aaf9f134",
         "test/integration/fill_mempool_crypto.test/02_distribution_psbt_main_address_to_child_addresses.test.js": "b1f9526761a35b1c",
         "test/integration/fill_mempool_crypto.test/03_stress_psbt_child_address_to_main_address.test.js": "397f170e984ec728",
         "test/integration/fill_mempool_crypto.test/04_ecpair_network_parameter.test.js": "77974a1b36c1001b",
         "test/integration/fill_mempool_crypto.test/05_fill_mempool_end_to_end_with_real_crypto.test.js": "90901a7a34d0d4aa",
+        "test/integration/fill_mempool_split_confirmation.test.js": "c4a3043967337dd0",
         "test/integration/miner_connector.test.js": "b0e568e61782776e",
         "test/integration/miner_connector.test/01_mining_loop_sequences.test.js": "6a07711134934e3e",
         "test/integration/miner_connector.test/02_send_funds_to_address_delegation.test.js": "4dc9be5ab1ba17be",
@@ -1729,10 +2021,10 @@
     },
     "test:security": {
       "fileCount": 7,
-      "titleCount": 187,
+      "titleCount": 161,
       "files": {
         "test/security/api_hardening_security.test.js": "ae2962b0ca51d81a",
-        "test/security/connector_sanitization_security.test.js": "7da8bb2e5e171546",
+        "test/security/connector_sanitization_security.test.js": "95bf4b21c848776e",
         "test/security/connector_sanitization_surface_security.test.js": "5e4e9ac46d4098df",
         "test/security/env_validation_security.test.js": "9b5bfd0cd5515696",
         "test/security/error_sanitization_security.test.js": "6bbb6ea0661ff52d",
@@ -1748,21 +2040,32 @@
       }
     },
     "test:unit": {
-      "fileCount": 58,
-      "titleCount": 444,
+      "fileCount": 82,
+      "titleCount": 623,
       "files": {
+        "test/unit/XChainRegtestMiner/constants.test.js": "9d7b0a77e9b7a0fe",
         "test/unit/XChainRegtestMiner/fill_mempool_cancel_progress.test.js": "5dcf6d2e9d2d2168",
+        "test/unit/XChainRegtestMiner/fill_mempool_stress_fee_priority.test.js": "f1040e66b0f96b59",
         "test/unit/XChainRegtestMiner/invalidate_block_refused_keeps_mining.test.js": "7515eec3e311a336",
         "test/unit/XChainRegtestMiner/mine_timeout_settle.test.js": "42496d6ec749e27d",
+        "test/unit/XChainRegtestMiner/miner_health_probe_real_miner.test.js": "7af20fadcd840e3c",
         "test/unit/XChainRegtestMiner/mining_schedule.test.js": "761a7616d5566d05",
+        "test/unit/XChainRegtestMiner/reconsider_block_pause_interaction.test.js": "f0b7f84ad0726af5",
+        "test/unit/XChainRegtestMiner/start_pre_ready_mining_state.test.js": "4cb3ced9616e5ec0",
         "test/unit/XChainRegtestMiner/status_paused_during_fill.test.js": "1ab65af698be670e",
         "test/unit/api.test.js": "b9cca43fc8cd5efd",
+        "test/unit/api.test/auth_and_startup.test.js": "e7b977d294483a92",
         "test/unit/api.test/body_parse_error_logging.test.js": "d01b9a6edbee9ca4",
+        "test/unit/api.test/node_chain_verification.test.js": "cdfb097c7e47e742",
         "test/unit/api/api_body_parser_json_errors.test.js": "0761c3aeace943e1",
-        "test/unit/api/envelope_leniency_notes.test.js": "6d58e53e79c9bc3e",
-        "test/unit/api/jsonrpc_null_batch_element.test.js": "2a65261ac0792d59",
-        "test/unit/api_body_and_key_guards.test.js": "f670f2b540da8369",
+        "test/unit/api/envelope_leniency_notes.test.js": "e57f442e7943f2a9",
+        "test/unit/api/jsonrpc_null_batch_element.test.js": "0e54263c921cefb3",
+        "test/unit/api/miner_health_format.test.js": "8944cfd09cd3681b",
+        "test/unit/api/wallet_funding_caps.test.js": "667ce6bf97b15120",
+        "test/unit/api_block_and_mining_controls.test.js": "946900acd5e42cf5",
+        "test/unit/api_body_and_key_guards.test.js": "2810bbba4bba7063",
         "test/unit/api_key_exemption.test.js": "9fb04900c6b508bd",
+        "test/unit/bin_tools/pin_identity.test.js": "2bcaee50cdcaf98a",
         "test/unit/blockchain_connector.test.js": "671fa2c590201b73",
         "test/unit/blockchain_connector.test/01_get_network_info.test.js": "7eda23ba590cdcee",
         "test/unit/blockchain_connector.test/02_get_blockchain_info.test.js": "aa208f59123349c1",
@@ -1771,35 +2074,43 @@
         "test/unit/blockchain_connector.test/05_get_raw_mempool.test.js": "dc379c2fb71ee433",
         "test/unit/blockchain_connector.test/06_get_mempool_entry.test.js": "03b767b82ad0110e",
         "test/unit/blockchain_connector.test/07_get_raw_transaction.test.js": "207c46f298f2fc1f",
-        "test/unit/blockchain_connector.test/08_create_wallet.test.js": "42340a17642bb547",
+        "test/unit/blockchain_connector.test/08_create_wallet.test.js": "9dee18984c76a630",
         "test/unit/blockchain_connector.test/09_get_wallet_info.test.js": "906040fe4a8a748f",
-        "test/unit/blockchain_connector.test/10_load_wallet.test.js": "a809b314e6383258",
+        "test/unit/blockchain_connector.test/10_load_wallet.test.js": "e6cf5796361752d3",
         "test/unit/blockchain_connector.test/11_get_new_address.test.js": "0b25bc4bf4dd2797",
-        "test/unit/blockchain_connector.test/12_generate_to_address.test.js": "ff313fe7b4fabc63",
-        "test/unit/blockchain_connector.test/13_get_balance.test.js": "666fc4b8e265f889",
-        "test/unit/blockchain_connector.test/14_send_to_address.test.js": "9f3bc35ced2d361c",
-        "test/unit/blockchain_connector.test/15_set_tx_fee.test.js": "09017d9bcfe5cdc8",
-        "test/unit/blockchain_connector.test/16_invalidate_block.test.js": "9f982bd37d35fcf5",
+        "test/unit/blockchain_connector.test/12_generate_to_address.test.js": "c37516aaa6eda2f1",
+        "test/unit/blockchain_connector.test/13_get_balance.test.js": "9ea71ce714cb65c3",
+        "test/unit/blockchain_connector.test/14_send_to_address.test.js": "a3224b91e2f2c481",
+        "test/unit/blockchain_connector.test/15_set_tx_fee.test.js": "9c2cf2ebfee61805",
+        "test/unit/blockchain_connector.test/16_invalidate_block.test.js": "678f3f3fd43fd7d4",
         "test/unit/blockchain_connector.test/17_reconsider_block.test.js": "c7022ea59c9bf473",
         "test/unit/blockchain_connector.test/18_set_mock_time.test.js": "e84ae18c9ef78b12",
-        "test/unit/blockchain_connector.test/19_send_raw_transaction.test.js": "be20180b82010b3b",
+        "test/unit/blockchain_connector.test/19_send_raw_transaction.test.js": "4123fe6f739d24de",
         "test/unit/blockchain_connector.test/20_sleep.test.js": "46a7ade14e0c8964",
+        "test/unit/blockchain_connector_wallets.test/01_list_wallets_and_base_url_wallet_missing.test.js": "8b5308012a6f6424",
         "test/unit/coins_conformance.test.js": "2442df610ebb6911",
+        "test/unit/config/node_rpc_timeout_config.test.js": "4cb37d794b2b4640",
         "test/unit/coverage_thresholds_sync.test.js": "4405034a199528ec",
         "test/unit/crypto_networks.test.js": "6759ce6db03c3c10",
-        "test/unit/fill_mempool_mine_exclusion.test.js": "df1e698cc29dbe12",
-        "test/unit/idle_mine_heartbeat.test.js": "7b49b18b1c656b04",
-        "test/unit/jsonrpc_body_guard.test.js": "58706b2a54fa0008",
-        "test/unit/jsonrpc_null_params.test.js": "a3697a617b189cfb",
+        "test/unit/fill_mempool_mine_exclusion.test.js": "d68eba471a0ad241",
+        "test/unit/idle_mine_heartbeat.test.js": "77697e5e8bb25a0d",
+        "test/unit/jsonrpc_body_guard.test.js": "64303071b35f24ac",
+        "test/unit/jsonrpc_null_params.test.js": "83ba7d2c3b87481a",
+        "test/unit/layout/paths.test.js": "7c57cbec3a550ef9",
         "test/unit/mempool_status_freshness/paused_polling.test.js": "8b087cfaf3084c81",
         "test/unit/mempool_status_freshness/status_read_bound.test.js": "b0f0b7e9c4f35d71",
         "test/unit/mine_loop_turns.test.js": "1ea3ecec22eb8b8a",
-        "test/unit/miner_health_probe.test.js": "071ce9df115b49d3",
+        "test/unit/miner_health_probe.test.js": "e3761d8abe19146f",
         "test/unit/no_key_boot_warning.test.js": "71884b7dd048eb3b",
-        "test/unit/pause_mining_barrier.test.js": "a5f61984809250ef",
+        "test/unit/node_flush.test/01_cadence.test.js": "deb3bf4ff79f08c2",
+        "test/unit/node_flush.test/02_gating_and_failure.test.js": "88e4479fb518776e",
+        "test/unit/observability/logger.test.js": "e5b8d8ba196e7969",
+        "test/unit/pause_mining_barrier.test.js": "d712c5bc3037a72f",
         "test/unit/prototype/method_descriptors.test.js": "06577b6c23ce9142",
         "test/unit/reorg_mine_barrier.test.js": "d7f7b80a68b84a33",
         "test/unit/reorg_wallet_funds.test.js": "26d6ee08948e6531",
+        "test/unit/rpc/blockchain_connector/rpc_error.test.js": "5c121ed8a2c86ae2",
+        "test/unit/rpc/wallet_rpc_send_data.test.js": "e7f857e9f44e248e",
         "test/unit/security/configuration/dependency_advisories.test.js": "0f2abe37f99c5a17",
         "test/unit/wallet_balance_freshness.test.js": "6c3ecc15eec173af",
         "test/unit/xchain_regtest_miner.test.js": "8aa317e8fb38fb47",
@@ -1808,7 +2119,12 @@
         "test/unit/xchain_regtest_miner.test/03_prepare_wallet.test.js": "57a803d31d74b2a1",
         "test/unit/xchain_regtest_miner.test/04_start_mining_loop.test.js": "e541c4daee612963",
         "test/unit/xchain_regtest_miner.test/05_fill_mempool.test.js": "e277119bcac1e563",
-        "test/unit/xchain_regtest_miner.test/06_sleep.test.js": "d951ee83273e1e7c"
+        "test/unit/xchain_regtest_miner.test/06_sleep.test.js": "d951ee83273e1e7c",
+        "test/unit/xchain_regtest_miner.test/07_send_funds_wallet_reload.test.js": "5880a5abfa427509",
+        "test/unit/xchain_regtest_miner.test/08_probe_wallet_binding.test.js": "45bd07eb1cb13602",
+        "test/unit/xchain_regtest_miner.test/09_funding_fee_pin_retry.test.js": "30a8d9a98c1fcb16",
+        "test/unit/xchain_regtest_miner.test/10_balance_read_wallet_reload.test.js": "f144c7b29a3998fd",
+        "test/unit/xchain_regtest_miner.test/11_funding_fee_repin_after_reload.test.js": "5e2d6318584ecb17"
       }
     }
   }

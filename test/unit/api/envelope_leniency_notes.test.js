@@ -15,6 +15,7 @@
 //      so a 20000-char address produced a 20 KB log line.
 
 const assert = require('assert');
+const fc = require('fast-check');
 const http = require('http');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -51,6 +52,38 @@ async function post(app, rawBody) {
     } finally {
         await new Promise((resolve) => server.close(resolve));
     }
+}
+
+async function postAndObserveUnhandled(app, rawBody) {
+    let rejection;
+    let observed = false;
+    const listener = (reason) => {
+        observed = true;
+        rejection = reason;
+    };
+    process.once('unhandledRejection', listener);
+    try {
+        const response = await post(app, rawBody);
+        await new Promise((resolve) => setImmediate(resolve));
+        return { response, observed, rejection };
+    } finally {
+        process.removeListener('unhandledRejection', listener);
+    }
+}
+
+function assertCanonicalReply(reply) {
+    assert.strictEqual(reply.jsonrpc, '2.0');
+    assert.ok(reply.id === null || typeof reply.id === 'string' || typeof reply.id === 'number');
+    assert.notStrictEqual(Object.hasOwn(reply, 'result'), Object.hasOwn(reply, 'error'));
+    if (reply.error) assert.strictEqual(Number.isInteger(reply.error.code), true);
+}
+
+function assertCanonicalResponse(text) {
+    assert.notStrictEqual(text, '', 'arbitrary invalid envelopes must produce a reply');
+    const payload = JSON.parse(text);
+    const replies = Array.isArray(payload) ? payload : [payload];
+    assert.ok(replies.length > 0);
+    replies.forEach(assertCanonicalReply);
 }
 
 function fakeMiner() {
@@ -146,6 +179,34 @@ function emptyBatchAndNullIdTests() {
         assert.strictEqual(body.id, null);
         assert.strictEqual(body.error && body.error.code, -32601);
     });
+
+    it('echoes numeric id zero on an unknown-method error', async () => {
+        const r = await post(buildApp(pingController()), JSON.stringify({ jsonrpc: '2.0', method: 'nope', id: 0 }));
+        const body = JSON.parse(r.text);
+        assert.strictEqual(body.id, 0);
+        assert.strictEqual(body.error && body.error.code, -32601);
+    });
+
+    it('answers malformed versions and ids with a canonical error envelope', async () => {
+        const wrongVersion = await post(
+            buildApp(pingController()),
+            JSON.stringify({ jsonrpc: '1.0', method: 'ping', id: 2 }),
+        );
+        assert.deepStrictEqual(JSON.parse(wrongVersion.text), {
+            jsonrpc: '2.0',
+            id: 2,
+            error: { code: -32600, message: 'Invalid Request' },
+        });
+        const objectId = await post(
+            buildApp(pingController()),
+            JSON.stringify({ jsonrpc: '2.0', method: 'ping', id: { value: 3 } }),
+        );
+        assert.deepStrictEqual(JSON.parse(objectId.text), {
+            jsonrpc: '2.0',
+            id: null,
+            error: { code: -32600, message: 'Invalid Request' },
+        });
+    });
 }
 
 function batchAndNotificationTests() {
@@ -168,6 +229,42 @@ function batchAndNotificationTests() {
         const r = await post(buildApp(pingController()), JSON.stringify({ jsonrpc: '2.0', method: 'ping' }));
         assert.strictEqual(r.text, '');
     });
+
+    it('settles every batch notification rejection and sends no body', async () => {
+        const controller = {
+            ping: async () => 'pong',
+            boom: async () => Promise.reject(undefined),
+        };
+        const body = JSON.stringify([
+            { jsonrpc: '2.0', method: 'ping' },
+            { jsonrpc: '2.0', method: 'boom' },
+        ]);
+        const { response, observed, rejection } = await postAndObserveUnhandled(buildApp(controller), body);
+        assert.strictEqual(response.text, '');
+        assert.strictEqual(observed, false, String(rejection));
+    });
+
+    it('answers arbitrary invalid envelopes with canonical replies and no unhandled rejection', async () => {
+        const invalidObject = fc.dictionary(fc.string(), fc.jsonValue()).filter((value) => {
+            return value.jsonrpc !== '2.0' || typeof value.method !== 'string' || value.method.length === 0;
+        });
+        const invalidElement = fc.oneof(
+            fc.constant(null),
+            fc.string(),
+            fc.integer(),
+            fc.boolean(),
+            fc.array(fc.jsonValue()),
+        );
+        const invalidBatch = fc.array(invalidElement, { minLength: 1, maxLength: 20 });
+        await fc.assert(
+            fc.asyncProperty(fc.oneof(invalidObject, invalidBatch), async (envelope) => {
+                const observed = await postAndObserveUnhandled(buildApp(pingController()), JSON.stringify(envelope));
+                assert.strictEqual(observed.observed, false, String(observed.rejection));
+                assertCanonicalResponse(observed.response.text);
+            }),
+            { numRuns: 100 },
+        );
+    });
 }
 
 function junkParamCase(method, junk) {
@@ -180,7 +277,12 @@ function junkParamCase(method, junk) {
             JSON.stringify({ jsonrpc: '2.0', method, params: junk, id: 1 }),
         );
         const body = JSON.parse(r.text);
-        assert.ok(body.result && typeof body.result.error === 'string', JSON.stringify(body));
+        if (junk !== null && typeof junk === 'object') {
+            assert.ok(body.result && typeof body.result.error === 'string', JSON.stringify(body));
+        } else {
+            assert.strictEqual(body.error && body.error.code, -32600, JSON.stringify(body));
+            assert.strictEqual(Object.hasOwn(body, 'result'), false);
+        }
         assert.strictEqual(miner.paused, before, 'mining state unchanged');
     });
 }

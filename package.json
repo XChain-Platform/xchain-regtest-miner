@@ -12,6 +12,7 @@
         "@stryker-mutator/mocha-runner": "^9.6.1",
         "c8": "^11.0.0",
         "eslint": "^9.39.5",
+        "express-json-rpc-router": "^1.4.0",
         "fast-check": "^4.6.0",
         "mocha": "^11.7.5",
         "prettier": "3.9.10",
@@ -27,7 +28,6 @@
         "dotenv": "^16.4.5",
         "ecpair": "2.1.0",
         "express": "^5.2.1",
-        "express-json-rpc-router": "^1.4.0",
         "helmet": "^8.2.0",
         "tiny-secp256k1": "2.2.4"
     },
