@@ -59,6 +59,21 @@ async function testAlreadyLoadedIsLoaded(daemon) {
         assert.strictEqual(node.callsFor('loadwallet').length, 1);
         assert.strictEqual(node.callsFor('createwallet').length, 0, 'an already-loaded wallet must never be created');
         assert.ok(miner.connector.walletUrl.endsWith('/wallet/' + OURS));
+        // core31 answers the dedicated -35 and is taken at its word; the older daemons answer -4 and are asked.
+        assert.strictEqual(node.callsFor('listwallets').length, daemon === 'core31' ? 0 : 1);
+    });
+}
+
+async function testAlreadyLoadedAnswerMatchesDaemon(daemon, expectedCode) {
+    await withNode(daemon, async (node) => {
+        await rpc(node, 'createwallet', [OURS]);
+        // Legacy daemons carry an RPC error on HTTP 500, so read the body whatever the status.
+        const res = await axios.post(
+            `http://127.0.0.1:${node.port}/`,
+            { jsonrpc: '2.0', method: 'loadwallet', params: [OURS], id: 1 },
+            { validateStatus: () => true },
+        );
+        assert.strictEqual(res.data.error.code, expectedCode);
     });
 }
 
@@ -119,6 +134,11 @@ describe('E2E: loadwallet failure classification', function () {
     afterEach(function () {
         sinon.restore();
     });
+
+    it('answers an already-loaded wallet with -4 on the legacy (LTC v0.21) daemon', () =>
+        testAlreadyLoadedAnswerMatchesDaemon('legacy', -4));
+    it('answers an already-loaded wallet with -35 on the core31 daemon', () =>
+        testAlreadyLoadedAnswerMatchesDaemon('core31', -35));
 
     for (const daemon of ['legacy', 'core31']) {
         describe(`${daemon} daemon`, function () {

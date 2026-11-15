@@ -1,4 +1,13 @@
 /*********************************************************************
+ *
+ * Copyright © 2025-2026 Dankest, LLC
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md.
+ *
+ **********************************************************************/
+/*********************************************************************
  * test/unit/api_key_exemption.test.js
  *
  * When MINER_API_KEY is set, the read-only health/observability

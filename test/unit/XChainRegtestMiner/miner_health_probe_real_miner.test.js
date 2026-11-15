@@ -1,4 +1,13 @@
 /*********************************************************************
+ *
+ * Copyright © 2025-2026 Dankest, LLC
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md.
+ *
+ **********************************************************************/
+/*********************************************************************
  * test/unit/miner_health_probe_real_miner.test.js
  *
  * The health verdict asked of a REAL XChainRegtestMiner. The sibling suite

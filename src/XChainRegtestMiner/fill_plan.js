@@ -121,7 +121,7 @@ async function sendFundsWithRetry(address, amount) {
     while (!sent) {
         throwIfFillCancelled.call(this);
         try {
-            txid = await this.sendFundsToAddress(address, amount);
+            txid = await this.sendFundsUncapped(address, amount);
             sent = true;
         } catch (err) {
             sendRetries++;

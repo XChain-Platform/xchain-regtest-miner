@@ -215,6 +215,46 @@ function fundingFeeRefreshTests() {
     });
 }
 
+// A NETWORK with no coin half (the README's NETWORK=regtest) gets the same recovery as a named coin.
+function bareNetworkRefreshTests() {
+    it('retries a transient settxfee failure on a bare network after the slow interval', async function () {
+        connector.setTxFee.rejects(settxfeeError({ timedOut: true }));
+        const miner = minerFor('regtest');
+
+        assert.strictEqual(await miner.pinFundingFeeRate(), 'none');
+        const startupCalls = connector.setTxFee.callCount;
+        await refreshAndWait(miner);
+        assert.strictEqual(connector.setTxFee.callCount, startupCalls, 'no retry inside the slow interval');
+
+        connector.setTxFee.resolves(true);
+        miner.fundingFeePinnedAt -= FUNDING_FEE_REPROBE_MS + 1;
+        await refreshAndWait(miner);
+        assert.strictEqual(connector.setTxFee.callCount, startupCalls + 1);
+        assert.strictEqual(miner.fundingFeeMechanism, 'settxfee');
+    });
+
+    it('re-pins a bare network whose wallet lost the settxfee pin', async function () {
+        const miner = minerFor('regtest');
+
+        assert.strictEqual(await miner.pinFundingFeeRate(), 'settxfee');
+        connector.getWalletInfo.resolves({ paytxfee: 0 });
+        await refreshAndWait(miner);
+
+        assert.strictEqual(connector.getWalletInfo.callCount, 1);
+        assert.strictEqual(connector.setTxFee.callCount, 2);
+    });
+
+    it('leaves a Bitcoin network on the per-call rate with no wallet re-checks', async function () {
+        const miner = minerFor('bitcoin-regtest');
+
+        assert.strictEqual(await miner.pinFundingFeeRate(), 'fee_rate');
+        for (let i = 0; i < 3; i++) await refreshAndWait(miner);
+
+        assert.strictEqual(connector.setTxFee.callCount, 0);
+        assert.strictEqual(connector.getWalletInfo.callCount, 0);
+    });
+}
+
 describe('XChainRegtestMiner', function () {
     beforeEach(function () {
         connector = {
@@ -236,4 +276,5 @@ describe('XChainRegtestMiner', function () {
     describe('funding fee pin when settxfee is missing', settxfeeMissingPerCoinTests);
     describe('funding fee pin coin classes', feePinCoinClassTests);
     describe('funding fee pin refresh checks', fundingFeeRefreshTests);
+    describe('funding fee pin refresh checks on a bare network', bareNetworkRefreshTests);
 });

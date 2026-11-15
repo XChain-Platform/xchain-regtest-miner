@@ -98,6 +98,14 @@ module.exports = {
                     ' coins (MINER_SEND_FUNDS_MAX_AMOUNT)',
             );
         }
+        return this.sendFundsUncapped(address, amount);
+    },
+
+    // The send itself, without the per-call cap. The cap bounds the external
+    // send_funds RPC; fillMempool's own funding sends are the fill's work, bounded
+    // by MAX_FILL_MEMPOOL_QUANTITY, and a lowered cap would otherwise refuse them
+    // on every attempt.
+    async sendFundsUncapped(address, amount) {
         try {
             return await sendFundsWithoutAmountCap.call(this, address, amount);
         } finally {
@@ -235,8 +243,7 @@ module.exports = {
                 // and leave the generation alone so that exit still owns the restore.
                 this._reorgPauseWasMining = true;
             } else {
-                this.keepMining = true;
-                this._miningStateGeneration++;
+                this.setKeepMining(true);
             }
         }
         // Reached only after prepareWallet() resolved, so from here a keepMining=false

@@ -27,7 +27,7 @@ const {
     FUNDING_FEE_REPROBE_MS,
     MAX_FILL_MEMPOOL_QUANTITY,
     FUNDING_FEE_RATE_COINS_PER_KB,
-    SETTXFEE_COINS,
+    PER_CALL_FEE_RATE_COINS,
     logger,
     ECPair,
 } = require('./constants.js');
@@ -176,7 +176,8 @@ function startFundingFeePinCheck() {
     const coin = String(this.network || '')
         .split('-')[0]
         .toLowerCase();
-    if (!SETTXFEE_COINS.includes(coin) || this.fundingFeePinCheckInFlight) return null;
+    // Every coin outside the per-call list pins through settxfee first, a bare NETWORK with no coin half included.
+    if (PER_CALL_FEE_RATE_COINS.includes(coin) || this.fundingFeePinCheckInFlight) return null;
     if (this.fundingFeeMechanism === 'fee_rate') return null;
     const reprobeDue =
         this.fundingFeeMechanism === 'none' &&
@@ -270,8 +271,7 @@ module.exports = {
         // pass the guard (flag still false) while parked on the _generateQueue
         // barrier, then both run the stress body at once.
         this.fillMempoolRunning = true;
-        this.keepMining = false; //Stop the mining so the txs stay in mempool
-        this._miningStateGeneration++;
+        this.setKeepMining(false); // Stop mining so the transactions stay in the mempool.
         this._operatorMiningGeneration++;
         startFillProgress.call(this, txQuantity);
         const run = runFill.call(this, txQuantity);

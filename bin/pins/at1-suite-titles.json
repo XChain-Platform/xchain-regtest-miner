@@ -271,22 +271,6 @@
       "Seam A: HTTP \u2194 JSON-RPC controller set_default_mining_time delegates to miner and returns ok",
       "Seam A: HTTP \u2194 JSON-RPC controller set_mining_time delegates parameters to miner"
     ],
-    "30a8d9a98c1fcb16": [
-      "XChainRegtestMiner funding fee pin coin classes lists only settxfee coins as refusing fee_rate",
-      "XChainRegtestMiner funding fee pin coin classes puts every registered coin in exactly one of the per-call and settxfee lists",
-      "XChainRegtestMiner funding fee pin refresh checks does not retry a permanent Dogecoin refusal after the slow interval",
-      "XChainRegtestMiner funding fee pin refresh checks retries a transient Dogecoin failure only after the slow interval",
-      "XChainRegtestMiner funding fee pin refresh checks skips wallet re-checks while Litecoin uses the per-call rate",
-      "XChainRegtestMiner funding fee pin retry keeps the positional form when the daemon refuses settxfee with another code",
-      "XChainRegtestMiner funding fee pin retry never picks fee_rate on a bare network when settxfee keeps failing in transport",
-      "XChainRegtestMiner funding fee pin retry never throws out of the pin when settxfee keeps timing out",
-      "XChainRegtestMiner funding fee pin retry retries a timed-out settxfee and keeps the wallet-wide pin",
-      "XChainRegtestMiner funding fee pin when settxfee is missing keeps a Dogecoin daemon without settxfee on the positional form",
-      "XChainRegtestMiner funding fee pin when settxfee is missing moves a Litecoin daemon that dropped settxfee to the per-call rate",
-      "XChainRegtestMiner funding fee pin when settxfee is refused or unreachable keeps a Dogecoin daemon on the positional form when settxfee stays unreachable",
-      "XChainRegtestMiner funding fee pin when settxfee is refused or unreachable keeps a Litecoin daemon on the positional form when it refuses settxfee",
-      "XChainRegtestMiner funding fee pin when settxfee is refused or unreachable keeps a Litecoin daemon on the positional form when settxfee answers without pinning"
-    ],
     "34982ab520e9895b": [
       "T1 Regression: Error Recovery & Backoff REG-T1-E01: Backoff on consecutive mempool errors logs backoff messages with increasing delays",
       "T1 Regression: Error Recovery & Backoff REG-T1-E02: Backoff resets after success consecutive error counter resets on successful operation"
@@ -309,14 +293,6 @@
       "E2E: Chain State Consistency F3: mempool transactions appear in mined blocks",
       "E2E: Chain State Consistency F4: sendFundsToAddress reduces wallet balance",
       "E2E: Chain State Consistency F5: sequential block generation maintains ascending heights"
-    ],
-    "40733de355536b95": [
-      "E2E: loadwallet failure classification core31 daemon stops createwallet after one \"Database already exists\" answer",
-      "E2E: loadwallet failure classification core31 daemon survives a send-time reload that finds the wallet already loaded",
-      "E2E: loadwallet failure classification core31 daemon treats loadwallet \"already loaded\" as loaded and never calls createwallet",
-      "E2E: loadwallet failure classification legacy daemon stops createwallet after one \"Database already exists\" answer",
-      "E2E: loadwallet failure classification legacy daemon survives a send-time reload that finds the wallet already loaded",
-      "E2E: loadwallet failure classification legacy daemon treats loadwallet \"already loaded\" as loaded and never calls createwallet"
     ],
     "4123fe6f739d24de": [
       "BlockchainConnector sendRawTransaction logs a 200 error reply once, not again from the catch",
@@ -426,6 +402,25 @@
       "start(): mining controls that land during wallet preparation starts mining after a reconsider_block that finished before ready",
       "start(): mining controls that land during wallet preparation starts mining when a pause and a continue both landed before ready",
       "start(): mining controls that land during wallet preparation starts mining when nothing landed before ready"
+    ],
+    "4cf8a07ed55a3322": [
+      "XChainRegtestMiner funding fee pin coin classes lists only settxfee coins as refusing fee_rate",
+      "XChainRegtestMiner funding fee pin coin classes puts every registered coin in exactly one of the per-call and settxfee lists",
+      "XChainRegtestMiner funding fee pin refresh checks does not retry a permanent Dogecoin refusal after the slow interval",
+      "XChainRegtestMiner funding fee pin refresh checks on a bare network leaves a Bitcoin network on the per-call rate with no wallet re-checks",
+      "XChainRegtestMiner funding fee pin refresh checks on a bare network re-pins a bare network whose wallet lost the settxfee pin",
+      "XChainRegtestMiner funding fee pin refresh checks on a bare network retries a transient settxfee failure on a bare network after the slow interval",
+      "XChainRegtestMiner funding fee pin refresh checks retries a transient Dogecoin failure only after the slow interval",
+      "XChainRegtestMiner funding fee pin refresh checks skips wallet re-checks while Litecoin uses the per-call rate",
+      "XChainRegtestMiner funding fee pin retry keeps the positional form when the daemon refuses settxfee with another code",
+      "XChainRegtestMiner funding fee pin retry never picks fee_rate on a bare network when settxfee keeps failing in transport",
+      "XChainRegtestMiner funding fee pin retry never throws out of the pin when settxfee keeps timing out",
+      "XChainRegtestMiner funding fee pin retry retries a timed-out settxfee and keeps the wallet-wide pin",
+      "XChainRegtestMiner funding fee pin when settxfee is missing keeps a Dogecoin daemon without settxfee on the positional form",
+      "XChainRegtestMiner funding fee pin when settxfee is missing moves a Litecoin daemon that dropped settxfee to the per-call rate",
+      "XChainRegtestMiner funding fee pin when settxfee is refused or unreachable keeps a Dogecoin daemon on the positional form when settxfee stays unreachable",
+      "XChainRegtestMiner funding fee pin when settxfee is refused or unreachable keeps a Litecoin daemon on the positional form when it refuses settxfee",
+      "XChainRegtestMiner funding fee pin when settxfee is refused or unreachable keeps a Litecoin daemon on the positional form when settxfee answers without pinning"
     ],
     "4dc9be5ab1ba17be": [
       "Seam B: XChainRegtestMiner \u2194 BlockchainConnector sequences sendFundsToAddress delegation passes through to connector.sendToAddress"
@@ -565,6 +560,10 @@
       "RPC error helpers returns null for a non-error rejection value",
       "RPC error helpers returns null for a plain Error"
     ],
+    "5c9d40e12d2ea91d": [
+      "mining state generation guard CONTROL: reports a flag write that bypasses the setter",
+      "mining state generation guard keeps flag writes and generation bumps in the synchronous setter"
+    ],
     "5d3ce1b81ea05e74": [
       "Boundary: Adaptive Mining Timer Logic T-12: floating-point timer values rejects float values via Number.isInteger check"
     ],
@@ -638,12 +637,6 @@
       "JSON-RPC body guard (Express 5 / body-parser 2.x regression) reproduces the crash WITHOUT the guard (bodiless GET -> 500)",
       "JSON-RPC body guard (Express 5 / body-parser 2.x regression) src/api.js mounts the owned dispatcher instead of the lenient router",
       "JSON-RPC body guard (Express 5 / body-parser 2.x regression) still serves a valid JSON-RPC POST WITH the guard"
-    ],
-    "667ce6bf97b15120": [
-      "wallet funding floors and caps allows send_funds at the configured per-call cap",
-      "wallet funding floors and caps reports wallet_funded false below the configured floor",
-      "wallet funding floors and caps returns a clear reason without calling the node when send_funds exceeds the configured per-call cap",
-      "wallet funding floors and caps uses safe defaults for missing or invalid configuration"
     ],
     "671fa2c590201b73": [
       "BlockchainConnector constructor builds the correct URL from host and port",
@@ -1153,6 +1146,13 @@
       "BlockchainConnector getBalance wallet-missing classification flags the base-URL \"No wallet is loaded\" answer too",
       "BlockchainConnector getBalance wallet-missing classification sets no flag for a transport failure or another RPC error"
     ],
+    "9f31046fb950aab1": [
+      "wallet funding floors and caps allows send_funds at the configured per-call cap",
+      "wallet funding floors and caps reports wallet_funded false below the configured floor",
+      "wallet funding floors and caps returns a clear reason without calling the node when send_funds exceeds the configured per-call cap",
+      "wallet funding floors and caps sends the fill funding past a lowered per-call cap while the public send_funds still refuses",
+      "wallet funding floors and caps uses safe defaults for missing or invalid configuration"
+    ],
     "9fb04900c6b508bd": [
       "MINER_API_KEY exemption contract @regression does NOT exempt mutating/spend methods (the gate still protects them)",
       "MINER_API_KEY exemption contract @regression exempts the `health` readiness probe the container healthcheck POSTs",
@@ -1412,6 +1412,16 @@
     "d01b9a6edbee9ca4": [
       "body parse error logging answers an oversized body with a JSON 413 and no stack trace",
       "body parse error logging answers malformed JSON with a JSON 400 and no stack trace"
+    ],
+    "d32a81b1813843c3": [
+      "E2E: loadwallet failure classification answers an already-loaded wallet with -35 on the core31 daemon",
+      "E2E: loadwallet failure classification answers an already-loaded wallet with -4 on the legacy (LTC v0.21) daemon",
+      "E2E: loadwallet failure classification core31 daemon stops createwallet after one \"Database already exists\" answer",
+      "E2E: loadwallet failure classification core31 daemon survives a send-time reload that finds the wallet already loaded",
+      "E2E: loadwallet failure classification core31 daemon treats loadwallet \"already loaded\" as loaded and never calls createwallet",
+      "E2E: loadwallet failure classification legacy daemon stops createwallet after one \"Database already exists\" answer",
+      "E2E: loadwallet failure classification legacy daemon survives a send-time reload that finds the wallet already loaded",
+      "E2E: loadwallet failure classification legacy daemon treats loadwallet \"already loaded\" as loaded and never calls createwallet"
     ],
     "d459b9fc4347a8dc": [
       "Security: Input Validation fillMempool quantity cap (SEC-002) accepts txQuantity at maximum boundary (50000)",
@@ -1898,7 +1908,7 @@
     "test:e2e": {
       "error": "mocha exited 1 with 1 failure(s)",
       "fileCount": 13,
-      "titleCount": 74,
+      "titleCount": 76,
       "files": {
         "test/e2e/api.test.js": "71e1b7f9a9d64a57",
         "test/e2e/balance_read_wallet_reload.test.js": "483c3ba651ef5bce",
@@ -1912,7 +1922,7 @@
         "test/e2e/startup.test.js": "491dcf628d743c23",
         "test/e2e/stateful_mock_node_wire.test.js": "f5aa3537d105fd6a",
         "test/e2e/wallet_binding.test.js": "edf481765c74ba7e",
-        "test/e2e/wallet_load_classification.test.js": "40733de355536b95"
+        "test/e2e/wallet_load_classification.test.js": "d32a81b1813843c3"
       }
     },
     "test:fuzz": {
@@ -2040,8 +2050,8 @@
       }
     },
     "test:unit": {
-      "fileCount": 82,
-      "titleCount": 623,
+      "fileCount": 83,
+      "titleCount": 629,
       "files": {
         "test/unit/XChainRegtestMiner/constants.test.js": "9d7b0a77e9b7a0fe",
         "test/unit/XChainRegtestMiner/fill_mempool_cancel_progress.test.js": "5dcf6d2e9d2d2168",
@@ -2050,6 +2060,7 @@
         "test/unit/XChainRegtestMiner/mine_timeout_settle.test.js": "42496d6ec749e27d",
         "test/unit/XChainRegtestMiner/miner_health_probe_real_miner.test.js": "7af20fadcd840e3c",
         "test/unit/XChainRegtestMiner/mining_schedule.test.js": "761a7616d5566d05",
+        "test/unit/XChainRegtestMiner/mining_state_generation_guard.test.js": "5c9d40e12d2ea91d",
         "test/unit/XChainRegtestMiner/reconsider_block_pause_interaction.test.js": "f0b7f84ad0726af5",
         "test/unit/XChainRegtestMiner/start_pre_ready_mining_state.test.js": "4cb3ced9616e5ec0",
         "test/unit/XChainRegtestMiner/status_paused_during_fill.test.js": "1ab65af698be670e",
@@ -2061,7 +2072,7 @@
         "test/unit/api/envelope_leniency_notes.test.js": "e57f442e7943f2a9",
         "test/unit/api/jsonrpc_null_batch_element.test.js": "0e54263c921cefb3",
         "test/unit/api/miner_health_format.test.js": "8944cfd09cd3681b",
-        "test/unit/api/wallet_funding_caps.test.js": "667ce6bf97b15120",
+        "test/unit/api/wallet_funding_caps.test.js": "9f31046fb950aab1",
         "test/unit/api_block_and_mining_controls.test.js": "946900acd5e42cf5",
         "test/unit/api_body_and_key_guards.test.js": "2810bbba4bba7063",
         "test/unit/api_key_exemption.test.js": "9fb04900c6b508bd",
@@ -2122,7 +2133,7 @@
         "test/unit/xchain_regtest_miner.test/06_sleep.test.js": "d951ee83273e1e7c",
         "test/unit/xchain_regtest_miner.test/07_send_funds_wallet_reload.test.js": "5880a5abfa427509",
         "test/unit/xchain_regtest_miner.test/08_probe_wallet_binding.test.js": "45bd07eb1cb13602",
-        "test/unit/xchain_regtest_miner.test/09_funding_fee_pin_retry.test.js": "30a8d9a98c1fcb16",
+        "test/unit/xchain_regtest_miner.test/09_funding_fee_pin_retry.test.js": "4cf8a07ed55a3322",
         "test/unit/xchain_regtest_miner.test/10_balance_read_wallet_reload.test.js": "f144c7b29a3998fd",
         "test/unit/xchain_regtest_miner.test/11_funding_fee_repin_after_reload.test.js": "5e2d6318584ecb17"
       }

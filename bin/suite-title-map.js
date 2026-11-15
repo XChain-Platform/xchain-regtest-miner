@@ -151,6 +151,22 @@ function mochaArgsFor(script) {
     return { args: tokens.slice(i + 1).map((t) => t.value), env };
 }
 
+/**
+ * The mocha json report out of a run's stdout. The reporter writes it to stdout,
+ * but a spec file that logs at load time writes there too, and a timer a spec
+ * leaves running can log after the reporter has closed the object. The report
+ * is the one JSON object that opens at a line-start "stats" key and closes at the
+ * first line that is a bare brace (the reporter indents everything inside it and
+ * a JSON string cannot hold a raw newline), so both the lead-in and the tail
+ * are cut away.
+ */
+function parseMochaReport(stdout) {
+    const start = stdout.indexOf('{\n  "stats"');
+    const text = start === -1 ? stdout : stdout.slice(start);
+    const close = start === -1 ? -1 : text.indexOf('\n}');
+    return JSON.parse(close === -1 ? text : text.slice(0, close + 2));
+}
+
 /** Titles for one script, keyed by repo-relative test file. */
 function collect(scriptName, script) {
     const parsed = mochaArgsFor(script);
@@ -177,11 +193,7 @@ function collect(scriptName, script) {
 
     let report;
     try {
-        // The json reporter writes the report to stdout, but a spec file that
-        // logs at load time writes there too; the report is the last JSON
-        // object, so parsing starts at the last line that opens one.
-        const start = res.stdout.indexOf('{\n  "stats"');
-        report = JSON.parse(start === -1 ? res.stdout : res.stdout.slice(start));
+        report = parseMochaReport(res.stdout);
     } catch (e) {
         return { error: `unparseable mocha json (exit ${res.status}): ${res.stderr.slice(0, 400)}`, timing };
     }
@@ -443,6 +455,7 @@ if (require.main === module) main();
 module.exports = {
     buildMap,
     collect,
+    parseMochaReport,
     mochaArgsFor,
     splitCommand,
     compare,

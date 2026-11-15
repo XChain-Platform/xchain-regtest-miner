@@ -113,7 +113,7 @@ function parkedPromise() {
 async function startParkedFill() {
     const sendParked = parkedPromise();
     let sends = 0;
-    miner.sendFundsToAddress = async () => {
+    miner.sendFundsUncapped = async () => {
         sends++;
         if (sends === 1) await sendParked.promise;
         throw new Error('send refused');

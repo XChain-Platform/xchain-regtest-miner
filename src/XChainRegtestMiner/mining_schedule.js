@@ -165,9 +165,16 @@ module.exports = {
         return generation;
     },
 
+    // The flag and its generation are one state transition. Keep this method
+    // synchronous so a reorg restore can distinguish its own pause from a
+    // later operator or fill action.
+    setKeepMining(value) {
+        this.keepMining = value;
+        return ++this._miningStateGeneration;
+    },
+
     async continueMining() {
-        this.keepMining = true;
-        this._miningStateGeneration++;
+        this.setKeepMining(true);
         this._operatorMiningGeneration++;
     },
 };

@@ -78,7 +78,7 @@ function buildMiner({ onStressSend = async () => {}, onMine = async () => {} } =
     miner.walletReady = true;
     miner.miningStarted = true;
     sinon.stub(miner, 'sleep').resolves();
-    sinon.stub(miner, 'sendFundsToAddress').callsFake((address, amount) => connector.sendToAddress(address, amount));
+    sinon.stub(miner, 'sendFundsUncapped').callsFake((address, amount) => connector.sendToAddress(address, amount));
     sinon.stub(miner, 'generateBlocksQueued').callsFake(async () => {
         await onMine();
         return [];

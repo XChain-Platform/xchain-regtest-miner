@@ -29,8 +29,9 @@
  * core31); see test/helpers/rpcErrorReply.js.
  *
  * Wallets are a name -> {loaded} map, as on a multi-wallet daemon: loadwallet
- * answers -18 for a name never created and -35 for one already loaded,
- * createwallet adds a wallet beside the loaded ones, and a base-URL wallet RPC
+ * answers -18 for a name never created and, for one already loaded, -35 on
+ * core31 and -4 on legacy (LTC v0.21 maps that failure to the generic wallet
+ * error; -35 arrived with later Bitcoin Core), createwallet adds a wallet beside the loaded ones, and a base-URL wallet RPC
  * answers -19 while more than one is loaded. Balances stay node-wide, not per wallet.
  */
 
@@ -55,6 +56,16 @@ function refuseUnknownDogeSendArgs(params) {
     const err = new Error('Unknown named parameter ' + unknown);
     err.rpcCode = -8;
     throw err;
+}
+
+// The loadwallet refusal for a wallet that is already loaded: the dedicated -35 on
+// core31, the generic wallet error -4 on the older daemons (LTC v0.21).
+function alreadyLoadedError(daemon, name) {
+    if (daemon === 'core31') return rpcError(-35, `Wallet "${name}" is already loaded.`);
+    return rpcError(
+        -4,
+        `Wallet file verification failed. Refusing to load database. Data file '${name}/wallet.dat' is already loaded.`,
+    );
 }
 
 // Throws the -32601 Dogecoin v1.14 answers for the multi-wallet RPCs it predates.
@@ -354,7 +365,7 @@ class StatefulMockNode {
     _rpc_loadwallet(params) {
         refuseWalletRpcOnDoge(this.daemon);
         const name = Array.isArray(params) ? params[0] : params;
-        if (this.hasLoadedWallet(name)) throw rpcError(-35, `Wallet "${name}" is already loaded.`);
+        if (this.hasLoadedWallet(name)) throw alreadyLoadedError(this.daemon, name);
         // Refuse a name never created, as a real daemon does, rather than taking over another wallet.
         if (!this.wallets.has(name)) throw rpcError(-18, 'Wallet file not found');
         this.wallets.get(name).loaded = true;

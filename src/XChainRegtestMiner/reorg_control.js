@@ -53,8 +53,7 @@ module.exports = {
                 // Skipped when another writer (operator pause/continue, fillMempool)
                 // moved the state meanwhile, so their intent wins.
                 if (wasMining && this._miningStateGeneration === claimed) {
-                    this.keepMining = true;
-                    this._miningStateGeneration++;
+                    this.setKeepMining(true);
                 }
                 throw err;
             }
@@ -155,8 +154,7 @@ module.exports = {
     // with no await between them, so no other writer can slot in and be mistaken
     // for this pause.
     claimPause() {
-        this.keepMining = false;
-        return ++this._miningStateGeneration;
+        return this.setKeepMining(false);
     },
 
     // Claim, or join, the shared reorg pause. The first reconsider in flight
@@ -180,10 +178,7 @@ module.exports = {
         if (this._reorgPauseDepth > 0) return false;
         const restore = this._reorgPauseWasMining && this._miningStateGeneration === this._reorgPauseGeneration;
         this._reorgPauseWasMining = false;
-        if (restore) {
-            this.keepMining = true;
-            this._miningStateGeneration++;
-        }
+        if (restore) this.setKeepMining(true);
         return restore;
     },
 };

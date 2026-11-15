@@ -15,6 +15,7 @@ const sinon = require('sinon');
 
 const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
 const { createRpcMethods } = require('../../../src/api/rpc_methods');
+const { fundMainAddress } = require('../../../src/XChainRegtestMiner/fill_plan');
 
 const CONFIG_KEYS = ['MINER_WALLET_FUNDED_FLOOR', 'MINER_SEND_FUNDS_MAX_AMOUNT'];
 let savedConfig;
@@ -62,6 +63,26 @@ async function usesSafeDefaults() {
     assert.strictEqual(miner.connector.sendToAddress.callCount, 0);
 }
 
+async function fillFundingSendsIgnoreTheExternalCap() {
+    process.env.MINER_SEND_FUNDS_MAX_AMOUNT = '3';
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(miner, 'generateBlocksQueued').resolves([]);
+    const sizes = {
+        OUTPUTS_QUANTITY_PER_TX: 2500,
+        AMOUNT_FOR_EACH_ADDRESS: 100000000,
+        FEE: 500,
+        SPLIT_TX_FEE_PER_OUTPUT: 100,
+    };
+
+    const txids = await fundMainAddress.call(miner, 2500, { ...sizes, mainAddress: 'bcrt1qmain' });
+
+    assert.deepStrictEqual(txids, ['txid']);
+    assert.strictEqual(miner.connector.sendToAddress.callCount, 1);
+    assert.ok(miner.connector.sendToAddress.firstCall.args[1] > 3);
+    await assert.rejects(() => miner.sendFundsToAddress('bcrt1qdestination', 3.01), /maximum of 3 coins/);
+    assert.strictEqual(miner.connector.sendToAddress.callCount, 1);
+}
+
 describe('wallet funding floors and caps', function () {
     beforeEach(function () {
         savedConfig = Object.fromEntries(CONFIG_KEYS.map((key) => [key, process.env[key]]));
@@ -91,4 +112,9 @@ describe('wallet funding floors and caps', function () {
     it('allows send_funds at the configured per-call cap', allowsConfiguredCap);
 
     it('uses safe defaults for missing or invalid configuration', usesSafeDefaults);
+
+    it(
+        'sends the fill funding past a lowered per-call cap while the public send_funds still refuses',
+        fillFundingSendsIgnoreTheExternalCap,
+    );
 });
