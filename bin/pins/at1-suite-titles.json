@@ -766,6 +766,11 @@
     "6c604ce0bd6197e6": [
       "Boundary: fillMempool Chunking and Calculations F-08: tx_quantity = 50000 (20 chunks, exact mining threshold) triggers exactly one intermediate block mine"
     ],
+    "6f18af9f9c8388ef": [
+      "mine loop mempool reads share status ordering does not let a loop read from before a send replace the fresh status count",
+      "mine loop mempool reads share status ordering keeps a newer loop result when an older status read finishes last",
+      "mine loop mempool reads share status ordering updates the exported count and timestamp when only the loop reads"
+    ],
     "701fd72da4138468": [
       "Seam D: BlockchainConnector \u2194 MockRpcServer wallet-context routing flags a lost wallet that Core 28+ reports with HTTP 200",
       "Seam D: BlockchainConnector \u2194 MockRpcServer wallet-context routing flags a lost wallet that a legacy daemon reports with HTTP 500",
@@ -2050,8 +2055,8 @@
       }
     },
     "test:unit": {
-      "fileCount": 83,
-      "titleCount": 629,
+      "fileCount": 84,
+      "titleCount": 632,
       "files": {
         "test/unit/XChainRegtestMiner/constants.test.js": "9d7b0a77e9b7a0fe",
         "test/unit/XChainRegtestMiner/fill_mempool_cancel_progress.test.js": "5dcf6d2e9d2d2168",
@@ -2108,6 +2113,7 @@
         "test/unit/jsonrpc_body_guard.test.js": "64303071b35f24ac",
         "test/unit/jsonrpc_null_params.test.js": "83ba7d2c3b87481a",
         "test/unit/layout/paths.test.js": "7c57cbec3a550ef9",
+        "test/unit/mempool_status_freshness/loop_read_order.test.js": "6f18af9f9c8388ef",
         "test/unit/mempool_status_freshness/paused_polling.test.js": "8b087cfaf3084c81",
         "test/unit/mempool_status_freshness/status_read_bound.test.js": "b0f0b7e9c4f35d71",
         "test/unit/mine_loop_turns.test.js": "1ea3ecec22eb8b8a",

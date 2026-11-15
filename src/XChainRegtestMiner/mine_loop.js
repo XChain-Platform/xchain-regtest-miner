@@ -23,6 +23,7 @@
 
 const { CHECK_BLOCK_DELAY_MS, logger } = require('./constants.js');
 const { maybeFlushNode } = require('./node_flush.js');
+const { applyMempoolRead, claimMempoolReadSeq } = require('./status_mempool_read.js');
 
 const MAX_BACKOFF_MS = 30000;
 
@@ -36,7 +37,7 @@ function loopMayMine() {
 // The auto-mine loop itself. `loop` carries the mempool timers, the RPC error
 // streak and the heartbeat baseline across passes.
 async function runMineLoop(loop) {
-    while (!this._shutdown) {
+    while (!Reflect.get(this, '_shutdown')) {
         // Bound wallet_balance staleness at WALLET_BALANCE_REFRESH_MS whatever
         // moved the wallet: send_funds, fill_mempool, coinbase maturity, a
         // node-side change. Deliberately ABOVE the keepMining gate, because
@@ -71,7 +72,7 @@ async function mineLoopPass(loop) {
     const read = await readLoopMempool.call(this, loop);
     if (!read.ok) return;
     clearErrorStreak.call(this, loop, false);
-    const mempoolEmpty = trackMempool.call(this, loop, read.rawMempool);
+    const mempoolEmpty = trackMempool.call(this, loop, read.rawMempool, read.seq);
 
     if (!mempoolEmpty && timerMineDue.call(this, loop)) {
         // Re-read loopMayMine with NO await before the mine. The mempool read
@@ -115,9 +116,9 @@ async function mineLoopPass(loop) {
 // maxTimeToMineTxs, or no new tx has arrived for addedTimeToMineTxs.
 function timerMineDue(loop) {
     if (loop.initialStartToMine > 0 && loop.extendedStartToMine > 0) {
-        let timeNow = Date.now();
-        let initialTimePassed = timeNow - loop.initialStartToMine;
-        let extendedStartTime = timeNow - loop.extendedStartToMine;
+        const timeNow = Date.now();
+        const initialTimePassed = timeNow - loop.initialStartToMine;
+        const extendedStartTime = timeNow - loop.extendedStartToMine;
 
         return initialTimePassed >= this.maxTimeToMineTxs || extendedStartTime >= this.addedTimeToMineTxs;
     }
@@ -135,9 +136,9 @@ async function mineLoopBlock(loop, what) {
         return true;
     } catch (err) {
         loop.consecutiveErrors++;
-        this._consecutiveErrors = loop.consecutiveErrors;
-        this._mineFailures++;
-        let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, loop.consecutiveErrors), MAX_BACKOFF_MS);
+        Reflect.set(this, '_consecutiveErrors', loop.consecutiveErrors);
+        Reflect.set(this, '_mineFailures', Reflect.get(this, '_mineFailures') + 1);
+        const backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, loop.consecutiveErrors), MAX_BACKOFF_MS);
         logger.info(
             'There were problems ' +
                 what +
@@ -152,16 +153,17 @@ async function mineLoopBlock(loop, what) {
     }
 }
 
-// Reads the mempool for one pass. Resolves { ok: true, rawMempool }, or after
+// Reads the mempool for one pass. Resolves { ok: true, rawMempool, seq }, or after
 // extending the error streak and backing off, { ok: false } to skip the pass.
 async function readLoopMempool(loop) {
+    const seq = claimMempoolReadSeq.call(this);
     let rawMempool = null;
     try {
         rawMempool = await this.connector.getRawMempool();
     } catch (error) {
         loop.consecutiveErrors++;
-        this._consecutiveErrors = loop.consecutiveErrors;
-        let backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, loop.consecutiveErrors), MAX_BACKOFF_MS);
+        Reflect.set(this, '_consecutiveErrors', loop.consecutiveErrors);
+        const backoff = Math.min(CHECK_BLOCK_DELAY_MS * Math.pow(2, loop.consecutiveErrors), MAX_BACKOFF_MS);
         logger.info(
             'There were problems getting the mempool: ' +
                 (error && error.message ? error.message : error) +
@@ -172,7 +174,7 @@ async function readLoopMempool(loop) {
         await this.sleep(backoff);
         return { ok: false };
     }
-    return { ok: true, rawMempool };
+    return { ok: true, rawMempool, seq };
 }
 
 // Clears the error streak after a successful pass; a successful mine clears the
@@ -184,29 +186,32 @@ async function readLoopMempool(loop) {
 // still held the previous pass.
 function clearErrorStreak(loop, mined) {
     loop.consecutiveErrors = 0;
-    this._consecutiveErrors = 0;
-    if (mined) this._mineFailures = 0;
+    Reflect.set(this, '_consecutiveErrors', 0);
+    if (mined) Reflect.set(this, '_mineFailures', 0);
 }
 
-// Updates the mempool timers and the exported size from one read. Returns true
-// when the mempool is empty, the only state the idle heartbeat may mine in.
-function trackMempool(loop, rawMempool) {
-    if (rawMempool != null && rawMempool.length > 0) {
+// Updates the timers from the loop's own read and gates the exported count and
+// timestamp through the shared read sequence. mempool_size_at is stamped when
+// each winning loop read finishes. Returns true when the loop observed empty.
+function trackMempool(loop, rawMempool, seq) {
+    if (rawMempool !== null && rawMempool !== undefined && rawMempool.length > 0) {
+        let readAt;
         if (rawMempool.length > loop.lastRawMempoolLength) {
+            readAt = Date.now();
             //there are new txs in the mempool
-            if (loop.initialStartToMine == 0) {
-                loop.initialStartToMine = Date.now();
+            if (loop.initialStartToMine === 0) {
+                loop.initialStartToMine = readAt;
                 loop.extendedStartToMine = loop.initialStartToMine;
             } else {
-                loop.extendedStartToMine = Date.now();
+                loop.extendedStartToMine = readAt;
             }
         }
         loop.lastRawMempoolLength = rawMempool.length;
-        this._mempoolSize = rawMempool.length;
+        applyMempoolRead.call(this, seq, rawMempool.length, readAt);
         return false;
     }
     resetMempoolTimers(loop);
-    this._mempoolSize = 0;
+    applyMempoolRead.call(this, seq, 0);
     return true;
 }
 
