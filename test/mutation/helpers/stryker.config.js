@@ -35,13 +35,17 @@ module.exports = {
             'test/integration/**/*.test.js',
             'test/e2e/**/*.test.js',
         ],
-        // jsonrpc-body-guard asserts on the TEXT of src/api.js (that the req.body
-        // guard is wired ahead of the jsonRouter mount). Stryker runs against an
-        // instrumented copy in its sandbox, where that search fails, so the test
-        // goes red on every mutation run and takes the whole run down with it.
-        // Dropping it costs no mutation signal: a test that never executes the code
-        // cannot kill a mutant of it. It still guards the real tree under `npm test`.
-        ignore: ['test/unit/jsonrpc_body_guard.test.js', 'test/unit/no_key_boot_warning.test.js'],
+        // These guards assert on the TEXT of production files. Stryker runs against
+        // instrumented copies in its sandbox, where those searches fail, so the tests
+        // go red on every mutation run and take the whole run down with them. Dropping
+        // them costs no mutation signal: tests that never execute the code cannot kill
+        // its mutants. They still guard the real tree under `npm test`.
+        ignore: [
+            'test/unit/jsonrpc_body_guard.test.js',
+            'test/unit/jsonrpc_null_params.test.js',
+            'test/unit/no_key_boot_warning.test.js',
+            'test/unit/pause_mining_barrier.test.js',
+        ],
         // Use a dedicated mocha config that sets timeout to 10s (instead of
         // the project default of --timeout 0 which would hang on infinite-loop mutations)
         config: 'test/mutation/.mocharc.stryker.yml',
