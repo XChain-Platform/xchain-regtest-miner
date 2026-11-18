@@ -55,12 +55,21 @@ function initMineExclusionState() {
     // auto-mine loop under an operator who believed the miner was paused. A new
     // mutation site MUST bump this or it reopens that override.
     this._miningStateGeneration = 0;
-    // Bumped only by operator mining controls: pauseMining (which invalidateBlock
-    // goes through), continueMining and fillMempool. start() compares it across
-    // wallet preparation, while the API already listens, so a control that landed
-    // there is honoured; the reorg pause must not bump it, or a reconsider_block
-    // before ready would leave the miner never started.
+    // Bumped only by operator mining controls: pauseMining, continueMining,
+    // fillMempool and an invalidateBlock the node accepted. start() compares it
+    // across wallet preparation, while the API already listens, so a control that
+    // landed there is honoured; the reorg pause must not bump it, or a
+    // reconsider_block before ready would leave the miner never started, and a
+    // refused invalidateBlock must not either.
     this._operatorMiningGeneration = 0;
+    // invalidateBlock calls between their pause and their exit. When start() decides
+    // while one is in flight it records the operator generation in
+    // _invalidateStartHandoff instead of switching mining on, and the last call out
+    // switches it on only if none was accepted (_invalidatePauseGeneration names the
+    // newest pause, so a foreign mining-state write cancels it).
+    this._invalidatesInFlight = 0;
+    this._invalidateStartHandoff = null;
+    this._invalidatePauseGeneration = 0;
     // Ownership of the reorg pause reconsiderBlock restores from. The guard
     // above cannot be "any generation change since my snapshot": reconsiderBlock
     // is itself a keepMining writer and a generation bumper, so a SECOND

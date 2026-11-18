@@ -153,10 +153,14 @@ module.exports = {
     // inside. Every current caller ignores the value; reconsiderBlock does its own
     // claim through enterReorgPause because a plain generation snapshot cannot
     // tell a second reconsider apart from an operator pause.
-    async pauseMining() {
+    //
+    // `recordIntent: false` takes the pause and barrier without registering an
+    // operator control: invalidateBlock records that itself, only once the node
+    // accepted the call, so a refused call leaves no standing pause behind.
+    async pauseMining({ recordIntent = true } = {}) {
         const generation = this.claimPause();
         // Record operator intent here, not in claimPause, which the reorg pause shares.
-        this._operatorMiningGeneration++;
+        if (recordIntent) this._operatorMiningGeneration++;
         // Barrier: a pause that lands between the loop's keepMining check and its
         // generateBlocks(1) would let one more block settle after pause() resolves,
         // breaking a height-deterministic generateBlocks section. Await the in-flight

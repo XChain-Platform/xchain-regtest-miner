@@ -247,6 +247,39 @@ describe('cancel_fill_mempool outside the broadcast loop', function () {
     });
 });
 
+describe('cancel_fill_mempool during the split broadcasts', function () {
+    quietConsole();
+
+    it('stops during the split broadcasts after the one in flight', async function () {
+        this.timeout(30000);
+        const ctx = buildMiner();
+        let splitSends = 0;
+        let cancelSettled = null;
+        const realSend = ctx.miner.connector.sendRawTransaction;
+        ctx.miner.connector.sendRawTransaction = async (hex) => {
+            const phase = ctx.miner.getStatus().fill_mempool.phase;
+            if (phase === 'splitting') {
+                splitSends++;
+                if (splitSends === 1) cancelSettled = ctx.rpc.cancel_fill_mempool();
+            }
+            return realSend(hex);
+        };
+
+        // 2502 requests two splits (2500 and 2 outputs): the second must never go out.
+        const result = await ctx.rpc.fill_mempool({ tx_quantity: 2502 });
+        const cancelAnswer = await cancelSettled;
+
+        assert.strictEqual(result.cancelled, true);
+        assert.match(result.error, /cancelled during splitting/);
+        assert.strictEqual(splitSends, 1, 'the split in flight completes and no later split starts');
+        assert.strictEqual(result.sent, 0);
+        assert.strictEqual(ctx.stressSends.length, 0);
+        assert.strictEqual(cancelAnswer.cancelled, true);
+        assert.strictEqual(cancelAnswer.fill_mempool.phase, 'cancelled');
+        assert.strictEqual(ctx.miner.fillMempoolRunning, false);
+    });
+});
+
 describe('cancel_fill_mempool contract', function () {
     quietConsole();
 

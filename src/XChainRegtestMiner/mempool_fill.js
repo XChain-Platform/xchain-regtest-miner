@@ -101,6 +101,7 @@ async function splitFundingUtxos(
         let txHex = extractedTransaction.toHex();
 
         nextUtxo['txHex'] = txHex;
+        throwIfFillCancelled.call(this);
         nextUtxo['txIdSource'] = await this.connector.sendRawTransaction(txHex);
     }
 }

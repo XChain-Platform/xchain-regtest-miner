@@ -23,6 +23,22 @@
 
 const { noteMempoolChanged } = require('./status_mempool_read.js');
 
+// Drops one in-flight invalidate. The last one out applies the auto-start that
+// start() handed over, but only if no call in the group was accepted and no other
+// writer touched the mining state since the last invalidate paused it.
+function leaveInvalidate() {
+    if (--this._invalidatesInFlight > 0) return;
+    const handedAt = this._invalidateStartHandoff;
+    this._invalidateStartHandoff = null;
+    if (
+        handedAt !== null &&
+        this._operatorMiningGeneration === handedAt &&
+        this._miningStateGeneration === this._invalidatePauseGeneration
+    ) {
+        this.setKeepMining(true);
+    }
+}
+
 module.exports = {
     // Invalidates a block by hash, triggering a node-side rollback to the fork
     // point. Auto-mining is paused beforehand so the miner does not race ahead
@@ -37,12 +53,14 @@ module.exports = {
         // resolves, overlapping the invalidate below.
         const mineHold = this.enterReorgMineHold();
         const wasMining = this.keepMining;
+        this._invalidatesInFlight++;
         let result;
         try {
             // pauseMining claims its generation synchronously, so reading it right
             // after the call (before its barrier await) names this pause's claim.
-            const paused = this.pauseMining();
+            const paused = this.pauseMining({ recordIntent: false });
             const claimed = this._miningStateGeneration;
+            this._invalidatePauseGeneration = claimed;
             await paused;
             try {
                 result = await this.connector.invalidateBlock(blockHash);
@@ -57,8 +75,12 @@ module.exports = {
                 }
                 throw err;
             }
+            // Accepted: the pause now belongs to the caller, who closes it with
+            // continueMining(), so start() must honour it like an operator pause.
+            this._operatorMiningGeneration++;
         } finally {
             this.exitReorgMineHold(mineHold);
+            leaveInvalidate.call(this);
         }
         // The disconnected blocks' transactions are back in the mempool.
         noteMempoolChanged.call(this);
