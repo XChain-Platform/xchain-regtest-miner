@@ -42,63 +42,63 @@ const {
     fillProgressSnapshot,
 } = require('./fill_progress.js');
 
-// Spends each funding utxo into one output per derived address, recording the
-// signed tx and its txid on the utxo entry for the stress loop to spend.
-async function splitFundingUtxos(
-    utxos,
+// Builds and signs the transaction spending one funding utxo into the outputs
+// for its slice of derived addresses, returning its hex.
+function buildSplitTxHex(
+    nextUtxo,
+    nextUtxoIndex,
     { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_ADDRESS, FEE, network, address, addresses },
 ) {
+    let utxoIndex = nextUtxo['utxoIndex'];
+    let txid = nextUtxo['txid'];
+    let rawTransaction = nextUtxo['rawTransaction'];
+
+    //Create a single transaction with txQuantity outputs
+    let psbt = new bitcoin.Psbt({ network: network });
+
+    psbt.addInput({
+        hash: txid,
+        index: utxoIndex,
+        // transaction.outs[n].sequence doesn't exist (.sequence is an
+        // input field, not an output field); reading it always yields
+        // undefined, which bitcoinjs-lib coerces to 0 (disabling RBF
+        // signalling but also rejecting some nodes). Use the standard
+        // final-sequence value instead.
+        sequence: 0xffffffff,
+        nonWitnessUtxo: Buffer.from(rawTransaction, 'hex'),
+    });
+
+    for (
+        let nextAddressIndex = nextUtxoIndex * OUTPUTS_QUANTITY_PER_TX;
+        nextAddressIndex < (parseInt(nextUtxoIndex) + 1) * OUTPUTS_QUANTITY_PER_TX &&
+        nextAddressIndex < addresses.length;
+        nextAddressIndex++
+    ) {
+        let nextAddress = addresses[nextAddressIndex];
+        let nextAddressPayment = bitcoin.payments.p2pkh({ pubkey: nextAddress.publicKey, network }).address;
+
+        psbt.addOutput({
+            address: nextAddressPayment,
+            value: AMOUNT_FOR_EACH_ADDRESS + FEE,
+        });
+    }
+
+    let keyToSign = ECPair.fromPrivateKey(address.privateKey, { network });
+
+    for (let nextInputIndex = 0; nextInputIndex < psbt.data.inputs.length; nextInputIndex++) {
+        psbt.signInput(parseInt(nextInputIndex), keyToSign);
+    }
+
+    psbt.finalizeAllInputs();
+    return psbt.extractTransaction().toHex();
+}
+
+// Spends each funding utxo into one output per derived address, recording the
+// signed tx and its txid on the utxo entry for the stress loop to spend.
+async function splitFundingUtxos(utxos, plan) {
     for (let nextUtxoIndex in utxos) {
         let nextUtxo = utxos[nextUtxoIndex];
-        let utxoIndex = nextUtxo['utxoIndex'];
-        let txid = nextUtxo['txid'];
-        let rawTransaction = nextUtxo['rawTransaction'];
-        let transaction = bitcoin.Transaction.fromHex(rawTransaction);
-
-        //Create a single transaction with txQuantity outputs
-        let psbt = new bitcoin.Psbt({ network: network });
-
-        psbt.addInput({
-            hash: txid,
-            index: utxoIndex,
-            // transaction.outs[n].sequence doesn't exist (.sequence is an
-            // input field, not an output field); reading it always yields
-            // undefined, which bitcoinjs-lib coerces to 0 (disabling RBF
-            // signalling but also rejecting some nodes). Use the standard
-            // final-sequence value instead.
-            sequence: 0xffffffff,
-            nonWitnessUtxo: Buffer.from(rawTransaction, 'hex'),
-        });
-
-        let total = 0;
-
-        for (
-            let nextAddressIndex = nextUtxoIndex * OUTPUTS_QUANTITY_PER_TX;
-            nextAddressIndex < (parseInt(nextUtxoIndex) + 1) * OUTPUTS_QUANTITY_PER_TX &&
-            nextAddressIndex < addresses.length;
-            nextAddressIndex++
-        ) {
-            let nextAddress = addresses[nextAddressIndex];
-            let nextAddressPayment = bitcoin.payments.p2pkh({ pubkey: nextAddress.publicKey, network }).address;
-            let paymentAmount = AMOUNT_FOR_EACH_ADDRESS + FEE;
-
-            total = total + paymentAmount;
-
-            psbt.addOutput({
-                address: nextAddressPayment,
-                value: paymentAmount,
-            });
-        }
-
-        let keyToSign = ECPair.fromPrivateKey(address.privateKey, { network });
-
-        for (let nextInputIndex = 0; nextInputIndex < psbt.data.inputs.length; nextInputIndex++) {
-            psbt.signInput(parseInt(nextInputIndex), keyToSign);
-        }
-
-        psbt.finalizeAllInputs();
-        let extractedTransaction = psbt.extractTransaction();
-        let txHex = extractedTransaction.toHex();
+        let txHex = buildSplitTxHex(nextUtxo, nextUtxoIndex, plan);
 
         nextUtxo['txHex'] = txHex;
         throwIfFillCancelled.call(this);
