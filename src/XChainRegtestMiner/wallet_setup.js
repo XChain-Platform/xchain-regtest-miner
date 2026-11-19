@@ -90,7 +90,9 @@ async function bindProbedWallet(probeAddress) {
         // Keep the retries low: the probe just answered on this same endpoint.
         info = await this.connector.getWalletInfo(3);
     } catch (err) {
-        const coin = String(this.network || '').split('-')[0].toLowerCase();
+        const coin = String(this.network || '')
+            .split('-')[0]
+            .toLowerCase();
         if (coin === 'bitcoin' || coin === 'litecoin') {
             logger.warn('Could not identify the wallet on the base RPC URL; loading and pinning the configured wallet');
             await this.ensureWalletLoaded();
