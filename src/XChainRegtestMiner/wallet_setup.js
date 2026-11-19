@@ -162,6 +162,25 @@ async function settleStartupBalance() {
     await this.pinFundingFeeRate();
 }
 
+async function prepareWalletFunding() {
+    logger.info('Getting a new address to receive blocks reward');
+    this.walletAddress = await this.connector.getNewAddress();
+    logger.info('Checking wallet balance');
+    this.balance = await this.connector.getBalance();
+    await settleStartupBalance.call(this);
+}
+
+async function recoverRuntimeWallet() {
+    const outcome = await this.ensureWalletLoaded();
+    if (!outcome || !outcome.created) {
+        await this.pinFundingFeeRate();
+        return;
+    }
+    this.walletReady = false;
+    await prepareWalletFunding.call(this);
+    this.walletReady = true;
+}
+
 module.exports = {
     /**
      * Loads the named wallet, creating it if the node has never seen it, and
@@ -181,9 +200,10 @@ module.exports = {
     async ensureWalletLoaded() {
         const walletName = this.walletNameParam;
         for (let attempt = 1; attempt <= WALLET_LOAD_MAX_ATTEMPTS; attempt++) {
-            if (await loadWalletOnce.call(this, walletName)) {
+            const outcome = await loadWalletOnce.call(this, walletName);
+            if (outcome) {
                 this.connector.setWalletName(walletName);
-                return;
+                return outcome;
             }
             if (attempt < WALLET_LOAD_MAX_ATTEMPTS) {
                 logger.warn(
@@ -193,6 +213,19 @@ module.exports = {
             }
         }
         throw new Error(`Could not load wallet '${walletName}' on regtest node: the node never confirmed it loaded`);
+    },
+
+    async reloadWallet() {
+        if (this.walletReloadInFlight) return this.walletReloadInFlight;
+        const outcome = recoverRuntimeWallet.call(this).then(
+            () => ({ ok: true, error: null }),
+            (error) => ({ ok: false, error }),
+        );
+        const tracked = outcome.finally(() => {
+            if (this.walletReloadInFlight === tracked) this.walletReloadInFlight = null;
+        });
+        this.walletReloadInFlight = tracked;
+        return tracked;
     },
 
     async sendFundsToAddress(address, amount) {
@@ -215,10 +248,8 @@ module.exports = {
             // "Error sending funds to address".
             if (!err || !err.walletMissing) throw err;
             logger.info('Wallet is no longer loaded on the node (restarted?); reloading and retrying once');
-            await this.ensureWalletLoaded();
-            // Re-pin after the reload: settxfee is in-memory wallet state, so the
-            // reloaded wallet on LTC/DOGE comes back without its fee ceiling.
-            await this.pinFundingFeeRate();
+            const recovery = await this.reloadWallet();
+            if (!recovery.ok) throw recovery.error;
             return await this.connector.sendToAddress(address, amount, this.fundingFeeRateSatPerVb);
         }
     },
@@ -325,23 +356,21 @@ module.exports = {
 
         if (probeAddress == null) {
             await this.ensureWalletLoaded();
-            logger.info('Getting a new address to receive blocks reward');
-            this.walletAddress = await this.connector.getNewAddress();
+            await prepareWalletFunding.call(this);
         } else {
             // Probe succeeded; make sure the wallet that answered is ours before using it
             this.walletAddress = await bindProbedWallet.call(this, probeAddress);
+            logger.info('Checking wallet balance');
+            this.balance = await this.connector.getBalance();
+            await settleStartupBalance.call(this);
         }
-
-        logger.info('Checking wallet balance');
-        this.balance = await this.connector.getBalance();
-
-        await settleStartupBalance.call(this);
 
         // Wallet is fully prepared (address assigned, coinbase matured): wallet-dependent
         // RPCs (generateToAddress) are safe from here. Callers gate on this via ping/status,
         // closing the cold-start race where ping returned success before walletAddress was set.
         //
-        // Startup-completion only, and never re-evaluated afterwards: a simulated reorg deep
+        // Startup-completion, except while a wallet created during runtime recovery is
+        // assigned a new mining address and warmed to maturity. A simulated reorg deep
         // enough to disconnect the matured coinbase leaves this true while the wallet can no
         // longer fund a send, so a reorg drill must read wallet_funded / wallet_balance from
         // status rather than wallet_ready. Whether this flag should instead become

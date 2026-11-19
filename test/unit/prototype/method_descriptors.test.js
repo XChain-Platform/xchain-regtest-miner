@@ -68,6 +68,7 @@ const MINER_PROTOTYPE_ROWS = [
     ['prepareWallet', false, true, true, 'function', 0],
     ['reconsiderBlock', false, true, true, 'function', 1],
     ['refreshWalletFunds', false, true, true, 'function', 0],
+    ['reloadWallet', false, true, true, 'function', 0],
     ['sendFundsToAddress', false, true, true, 'function', 2],
     ['sendFundsUncapped', false, true, true, 'function', 2],
     ['setDefaultMiningTime', false, true, true, 'function', 0],

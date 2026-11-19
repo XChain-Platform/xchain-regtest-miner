@@ -62,28 +62,20 @@ function initMineExclusionState() {
     // reconsider_block before ready would leave the miner never started, and a
     // refused invalidateBlock must not either.
     this._operatorMiningGeneration = 0;
-    // invalidateBlock calls between their pause and their exit. When start() decides
-    // while one is in flight it records the operator generation in
-    // _invalidateStartHandoff instead of switching mining on, and the last call out
-    // switches it on only if none was accepted (_invalidatePauseGeneration names the
-    // newest pause, so a foreign mining-state write cancels it).
-    this._invalidatesInFlight = 0;
-    this._invalidateStartHandoff = null;
-    this._invalidatePauseGeneration = 0;
-    // Ownership of the reorg pause reconsiderBlock restores from. The guard
+    // Ownership of the pause shared by invalidateBlock and reconsiderBlock. The guard
     // above cannot be "any generation change since my snapshot": reconsiderBlock
     // is itself a keepMining writer and a generation bumper, so a SECOND
     // reconsider_block (api.js exposes it with no queue) bumps past the first's
     // snapshot and both then decline to restore, leaving the miner silently
     // stalled with nobody left to call continueMining().
     //
-    // So the reorg pause is refcounted and shared instead. Concurrent
-    // reconsiders inherit one record of "was auto-mining live before the reorg
+    // So the reorg pause is refcounted and shared instead. Concurrent reorg calls
+    // inherit one record of "was auto-mining live before the reorg
     // started" plus the generation the LAST reorg pause claimed; only a
     // generation the reorg pause did not claim (an operator pause_mining /
     // continue_mining, fillMempool, the loop starting) counts as a foreign
     // mutation that cancels the restore. The last reconsider out is the one that
-    // restores.
+    // restores. An accepted invalidate gives up that restore for the whole group.
     this._reorgPauseDepth = 0;
     this._reorgPauseWasMining = false;
     this._reorgPauseGeneration = 0;
@@ -119,8 +111,8 @@ function initStatusFields() {
     // exported as wallet_balance_at so a drill can tell a fresh reading from a
     // never-refreshed one. null until prepareWallet has read a balance.
     this._balanceReadAt = null;
-    // The in-flight read-path wallet reload and the epoch ms it last started (see
-    // startWalletReload in mempool_fill.js); both null until a read finds the wallet lost.
+    // The in-flight runtime wallet recovery shared by balance reads and funding
+    // sends, plus the epoch ms the read path last started one.
     this.walletReloadInFlight = null;
     this.walletReloadStartedAt = null;
     this.fundingFeePinCheckInFlight = null;

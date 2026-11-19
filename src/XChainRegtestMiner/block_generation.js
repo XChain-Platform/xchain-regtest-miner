@@ -239,13 +239,9 @@ module.exports = {
         // otherwise its "ok" stands, as it would after ready.
         if (this._operatorMiningGeneration === operatorGeneration) {
             if (this._reorgPauseDepth > 0) {
-                // A reconsider_block is mid-reorg: hand the resume to its last exit,
+                // A reorg primitive is mid-call: hand the resume to its last exit,
                 // and leave the generation alone so that exit still owns the restore.
                 this._reorgPauseWasMining = true;
-            } else if (this._invalidatesInFlight > 0) {
-                // An invalidate_block is mid-call and holds the pause: hand the start
-                // to its last exit, which applies it unless a call was accepted.
-                this._invalidateStartHandoff = operatorGeneration;
             } else {
                 this.setKeepMining(true);
             }

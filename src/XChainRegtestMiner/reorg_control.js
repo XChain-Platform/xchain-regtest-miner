@@ -23,20 +23,10 @@
 
 const { noteMempoolChanged } = require('./status_mempool_read.js');
 
-// Drops one in-flight invalidate. The last one out applies the auto-start that
-// start() handed over, but only if no call in the group was accepted and no other
-// writer touched the mining state since the last invalidate paused it.
-function leaveInvalidate() {
-    if (--this._invalidatesInFlight > 0) return;
-    const handedAt = this._invalidateStartHandoff;
-    this._invalidateStartHandoff = null;
-    if (
-        handedAt !== null &&
-        this._operatorMiningGeneration === handedAt &&
-        this._miningStateGeneration === this._invalidatePauseGeneration
-    ) {
-        this.setKeepMining(true);
-    }
+function exitAcceptedInvalidate() {
+    this._reorgPauseWasMining = false;
+    this.exitReorgPause();
+    this._operatorMiningGeneration++;
 }
 
 module.exports = {
@@ -48,39 +38,23 @@ module.exports = {
         if (typeof blockHash !== 'string' || blockHash.length === 0) {
             throw new Error('invalidateBlock: blockHash must be a non-empty string');
         }
-        // Raised before the pause barrier, not after it: a mine appended while
-        // pauseMining() is draining would otherwise run the instant the drain
-        // resolves, overlapping the invalidate below.
+        // Share one refcounted pause with every reorg primitive. A refused call
+        // releases its share, while an accepted call converts the shared pause
+        // into the caller-owned pause that continueMining closes.
+        this.enterReorgPause();
+        // Raised before the queue barrier, not after it: a mine appended while
+        // the queue drains would otherwise overlap the invalidate below.
         const mineHold = this.enterReorgMineHold();
-        const wasMining = this.keepMining;
-        this._invalidatesInFlight++;
+        let accepted = false;
         let result;
         try {
-            // pauseMining claims its generation synchronously, so reading it right
-            // after the call (before its barrier await) names this pause's claim.
-            const paused = this.pauseMining({ recordIntent: false });
-            const claimed = this._miningStateGeneration;
-            this._invalidatePauseGeneration = claimed;
-            await paused;
-            try {
-                result = await this.connector.invalidateBlock(blockHash);
-            } catch (err) {
-                // A refused or failed node call invalidated nothing, so the pause
-                // is not the start of a reorg the caller must close with
-                // continueMining(): hand back the auto-mining state this call took.
-                // Skipped when another writer (operator pause/continue, fillMempool)
-                // moved the state meanwhile, so their intent wins.
-                if (wasMining && this._miningStateGeneration === claimed) {
-                    this.setKeepMining(true);
-                }
-                throw err;
-            }
-            // Accepted: the pause now belongs to the caller, who closes it with
-            // continueMining(), so start() must honour it like an operator pause.
-            this._operatorMiningGeneration++;
+            await this.pauseMining({ recordIntent: false, claim: false });
+            result = await this.connector.invalidateBlock(blockHash);
+            accepted = true;
         } finally {
             this.exitReorgMineHold(mineHold);
-            leaveInvalidate.call(this);
+            if (accepted) exitAcceptedInvalidate.call(this);
+            else this.exitReorgPause();
         }
         // The disconnected blocks' transactions are back in the mempool.
         noteMempoolChanged.call(this);

@@ -157,18 +157,14 @@ function startWalletReload() {
     if (this.walletReloadStartedAt != null && now - this.walletReloadStartedAt < WALLET_BALANCE_REFRESH_MS) return null;
     this.walletReloadStartedAt = now;
     logger.info('Wallet is no longer loaded on the node (restarted?); reloading it from the balance read');
-    this.walletReloadInFlight = (async () => {
-        try {
-            await this.ensureWalletLoaded();
-            // Re-pin after the reload: settxfee is in-memory wallet state on LTC/DOGE.
-            await this.pinFundingFeeRate();
-        } catch (err) {
+    const recovery = this.reloadWallet();
+    recovery.then((result) => {
+        if (!result.ok) {
+            const err = result.error;
             logger.info('Could not reload the wallet: ' + (err && err.message ? err.message : err));
-        } finally {
-            this.walletReloadInFlight = null;
         }
-    })();
-    return this.walletReloadInFlight;
+    });
+    return recovery;
 }
 
 // Verify wallet-wide pins after restarts, and slowly retry only transient failures
@@ -304,8 +300,8 @@ module.exports = {
     // RPC has already succeeded, so a failed balance read must not turn a
     // completed invalidate/reconsider into a rejected call, and in the auto-mine
     // loop a throw would kill mining outright. Deliberately does NOT
-    // touch walletReady, which is a startup-completion flag; see the note where
-    // prepareWallet sets it.
+    // touch walletReady for an ordinary read. Runtime wallet recreation lowers it
+    // only while the new mining address is warmed to maturity.
     //
     // Stamps _balanceReadAt on BOTH paths: it records the last read ATTEMPT, which
     // is what bounds staleness and what paces the loop's cadence guard. Stamping

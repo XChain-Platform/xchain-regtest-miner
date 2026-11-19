@@ -146,20 +146,11 @@ module.exports = {
         return await this.connector.setMockTime(Number(timestamp));
     },
 
-    // Returns the mining-state generation this pause claimed, so a caller that
-    // restores the previous state later can check no other pause/continue
-    // intervened. The claim is taken synchronously with the flag write, before the
-    // barrier below, because the barrier is itself an await another RPC can land
-    // inside. Every current caller ignores the value; reconsiderBlock does its own
-    // claim through enterReorgPause because a plain generation snapshot cannot
-    // tell a second reconsider apart from an operator pause.
-    //
-    // `recordIntent: false` takes the pause and barrier without registering an
-    // operator control: invalidateBlock records that itself, only once the node
-    // accepted the call, so a refused call leaves no standing pause behind.
-    async pauseMining({ recordIntent = true } = {}) {
-        const generation = this.claimPause();
-        // Record operator intent here, not in claimPause, which the reorg pause shares.
+    // The claim is taken synchronously with the flag write, before the barrier
+    // below, because another RPC can land inside the await. Reorg callers can
+    // use the same queue barrier after claiming through the shared pause.
+    async pauseMining({ recordIntent = true, claim = true } = {}) {
+        const generation = claim ? this.claimPause() : this._miningStateGeneration;
         if (recordIntent) this._operatorMiningGeneration++;
         // Barrier: a pause that lands between the loop's keepMining check and its
         // generateBlocks(1) would let one more block settle after pause() resolves,

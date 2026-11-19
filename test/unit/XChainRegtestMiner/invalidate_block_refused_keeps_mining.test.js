@@ -28,11 +28,27 @@ function setupMiner(invalidate) {
     miner.connector = { invalidateBlock: invalidate };
 }
 
-describe('invalidateBlock refused by the node', function () {
-    afterEach(() => {
-        sinon.restore();
-        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+function deferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
     });
+    return { promise, resolve, reject };
+}
+
+async function nextTurn() {
+    await new Promise((resolve) => setImmediate(resolve));
+}
+
+function teardownMiner() {
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+}
+
+describe('invalidateBlock refused by the node', function () {
+    afterEach(teardownMiner);
 
     it('leaves auto-mining running and releases the mine hold', async function () {
         setupMiner(async () => {
@@ -72,5 +88,83 @@ describe('invalidateBlock refused by the node', function () {
         release();
         await assert.rejects(call);
         assert.strictEqual(miner.keepMining, false);
+    });
+});
+
+describe('invalidateBlock vs a concurrent invalidateBlock', function () {
+    afterEach(teardownMiner);
+
+    it('restores mining after two overlapping invalidates are both refused', async function () {
+        const calls = [deferred(), deferred()];
+        let index = 0;
+        setupMiner(async () => calls[index++].promise);
+
+        const first = miner.invalidateBlock(HASH).catch((err) => err);
+        await nextTurn();
+        const second = miner.invalidateBlock(HASH).catch((err) => err);
+        await nextTurn();
+        calls[0].reject(new Error('first refused'));
+        calls[1].reject(new Error('second refused'));
+
+        assert.match((await first).message, /first refused/);
+        assert.match((await second).message, /second refused/);
+        assert.strictEqual(miner.keepMining, true);
+    });
+
+    it('keeps mining paused when either overlapping invalidate is accepted', async function () {
+        const calls = [deferred(), deferred()];
+        let index = 0;
+        setupMiner(async () => calls[index++].promise);
+
+        const accepted = miner.invalidateBlock(HASH);
+        await nextTurn();
+        const refused = miner.invalidateBlock(HASH).catch((err) => err);
+        await nextTurn();
+        calls[1].reject(new Error('second refused'));
+        calls[0].resolve(true);
+
+        assert.match((await refused).message, /second refused/);
+        await accepted;
+        assert.strictEqual(miner.keepMining, false);
+    });
+});
+
+describe('invalidateBlock vs a concurrent reconsiderBlock', function () {
+    afterEach(teardownMiner);
+
+    it('restores mining when a refused invalidate starts before reconsider', async function () {
+        const invalidate = deferred();
+        const reconsider = deferred();
+        setupMiner(async () => invalidate.promise);
+        miner.connector.reconsiderBlock = async () => reconsider.promise;
+
+        const invalidateCall = miner.invalidateBlock(HASH).catch((err) => err);
+        await nextTurn();
+        const reconsiderCall = miner.reconsiderBlock(HASH);
+        await nextTurn();
+        invalidate.reject(new Error('invalidate refused'));
+        reconsider.resolve(true);
+
+        assert.match((await invalidateCall).message, /invalidate refused/);
+        await reconsiderCall;
+        assert.strictEqual(miner.keepMining, true);
+    });
+
+    it('restores mining when reconsider starts before a refused invalidate', async function () {
+        const invalidate = deferred();
+        const reconsider = deferred();
+        setupMiner(async () => invalidate.promise);
+        miner.connector.reconsiderBlock = async () => reconsider.promise;
+
+        const reconsiderCall = miner.reconsiderBlock(HASH);
+        await nextTurn();
+        const invalidateCall = miner.invalidateBlock(HASH).catch((err) => err);
+        await nextTurn();
+        reconsider.resolve(true);
+        invalidate.reject(new Error('invalidate refused'));
+
+        await reconsiderCall;
+        assert.match((await invalidateCall).message, /invalidate refused/);
+        assert.strictEqual(miner.keepMining, true);
     });
 });
