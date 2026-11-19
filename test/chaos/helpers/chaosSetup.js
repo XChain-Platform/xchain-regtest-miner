@@ -17,6 +17,7 @@
  * established in test/e2e/mining_loop.test.js.
  */
 
+const sinon = require('sinon');
 const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
 
 /**
@@ -105,7 +106,25 @@ async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Bound the hold a failed mine takes while the node stays unreachable.
+ * The settle deadline is read from Date, so a fake Date that every miner sleep
+ * advances reaches it in a few polls instead of the real thirty minutes.
+ * @param {XChainRegtestMiner} miner
+ * @returns {object} the fake clock; sinon.restore() uninstalls it
+ */
+function boundMineSettle(miner) {
+    const clock = sinon.useFakeTimers({ now: Date.now(), toFake: ['Date'] });
+    const pacedSleep = miner.sleep;
+    miner.sleep = async (ms) => {
+        clock.tick(60 * 1000);
+        await pacedSleep(ms);
+    };
+    return clock;
+}
+
 module.exports = {
+    boundMineSettle,
     createMiner,
     seedWallet,
     startMinerLoop,

@@ -33,6 +33,7 @@ const {
 } = require('./constants.js');
 const { deriveFillKeys, fundMainAddress, findFundingUtxos } = require('./fill_plan.js');
 const { confirmSplitTxs } = require('./split_confirmation.js');
+const { assertMineSettled } = require('./mine_settle.js');
 const {
     startFillProgress,
     throwIfFillCancelled,
@@ -221,6 +222,7 @@ async function runFillPhases(txQuantity) {
     // to settle before proceeding, so a mine that started just before the
     // flag flip can't land a new block while fillMempool is running.
     await this._generateQueue;
+    assertMineSettled.call(this);
     logger.info('Filling mempool with ' + txQuantity + ' transactions');
     const plan = deriveFillKeys.call(this, txQuantity);
 

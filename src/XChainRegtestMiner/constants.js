@@ -53,14 +53,15 @@ const MAX_FILL_MEMPOOL_QUANTITY = 50000; //max number of transactions to fill th
 const MAX_SEND_RETRIES = 50; //max retries for sending funds in fillMempool
 const MAX_GENERATE_BLOCKS = 10000; //max blocks a single generateBlocks call may mine (see the cap note in block_generation.js)
 
-// Bound the wait for the node to stop mining after a generatetoaddress timeout
-// (see mine_settle.js). Poll each second. A node with getrpcinfo is settled once
+// Bound the caller's wait after generatetoaddress fails with an uncertain outcome.
+// Poll each second. A node with getrpcinfo is settled once
 // no generatetoaddress is active. One without it (Dogecoin 1.14), or a failed
 // getrpcinfo read, falls back to the height holding still for QUIET_READS reads:
 // about two minutes, since a regtest node has been seen pausing 49 s between
 // blocks mid-call, so a short window declared it stopped while it still mined.
 // Give up at thirty minutes: a 300-block call has needed about six minutes past
-// the client timeout, and the reply waits on this hold.
+// the client timeout. At the deadline, dependent controls fail while a background
+// probe continues until the node is confirmed idle.
 const MINE_SETTLE_POLL_MS = 1000;
 const MINE_SETTLE_QUIET_READS = 120;
 const MINE_SETTLE_DEADLINE_MS = 30 * 60 * 1000;

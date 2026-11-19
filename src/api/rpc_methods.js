@@ -100,7 +100,9 @@ function createMiningControlMethods(miner) {
             try {
                 await miner.pauseMining();
             } catch (err) {
-                return { error: 'There was a problem trying to pause the mining' };
+                return {
+                    error: err && err.mineUnsettled ? err.message : 'There was a problem trying to pause the mining',
+                };
             }
 
             return 'ok';

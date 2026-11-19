@@ -22,6 +22,7 @@
 'use strict';
 
 const { noteMempoolChanged } = require('./status_mempool_read.js');
+const { assertMineSettled } = require('./mine_settle.js');
 
 function exitAcceptedInvalidate() {
     this._reorgPauseWasMining = false;
@@ -101,6 +102,7 @@ module.exports = {
             // Same barrier pauseMining takes, drained inside the try so a rejected
             // in-flight mine still releases the reorg pause.
             await this._generateQueue;
+            assertMineSettled.call(this);
             const result = await this.connector.reconsiderBlock(blockHash);
             dropMineHold();
             noteMempoolChanged.call(this);

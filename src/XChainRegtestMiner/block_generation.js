@@ -23,7 +23,7 @@
 
 const { MAX_GENERATE_BLOCKS, logger } = require('./constants.js');
 const { sendFundsToAddress: sendFundsWithoutAmountCap } = require('./wallet_setup.js');
-const { readNodeHeight, settleAfterMineTimeout } = require('./mine_settle.js');
+const { assertMineSettled, readNodeHeight, settleAfterMineTimeout } = require('./mine_settle.js');
 const { runMineLoop } = require('./mine_loop.js');
 const { noteMempoolChanged, refreshStatusMempool } = require('./status_mempool_read.js');
 const { fillProgressSnapshot } = require('./fill_progress.js');
@@ -173,6 +173,7 @@ module.exports = {
     },
 
     async generateBlocksRaw(numberOfBlocks) {
+        assertMineSettled.call(this);
         // Baseline height, read inside this serialized slot so no queued mine can
         // move it. A failed generatetoaddress (a client timeout above all) may still
         // have landed some or all of the blocks: without this read the caller got a
@@ -183,11 +184,12 @@ module.exports = {
         try {
             hashes = await this.connector.generateToAddress(numberOfBlocks, this.walletAddress);
         } catch (err) {
-            // The node keeps mining after the client times out; hold this queue
-            // slot, and every barrier awaiting it, until the node stops. Any other
-            // failure is read once, as is: it does not wait for the node.
+            // Hold the queue for failures where the node may have accepted the
+            // request. Confirmed refusals only need the final height read.
             const endHeight =
-                err && err.timedOut ? await settleAfterMineTimeout.call(this) : await readNodeHeight.call(this);
+                err && (err.timedOut || err.executionUncertain)
+                    ? await settleAfterMineTimeout.call(this)
+                    : await readNodeHeight.call(this);
             reportPartialMine.call(this, err, numberOfBlocks, startHeight, endHeight);
             throw err;
         } finally {
@@ -286,6 +288,9 @@ module.exports = {
             // zeroed by a successful mempool read, so it cannot report a miner that
             // is answering RPC but unable to generate a block.
             mine_failures: this._mineFailures,
+            mine_unsettled: this._mineUnsettled
+                ? { since: this._mineUnsettled.since, last_height: this._mineUnsettled.lastHeight }
+                : null,
             // Surface the paused state so a fill_mempool / invalidate_block that was never
             // paired with continue_mining is observable as a deliberate pause rather than
             // reading as a node hang (the loop holds keepMining=false until resumed).

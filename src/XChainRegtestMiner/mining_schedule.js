@@ -28,6 +28,7 @@ const {
     MIN_MINING_TIME,
     logger,
 } = require('./constants.js');
+const { assertMineSettled } = require('./mine_settle.js');
 
 module.exports = {
     async sleep(ms) {
@@ -157,6 +158,7 @@ module.exports = {
         // breaking a height-deterministic generateBlocks section. Await the in-flight
         // mine so callers get a true barrier.
         await this._generateQueue;
+        assertMineSettled.call(this);
         return generation;
     },
 

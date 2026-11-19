@@ -108,6 +108,7 @@ describe('miner status and health while fill_mempool runs', function () {
             'wallet_ready',
             'consecutive_errors',
             'mine_failures',
+            'mine_unsettled',
             'mining_paused',
             'mining_started',
         ]);

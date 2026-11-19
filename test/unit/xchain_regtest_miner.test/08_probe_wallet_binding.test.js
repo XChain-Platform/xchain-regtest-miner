@@ -85,10 +85,28 @@ function probeSucceededTests() {
         assert.strictEqual(miner.walletAddress, 'bcrt1qprobe');
     });
 
-    it('keeps the probed address when wallet info cannot be read, with few retries', async function () {
+    it('loads and pins the configured Bitcoin wallet when wallet info cannot be read', async function () {
         connectorStub.getWalletInfo.rejects(new Error('Error getting wallet info'));
         await miner.prepareWallet();
         assert.strictEqual(connectorStub.getWalletInfo.firstCall.args[0], 3);
+        assert(connectorStub.loadWallet.calledOnceWith(OURS));
+        assert(connectorStub.setWalletName.calledOnceWith(OURS));
+        assert.strictEqual(miner.walletAddress, 'bcrt1qours');
+    });
+
+    it('loads and pins the configured Litecoin wallet when wallet info cannot be read', async function () {
+        miner.network = 'litecoin-regtest';
+        connectorStub.getWalletInfo.rejects(new Error('Error getting wallet info'));
+        await miner.prepareWallet();
+        assert(connectorStub.loadWallet.calledOnceWith(OURS));
+        assert(connectorStub.setWalletName.calledOnceWith(OURS));
+        assert.strictEqual(miner.walletAddress, 'bcrt1qours');
+    });
+
+    it('keeps the probed address when wallet info cannot be read, with few retries', async function () {
+        miner.network = 'dogecoin-regtest';
+        connectorStub.getWalletInfo.rejects(new Error('Error getting wallet info'));
+        await miner.prepareWallet();
         assert(connectorStub.setWalletName.notCalled);
         assert(connectorStub.loadWallet.notCalled);
         assert.strictEqual(miner.walletAddress, 'bcrt1qprobe');

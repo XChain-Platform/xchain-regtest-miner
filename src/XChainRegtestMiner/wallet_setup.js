@@ -90,7 +90,13 @@ async function bindProbedWallet(probeAddress) {
         // Keep the retries low: the probe just answered on this same endpoint.
         info = await this.connector.getWalletInfo(3);
     } catch (err) {
-        logger.warn('Could not read wallet info after a successful probe; staying on the base RPC URL');
+        const coin = String(this.network || '').split('-')[0].toLowerCase();
+        if (coin === 'bitcoin' || coin === 'litecoin') {
+            logger.warn('Could not identify the wallet on the base RPC URL; loading and pinning the configured wallet');
+            await this.ensureWalletLoaded();
+            return await this.connector.getNewAddress();
+        }
+        logger.warn('Could not read wallet info after a successful probe; using the legacy base RPC URL');
         return probeAddress;
     }
 

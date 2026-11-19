@@ -20,7 +20,14 @@
 const assert = require('assert');
 const sinon = require('sinon');
 const ChaosNode = require('./helpers/ChaosNode');
-const { createMiner, seedWallet, startMinerLoop, stopMinerLoop, waitFor } = require('./helpers/chaosSetup');
+const {
+    boundMineSettle,
+    createMiner,
+    seedWallet,
+    startMinerLoop,
+    stopMinerLoop,
+    waitFor,
+} = require('./helpers/chaosSetup');
 
 let node;
 
@@ -73,7 +80,9 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
         // on how busy the venue is.
         await waitFor(() => node.callsFor('sendtoaddress').length > 0, 3000);
 
-        // Kill the node mid-operation
+        // Kill the node mid-operation. A mine reset by the outage holds its queue
+        // slot until the node answers, so bound that hold on a fake clock.
+        boundMineSettle(miner);
         node.goOffline();
 
         // Wait for fillMempool to exhaust retries and fail
@@ -86,7 +95,8 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
             'fillMempoolRunning should be reset to false by the finally block',
         );
 
-        // Clean up
+        // Clean up. Shutdown ends any settle probe a held mine left polling.
+        miner._shutdown = true;
         node.goOnline();
         sinon.restore();
         sinon.stub(console, 'log');
@@ -118,6 +128,7 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
 
         // Let it reach the send loop, then kill the node
         await waitFor(() => node.callsFor('sendtoaddress').length > 0, 3000);
+        boundMineSettle(miner);
         node.goOffline();
 
         // Wait for failure
@@ -128,7 +139,8 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
         assert.strictEqual(miner.keepMining, false, 'fillMempool leaves mining paused; continue_mining resumes it');
         assert.strictEqual(miner.fillMempoolRunning, false, 'the fillMempool mutex must be released on failure');
 
-        // Clean up
+        // Clean up. Shutdown ends any settle probe a held mine left polling.
+        miner._shutdown = true;
         node.goOnline();
         sinon.restore();
         sinon.stub(console, 'log');
@@ -153,6 +165,7 @@ describe('Chaos: fillMempool Interruption (CE-06)', function () {
         // Trigger fillMempool then kill node
         const fillPromise = miner.fillMempool(3).catch((e) => e);
         await waitFor(() => node.callsFor('sendtoaddress').length > 0, 3000);
+        boundMineSettle(miner);
         node.goOffline();
         await fillPromise;
 

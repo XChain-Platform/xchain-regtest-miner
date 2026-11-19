@@ -14,8 +14,8 @@
  *
  * XChain Regtest Miner - Mine Settle
  *
- * Holds a timed-out mine's queue slot until the node stops mining, since the
- * node keeps generating blocks after the client gives up on generatetoaddress.
+ * Holds a failed mine's queue slot until the node stops mining when execution
+ * may have started before the client lost the response.
  *
  ********************************************************************/
 
@@ -47,6 +47,62 @@ async function readMineActive() {
     }
 }
 
+function mineUnsettledError() {
+    const err = new Error(
+        'a failed generatetoaddress may still be running; mining controls are refused until it stops',
+    );
+    err.mineUnsettled = true;
+    return err;
+}
+
+function assertMineSettled() {
+    if (this._mineUnsettled) throw mineUnsettledError();
+}
+
+function clearMineUnsettled(height) {
+    this._mineUnsettled = null;
+    logger.warn('generatetoaddress finished after the settlement deadline at height ' + height);
+}
+
+async function probeUnsettledMine() {
+    await new Promise((resolve) => setImmediate(resolve));
+    let last = this._mineUnsettled ? this._mineUnsettled.lastHeight : null;
+    let quiet = 0;
+    while (this._mineUnsettled && !this._shutdown) {
+        await this.sleep(MINE_SETTLE_POLL_MS);
+        await new Promise((resolve) => setImmediate(resolve));
+        const active = await readMineActive.call(this);
+        const height = await readNodeHeight.call(this);
+        if (active === false && height !== null) {
+            clearMineUnsettled.call(this, height);
+            return;
+        }
+        quiet = active === null && height !== null && height === last ? quiet + 1 : 0;
+        if (height !== null) {
+            last = height;
+            this._mineUnsettled.lastHeight = height;
+        }
+        if (quiet >= MINE_SETTLE_QUIET_READS - 1) {
+            clearMineUnsettled.call(this, last);
+            return;
+        }
+    }
+}
+
+function latchMineUnsettled(lastHeight) {
+    if (!this._mineUnsettled) {
+        this._mineUnsettled = { since: Date.now(), lastHeight };
+    }
+    if (this._mineSettleProbe) return;
+    const probe = probeUnsettledMine.call(this);
+    this._mineSettleProbe = probe;
+    probe
+        .catch((err) => logger.error('mine settlement probe failed: ' + err.message))
+        .finally(() => {
+            if (this._mineSettleProbe === probe) this._mineSettleProbe = null;
+        });
+}
+
 // Wait until the node stops mining, or the deadline passes. Where getrpcinfo
 // answers, the node has stopped once no generatetoaddress is active, and the
 // height read after that is the settled one. Where it cannot answer, the height
@@ -63,21 +119,24 @@ async function settleAfterMineTimeout() {
         const active = await readMineActive.call(this);
         const height = await readNodeHeight.call(this);
         if (active === false && height !== null) {
-            logger.warn('generatetoaddress timed out; the node stopped mining at height ' + height);
+            logger.warn(
+                'generatetoaddress failed with an uncertain outcome; the node stopped mining at height ' + height,
+            );
             return height;
         }
         quiet = active === null && height !== null && height === last ? quiet + 1 : 0;
         if (height !== null) last = height;
         if (quiet >= MINE_SETTLE_QUIET_READS - 1) {
-            logger.warn('generatetoaddress timed out; the node stopped mining at height ' + last);
+            logger.warn(
+                'generatetoaddress failed with an uncertain outcome; the node stopped mining at height ' + last,
+            );
             return last;
         }
         await this.sleep(MINE_SETTLE_POLL_MS);
     }
-    logger.error(
-        'generatetoaddress timed out and the node height never settled; releasing the mine queue while the node may still be mining',
-    );
+    latchMineUnsettled.call(this, last);
+    logger.error('generatetoaddress did not settle before the deadline; mining controls are now refused');
     return null;
 }
 
-module.exports = { readNodeHeight, settleAfterMineTimeout };
+module.exports = { assertMineSettled, readNodeHeight, settleAfterMineTimeout };

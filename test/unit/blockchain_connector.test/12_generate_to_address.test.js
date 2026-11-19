@@ -215,5 +215,35 @@ describe('BlockchainConnector', function () {
             assert.strictEqual(threw && threw.message, 'Error generating to address');
             assert.strictEqual(threw.timedOut, undefined);
         });
+
+        it('flags response-less transport failures with uncertain execution', async function () {
+            for (const code of ['ECONNRESET', 'EPIPE', 'ESOMETHINGNEW']) {
+                axiosPostStub.rejects(Object.assign(new Error('transport failed'), { code }));
+                await assert.rejects(
+                    connector.generateToAddress(1, 'addr'),
+                    (err) => err.executionUncertain === true && err.timedOut === undefined,
+                );
+            }
+            for (const code of ['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN']) {
+                axiosPostStub.rejects(Object.assign(new Error('request not sent'), { code }));
+                await assert.rejects(
+                    connector.generateToAddress(1, 'addr'),
+                    (err) => err.executionUncertain === undefined && err.timedOut === undefined,
+                );
+            }
+        });
+
+        it('leaves a transport failure with a node response unflagged', async function () {
+            axiosPostStub.rejects(
+                Object.assign(new Error('node refused'), {
+                    code: 'ECONNRESET',
+                    response: { data: { error: { message: 'refused' } } },
+                }),
+            );
+            await assert.rejects(
+                connector.generateToAddress(1, 'addr'),
+                (err) => err.executionUncertain === undefined && err.timedOut === undefined,
+            );
+        });
     });
 });

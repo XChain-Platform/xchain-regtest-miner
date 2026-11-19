@@ -43,6 +43,7 @@ function evaluateMinerHealth({ status = {}, uptimeMs = 0, errorThreshold = 5, wa
     // Wallet ready but the loop never entered (start() rejected between prepareWallet
     // and the loop): also a stall rather than a pause.
     if (status.mining_started !== true) return { healthy: false, reason: 'not_started' };
+    if (status.mine_unsettled) return { healthy: false, reason: 'mine_unsettled' };
     // A running fill reads as paused (the loop cannot mine until it ends, even
     // after continue_mining), so it is told apart here and answered after the
     // streak checks: naming the fill must never hide a stall.
@@ -66,6 +67,7 @@ function formatMinerHealth(status, verdict) {
         wallet_ready: !!status.wallet_ready,
         consecutive_errors: status.consecutive_errors,
         mine_failures: status.mine_failures,
+        mine_unsettled: status.mine_unsettled || null,
         mining_paused: !!status.mining_paused,
         mining_started: !!status.mining_started,
     };

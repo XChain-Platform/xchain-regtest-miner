@@ -23,7 +23,7 @@ function miningNode(blocksAfterAbort) {
 
 // Wire a miner to the node: the first mine times out (flagged or not), later mines
 // succeed, and each sleep lets the node land one more block.
-function wire(miner, node, { flagged, landedBeforeThrow = 0 }) {
+function wire(miner, node, { flagged, executionUncertain = false, landedBeforeThrow = 0 }) {
     const seen = { remainingAtNextMine: null, remainingAtReconsider: null };
     let mines = 0;
     miner.walletAddress = 'bcrt1qtest';
@@ -38,6 +38,7 @@ function wire(miner, node, { flagged, landedBeforeThrow = 0 }) {
             node.height += landedBeforeThrow;
             const err = new Error('Error generating to address');
             if (flagged) err.timedOut = true;
+            if (executionUncertain) err.executionUncertain = true;
             throw err;
         },
         getBlockchainInfo: async () => ({ blocks: node.height }),
@@ -79,6 +80,7 @@ describe('a generatetoaddress client timeout holds the mine queue until the node
     });
 
     afterEach(function () {
+        miner._shutdown = true;
         sinon.restore();
         delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
     });
@@ -107,6 +109,16 @@ describe('a generatetoaddress client timeout holds the mine queue until the node
         assert.strictEqual(mineError.timedOut, true, 'the timed-out mine still rejects with its flag');
     });
 
+    it('settles a response-less transport failure before releasing barriers', async function () {
+        const node = miningNode(4);
+        const seen = wire(miner, node, { executionUncertain: true });
+        const { mineError, remainingAtPause } = await raceBarriers(miner, node);
+        assert.strictEqual(remainingAtPause, 0);
+        assert.strictEqual(seen.remainingAtReconsider, 0);
+        assert.strictEqual(seen.remainingAtNextMine, 0);
+        assert.strictEqual(mineError.executionUncertain, true);
+    });
+
     it('releases the queue at the settle deadline when the node never stops', async function () {
         const clock = sinon.useFakeTimers({ now: 1000, toFake: ['Date'] });
         const node = miningNode(Infinity);
@@ -118,7 +130,8 @@ describe('a generatetoaddress client timeout holds the mine queue until the node
         const err = await miner.generateBlocksQueued(3).catch((e) => e);
         assert.strictEqual(err.timedOut, true);
         assert.ok(Date.now() - 1000 >= MINE_SETTLE_DEADLINE_MS, 'the hold must last until the deadline');
-        await miner.pauseMining();
+        await assert.rejects(miner.pauseMining(), (pauseErr) => pauseErr.mineUnsettled === true);
+        assert.ok(miner.getStatus().mine_unsettled);
         assert.strictEqual(err.minedBlocks, null, 'an unsettled node gives no count rather than a lower bound');
     });
 });

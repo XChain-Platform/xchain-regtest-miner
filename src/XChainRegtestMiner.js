@@ -80,6 +80,8 @@ function initMineExclusionState() {
     this._reorgPauseWasMining = false;
     this._reorgPauseGeneration = 0;
     this._generateQueue = Promise.resolve();
+    this._mineUnsettled = null;
+    this._mineSettleProbe = null;
     // Mine-vs-reorg exclusion. _generateQueue serializes MINES against each
     // other, and pauseMining()/the bare "await this._generateQueue" only DRAIN
     // it: the queue is settled the instant that await resolves, so a

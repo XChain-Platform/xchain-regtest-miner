@@ -17,6 +17,7 @@ describe('formatMinerHealth', function () {
             wallet_ready: true,
             consecutive_errors: 0,
             mine_failures: 0,
+            mine_unsettled: null,
             mining_paused: false,
             mining_started: true,
         };
@@ -27,6 +28,7 @@ describe('formatMinerHealth', function () {
             wallet_ready: true,
             consecutive_errors: 0,
             mine_failures: 0,
+            mine_unsettled: null,
             mining_paused: false,
             mining_started: true,
         });
@@ -39,6 +41,7 @@ describe('formatMinerHealth', function () {
             wallet_ready: false,
             consecutive_errors: undefined,
             mine_failures: undefined,
+            mine_unsettled: null,
             mining_paused: false,
             mining_started: false,
         });

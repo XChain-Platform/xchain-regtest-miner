@@ -16,6 +16,8 @@ const axios = require('axios');
 const { logger } = require('./constants');
 const { isTimeout, rejectedRpcErrorMessage } = require('./rpc_error');
 
+const REQUEST_NOT_SENT_CODES = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN']);
+
 // Log the node's own error from a non-2xx reply; the thrown message stays static.
 function logRejectedRpcError(error, prefix) {
     const nodeErr = rejectedRpcErrorMessage(error);
@@ -73,9 +75,13 @@ module.exports = {
             throw new Error('Error generating to address');
         } catch (error) {
             logRejectedRpcError(error, 'generatetoaddress returned no result: ');
-            // Flag a client timeout as a primitive only: the node keeps mining after it.
+            // A response-less transport failure may arrive after the node accepted
+            // the request, so the mine queue must settle before another control runs.
             const err = new Error('Error generating to address');
             if (isTimeout(error)) err.timedOut = true;
+            else if (!error.response && typeof error.code === 'string' && !REQUEST_NOT_SENT_CODES.has(error.code)) {
+                err.executionUncertain = true;
+            }
             throw err;
         }
     },
