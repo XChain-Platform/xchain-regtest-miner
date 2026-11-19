@@ -127,7 +127,19 @@ async function bindProbedWallet(probeAddress) {
 // the stamp and the pin share this one async body so the final balance check, the
 // stamp and the opening run of the pin stay one synchronous run: across two async
 // functions a turn would separate them, and a concurrent flow could land there.
-async function settleStartupBalance() {
+function runtimeRecoveryMayMine() {
+    return this.keepMining && !this.fillMempoolRunning && this._reorgPauseDepth === 0;
+}
+
+function warmupDeferredError() {
+    const err = new Error(
+        'wallet recreated on the node; maturity warmup is deferred until mining resumes after the pause, fill, or reorg',
+    );
+    err.warmupDeferred = true;
+    return err;
+}
+
+async function settleStartupBalance({ runtimeRecovery = false } = {}) {
     if (this.balance <= 0) {
         logger.info('Mining blocks to get balance in the wallet');
         // Always mine to coinbase-maturity depth regardless of current chain
@@ -135,29 +147,37 @@ async function settleStartupBalance() {
         // add an immature coinbase (spendable after 100 confirmations), leaving
         // the balance at 0 while walletReady is about to be set true. The
         // bounded balance re-poll below is the real readiness guard.
-        // Private entry point: start() runs this warmup without awaiting while the API
-        // is already listening, so a fill_mempool arriving during it must not
-        // turn wallet preparation into a boot failure.
-        await this.generateBlocksQueued(101);
-
-        // Re-poll the balance in a bounded loop instead of trusting the
-        // mining call: ping/status export walletReady as the readiness
-        // oracle, so it must reflect an observed spendable balance, not
-        // just that a mining RPC was issued.
-        const BALANCE_POLL_MAX_ATTEMPTS = 10;
-        const BALANCE_POLL_INTERVAL_MS = 1000;
-        for (let attempt = 1; attempt <= BALANCE_POLL_MAX_ATTEMPTS; attempt++) {
-            this.balance = await this.connector.getBalance();
-            if (this.balance > 0) {
-                break;
-            }
-            if (attempt < BALANCE_POLL_MAX_ATTEMPTS) {
-                await this.sleep(BALANCE_POLL_INTERVAL_MS);
-            }
+        // Startup may bypass the runtime gates. Recovery rechecks them at the
+        // queue append point and records the maturity work for the mine loop.
+        if (runtimeRecovery && !runtimeRecoveryMayMine.call(this)) {
+            this._walletWarmupPending = true;
+            throw warmupDeferredError();
         }
+        try {
+            await this.generateBlocksQueued(101);
 
-        if (this.balance <= 0) {
-            throw new Error('Wallet balance still 0 after mining to maturity; cannot mark wallet ready');
+            // Re-poll the balance in a bounded loop instead of trusting the
+            // mining call: ping/status export walletReady as the readiness
+            // oracle, so it must reflect an observed spendable balance, not
+            // just that a mining RPC was issued.
+            const BALANCE_POLL_MAX_ATTEMPTS = 10;
+            const BALANCE_POLL_INTERVAL_MS = 1000;
+            for (let attempt = 1; attempt <= BALANCE_POLL_MAX_ATTEMPTS; attempt++) {
+                this.balance = await this.connector.getBalance();
+                if (this.balance > 0) {
+                    break;
+                }
+                if (attempt < BALANCE_POLL_MAX_ATTEMPTS) {
+                    await this.sleep(BALANCE_POLL_INTERVAL_MS);
+                }
+            }
+
+            if (this.balance <= 0) {
+                throw new Error('Wallet balance still 0 after mining to maturity; cannot mark wallet ready');
+            }
+        } catch (err) {
+            if (runtimeRecovery) this._walletWarmupPending = true;
+            throw err;
         }
     }
 
@@ -170,22 +190,23 @@ async function settleStartupBalance() {
     await this.pinFundingFeeRate();
 }
 
-async function prepareWalletFunding() {
+async function prepareWalletFunding(options) {
     logger.info('Getting a new address to receive blocks reward');
     this.walletAddress = await this.connector.getNewAddress();
     logger.info('Checking wallet balance');
     this.balance = await this.connector.getBalance();
-    await settleStartupBalance.call(this);
+    await settleStartupBalance.call(this, options);
 }
 
 async function recoverRuntimeWallet() {
     const outcome = await this.ensureWalletLoaded();
-    if (!outcome || !outcome.created) {
+    if ((!outcome || !outcome.created) && !this._walletWarmupPending) {
         await this.pinFundingFeeRate();
         return;
     }
     this.walletReady = false;
-    await prepareWalletFunding.call(this);
+    await prepareWalletFunding.call(this, { runtimeRecovery: true });
+    this._walletWarmupPending = false;
     this.walletReady = true;
 }
 

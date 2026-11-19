@@ -117,6 +117,7 @@ function initStatusFields() {
     // sends, plus the epoch ms the read path last started one.
     this.walletReloadInFlight = null;
     this.walletReloadStartedAt = null;
+    this._walletWarmupPending = false;
     this.fundingFeePinCheckInFlight = null;
     this._mempoolSize = 0;
     this._mempoolReadAt = null;

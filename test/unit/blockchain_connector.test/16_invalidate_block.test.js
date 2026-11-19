@@ -99,3 +99,25 @@ describe('BlockchainConnector', function () {
         });
     });
 });
+
+describe('BlockchainConnector', function () {
+    beforeEach(setup);
+    afterEach(teardown);
+
+    describe('invalidateBlock', function () {
+        it('classifies timeout and response-less transport uncertainty', async function () {
+            axiosPostStub.rejects(Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }));
+            await assert.rejects(
+                connector.invalidateBlock('abc123'),
+                (err) => err.message === 'Error invalidating block' && err.timedOut === true,
+            );
+            axiosPostStub.rejects(Object.assign(new Error('connection reset'), { code: 'ECONNRESET' }));
+            await assert.rejects(connector.invalidateBlock('abc123'), (err) => err.executionUncertain === true);
+            axiosPostStub.rejects(Object.assign(new Error('not connected'), { code: 'ECONNREFUSED' }));
+            await assert.rejects(
+                connector.invalidateBlock('abc123'),
+                (err) => err.timedOut === undefined && err.executionUncertain === undefined,
+            );
+        });
+    });
+});

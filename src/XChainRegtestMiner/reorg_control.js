@@ -22,7 +22,18 @@
 'use strict';
 
 const { noteMempoolChanged } = require('./status_mempool_read.js');
-const { assertMineSettled } = require('./mine_settle.js');
+const { assertMineSettled, settleAfterMineTimeout } = require('./mine_settle.js');
+
+// Runs one reorg RPC. A timeout or response-less failure may leave the node still
+// running it, so the caller's mine hold stays raised until the node settles.
+async function callReorgRpc(method, call) {
+    try {
+        return await call();
+    } catch (err) {
+        if (err && (err.timedOut || err.executionUncertain)) await settleAfterMineTimeout.call(this, method);
+        throw err;
+    }
+}
 
 function exitAcceptedInvalidate() {
     this._reorgPauseWasMining = false;
@@ -50,7 +61,7 @@ module.exports = {
         let result;
         try {
             await this.pauseMining({ recordIntent: false, claim: false });
-            result = await this.connector.invalidateBlock(blockHash);
+            result = await callReorgRpc.call(this, 'invalidateblock', () => this.connector.invalidateBlock(blockHash));
             accepted = true;
         } finally {
             this.exitReorgMineHold(mineHold);
@@ -103,7 +114,9 @@ module.exports = {
             // in-flight mine still releases the reorg pause.
             await this._generateQueue;
             assertMineSettled.call(this);
-            const result = await this.connector.reconsiderBlock(blockHash);
+            const result = await callReorgRpc.call(this, 'reconsiderblock', () =>
+                this.connector.reconsiderBlock(blockHash),
+            );
             dropMineHold();
             noteMempoolChanged.call(this);
             // The reorg terminus, so this is where a restored balance shows up.

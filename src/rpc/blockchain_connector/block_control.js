@@ -24,6 +24,15 @@ function logRejectedRpcError(error, prefix) {
     if (nodeErr !== null) logger.error(prefix + nodeErr);
 }
 
+function staticRpcError(message, error) {
+    const err = new Error(message);
+    if (isTimeout(error)) err.timedOut = true;
+    else if (!error.response && typeof error.code === 'string' && !REQUEST_NOT_SENT_CODES.has(error.code)) {
+        err.executionUncertain = true;
+    }
+    return err;
+}
+
 module.exports = {
     async generateToAddress(count, address) {
         try {
@@ -77,12 +86,7 @@ module.exports = {
             logRejectedRpcError(error, 'generatetoaddress returned no result: ');
             // A response-less transport failure may arrive after the node accepted
             // the request, so the mine queue must settle before another control runs.
-            const err = new Error('Error generating to address');
-            if (isTimeout(error)) err.timedOut = true;
-            else if (!error.response && typeof error.code === 'string' && !REQUEST_NOT_SENT_CODES.has(error.code)) {
-                err.executionUncertain = true;
-            }
-            throw err;
+            throw staticRpcError('Error generating to address', error);
         }
     },
 
@@ -122,7 +126,7 @@ module.exports = {
         } catch (error) {
             logRejectedRpcError(error, 'invalidateblock RPC error: ');
             // Static message: a transport axios error.message leaks the RPC host:port.
-            throw new Error('Error invalidating block');
+            throw staticRpcError('Error invalidating block', error);
         }
     },
 
@@ -161,7 +165,7 @@ module.exports = {
         } catch (error) {
             logRejectedRpcError(error, 'reconsiderblock RPC error: ');
             // Static message: a transport axios error.message leaks the RPC host:port.
-            throw new Error('Error reconsidering block');
+            throw staticRpcError('Error reconsidering block', error);
         }
     },
 

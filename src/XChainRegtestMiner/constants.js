@@ -61,7 +61,9 @@ const MAX_GENERATE_BLOCKS = 10000; //max blocks a single generateBlocks call may
 // blocks mid-call, so a short window declared it stopped while it still mined.
 // Give up at thirty minutes: a 300-block call has needed about six minutes past
 // the client timeout. At the deadline, dependent controls fail while a background
-// probe continues until the node is confirmed idle.
+// probe continues until the node is confirmed idle. An uncertain invalidateblock or
+// reconsiderblock uses the same timings but never the height fallback, which
+// cannot tell a finished reorg from a running one.
 const MINE_SETTLE_POLL_MS = 1000;
 const MINE_SETTLE_QUIET_READS = 120;
 const MINE_SETTLE_DEADLINE_MS = 30 * 60 * 1000;

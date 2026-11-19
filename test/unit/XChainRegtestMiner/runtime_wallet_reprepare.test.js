@@ -36,6 +36,7 @@ function makeMiner(connector) {
     miner.connector = connector;
     miner.walletAddress = 'old-address';
     miner.walletReady = true;
+    miner.setKeepMining(true);
     sinon.stub(miner, 'sleep').resolves();
     return miner;
 }
@@ -64,6 +65,16 @@ function registerHooks() {
     afterEach(function () {
         sinon.restore();
     });
+}
+
+function parkedRecovery() {
+    const address = deferred();
+    const connector = baseConnector();
+    connector.getBalance.onFirstCall().rejects(walletMissing('balance wallet missing'));
+    connector.getBalance.onSecondCall().resolves(0);
+    connector.loadWallet.rejects(loadMissing());
+    connector.getNewAddress.onFirstCall().returns(address.promise);
+    return { address, connector, miner: makeMiner(connector) };
 }
 
 describe('runtime wallet recreation readiness', function () {
@@ -130,5 +141,58 @@ describe('runtime wallet recreation concurrency', function () {
         assert.strictEqual(connector.loadWallet.callCount, 1);
         assert.strictEqual(connector.createWallet.callCount, 1);
         assert.strictEqual(connector.generateToAddress.callCount, 1);
+    });
+});
+
+describe('runtime wallet recreation mining exclusion', function () {
+    registerHooks();
+
+    it('defers the maturity mine when pause lands before recovery queues it', async function () {
+        const { address, connector, miner } = parkedRecovery();
+        await miner.refreshWalletFunds();
+        await new Promise((resolve) => setImmediate(resolve));
+        await miner.pauseMining();
+        address.resolve('new-address');
+        const result = await miner.walletReloadInFlight;
+
+        assert.strictEqual(result.ok, false);
+        assert.strictEqual(result.error.warmupDeferred, true);
+        assert.strictEqual(connector.generateToAddress.callCount, 0);
+        assert.strictEqual(miner.walletReady, false);
+        assert.strictEqual(miner._walletWarmupPending, true);
+    });
+
+    it('defers the maturity mine when a fill starts before recovery queues it', async function () {
+        const { address, connector, miner } = parkedRecovery();
+        await miner.refreshWalletFunds();
+        await new Promise((resolve) => setImmediate(resolve));
+        miner.fillMempoolRunning = true;
+        address.resolve('new-address');
+        const result = await miner.walletReloadInFlight;
+
+        assert.strictEqual(result.ok, false);
+        assert.strictEqual(result.error.warmupDeferred, true);
+        assert.strictEqual(connector.generateToAddress.callCount, 0);
+        assert.strictEqual(miner._walletWarmupPending, true);
+    });
+
+    it('runs a deferred maturity mine after mining resumes', async function () {
+        const { address, connector, miner } = parkedRecovery();
+        await miner.refreshWalletFunds();
+        await new Promise((resolve) => setImmediate(resolve));
+        await miner.pauseMining();
+        address.resolve('new-address');
+        await miner.walletReloadInFlight;
+
+        connector.loadWallet.resolves(true);
+        connector.getBalance.onThirdCall().resolves(0);
+        connector.getBalance.onCall(3).resolves(50);
+        await miner.continueMining();
+        const result = await miner.reloadWallet();
+
+        assert.strictEqual(result.ok, true);
+        assert.ok(connector.generateToAddress.calledOnceWith(101, 'new-address'));
+        assert.strictEqual(miner.walletReady, true);
+        assert.strictEqual(miner._walletWarmupPending, false);
     });
 });

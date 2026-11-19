@@ -69,6 +69,21 @@ describe('BlockchainConnector', function () {
             await assert.rejects(() => connector.reconsiderBlock('abc123'), /Error reconsidering block/);
         });
 
+        it('classifies timeout and response-less transport uncertainty', async function () {
+            axiosPostStub.rejects(Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }));
+            await assert.rejects(
+                connector.reconsiderBlock('abc123'),
+                (err) => err.message === 'Error reconsidering block' && err.timedOut === true,
+            );
+            axiosPostStub.rejects(Object.assign(new Error('connection reset'), { code: 'ECONNRESET' }));
+            await assert.rejects(connector.reconsiderBlock('abc123'), (err) => err.executionUncertain === true);
+            axiosPostStub.rejects(Object.assign(new Error('not connected'), { code: 'ECONNREFUSED' }));
+            await assert.rejects(
+                connector.reconsiderBlock('abc123'),
+                (err) => err.timedOut === undefined && err.executionUncertain === undefined,
+            );
+        });
+
         // reconsiderblock answers result:null on success, so the absence of an error
         // member is not itself a success signal: an empty or truncated body could
         // certify a chain operation the node never performed.

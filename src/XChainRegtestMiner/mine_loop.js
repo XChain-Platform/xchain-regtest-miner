@@ -21,7 +21,7 @@
 
 'use strict';
 
-const { CHECK_BLOCK_DELAY_MS, logger } = require('./constants.js');
+const { CHECK_BLOCK_DELAY_MS, WALLET_BALANCE_REFRESH_MS, logger } = require('./constants.js');
 const { maybeFlushNode } = require('./node_flush.js');
 const { applyMempoolRead, claimMempoolReadSeq } = require('./status_mempool_read.js');
 
@@ -57,8 +57,21 @@ async function runMineLoop(loop) {
             resetMempoolTimers(loop);
             await this.sleep(CHECK_BLOCK_DELAY_MS);
         } else {
+            if (this._walletWarmupPending) await runPendingWalletWarmup.call(this);
             await mineLoopPass.call(this, loop);
         }
+    }
+}
+
+async function runPendingWalletWarmup() {
+    if (!this._walletWarmupPending || this.walletReloadInFlight) return;
+    const now = Date.now();
+    if (this.walletReloadStartedAt != null && now - this.walletReloadStartedAt < WALLET_BALANCE_REFRESH_MS) return;
+    this.walletReloadStartedAt = now;
+    const result = await this.reloadWallet();
+    if (!result.ok) {
+        const err = result.error;
+        logger.info('Could not complete the deferred wallet warmup: ' + (err && err.message ? err.message : err));
     }
 }
 
