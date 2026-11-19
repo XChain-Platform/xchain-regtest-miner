@@ -68,27 +68,30 @@ async function raceBarriers(miner, node) {
     return { mineError: await mine, remainingAtPause };
 }
 
+let timeoutMiner;
+
+function setupTimeoutMiner() {
+    const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    timeoutMiner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'warn');
+    sinon.stub(console, 'error');
+}
+
+function teardownTimeoutMiner() {
+    timeoutMiner._shutdown = true;
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+}
+
 describe('a generatetoaddress client timeout holds the mine queue until the node stops', function () {
-    let miner;
-
-    beforeEach(function () {
-        const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
-        sinon.stub(console, 'log');
-        sinon.stub(console, 'warn');
-        sinon.stub(console, 'error');
-    });
-
-    afterEach(function () {
-        miner._shutdown = true;
-        sinon.restore();
-        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
-    });
+    beforeEach(setupTimeoutMiner);
+    afterEach(teardownTimeoutMiner);
 
     it('CONTROL: an unflagged mine failure releases the barriers while the node is still mining', async function () {
         const node = miningNode(4);
-        const seen = wire(miner, node, { flagged: false });
-        const { remainingAtPause } = await raceBarriers(miner, node);
+        const seen = wire(timeoutMiner, node, { flagged: false });
+        const { remainingAtPause } = await raceBarriers(timeoutMiner, node);
         assert.strictEqual(
             remainingAtPause,
             4,
@@ -100,8 +103,8 @@ describe('a generatetoaddress client timeout holds the mine queue until the node
 
     it('keeps pause, reconsider and the next mine waiting until the node height settles', async function () {
         const node = miningNode(4);
-        const seen = wire(miner, node, { flagged: true });
-        const { mineError, remainingAtPause } = await raceBarriers(miner, node);
+        const seen = wire(timeoutMiner, node, { flagged: true });
+        const { mineError, remainingAtPause } = await raceBarriers(timeoutMiner, node);
         assert.strictEqual(remainingAtPause, 0, 'pauseMining must not resolve while blocks are still landing');
         assert.strictEqual(seen.remainingAtReconsider, 0);
         assert.strictEqual(seen.remainingAtNextMine, 0);
@@ -111,8 +114,8 @@ describe('a generatetoaddress client timeout holds the mine queue until the node
 
     it('settles a response-less transport failure before releasing barriers', async function () {
         const node = miningNode(4);
-        const seen = wire(miner, node, { executionUncertain: true });
-        const { mineError, remainingAtPause } = await raceBarriers(miner, node);
+        const seen = wire(timeoutMiner, node, { executionUncertain: true });
+        const { mineError, remainingAtPause } = await raceBarriers(timeoutMiner, node);
         assert.strictEqual(remainingAtPause, 0);
         assert.strictEqual(seen.remainingAtReconsider, 0);
         assert.strictEqual(seen.remainingAtNextMine, 0);
@@ -122,16 +125,16 @@ describe('a generatetoaddress client timeout holds the mine queue until the node
     it('releases the queue at the settle deadline when the node never stops', async function () {
         const clock = sinon.useFakeTimers({ now: 1000, toFake: ['Date'] });
         const node = miningNode(Infinity);
-        wire(miner, node, { flagged: true });
-        miner.sleep.callsFake(async (ms) => {
+        wire(timeoutMiner, node, { flagged: true });
+        timeoutMiner.sleep.callsFake(async (ms) => {
             node.height++;
             clock.tick(ms);
         });
-        const err = await miner.generateBlocksQueued(3).catch((e) => e);
+        const err = await timeoutMiner.generateBlocksQueued(3).catch((e) => e);
         assert.strictEqual(err.timedOut, true);
         assert.ok(Date.now() - 1000 >= MINE_SETTLE_DEADLINE_MS, 'the hold must last until the deadline');
-        await assert.rejects(miner.pauseMining(), (pauseErr) => pauseErr.mineUnsettled === true);
-        assert.ok(miner.getStatus().mine_unsettled);
+        await assert.rejects(timeoutMiner.pauseMining(), (pauseErr) => pauseErr.mineUnsettled === true);
+        assert.ok(timeoutMiner.getStatus().mine_unsettled);
         assert.strictEqual(err.minedBlocks, null, 'an unsettled node gives no count rather than a lower bound');
     });
 });

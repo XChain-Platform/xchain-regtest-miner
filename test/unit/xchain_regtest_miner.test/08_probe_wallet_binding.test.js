@@ -85,6 +85,10 @@ function probeSucceededTests() {
         assert.strictEqual(miner.walletAddress, 'bcrt1qprobe');
     });
 
+    probeUnreadableTests();
+}
+
+function probeUnreadableTests() {
     it('loads and pins the configured Bitcoin wallet when wallet info cannot be read', async function () {
         connectorStub.getWalletInfo.rejects(new Error('Error getting wallet info'));
         await miner.prepareWallet();
