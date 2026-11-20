@@ -85,6 +85,11 @@ const PER_CALL_FEE_RATE_COINS = ['bitcoin'];
 // missing logs a daemon-release warning. A coin belongs here or in the list above.
 const SETTXFEE_COINS = ['litecoin', 'dogecoin'];
 
+// Wallet routing models for registered coins. Unknown or bare network names are
+// classified by probing listwallets so setup can still bind the right model.
+const MULTI_WALLET_COINS = ['bitcoin', 'litecoin'];
+const SINGLE_WALLET_COINS = ['dogecoin'];
+
 // Coins whose daemons refuse the per-call fee_rate argument: Dogecoin v1.14's
 // sendtoaddress has none and answers an unknown named param with -8. Litecoin is
 // absent because LTC v0.21 is rebased on Core 0.21, which added fee_rate.
@@ -122,6 +127,8 @@ module.exports = {
     PER_CALL_FEE_RATE_COINS,
     SETTXFEE_COINS,
     FEE_RATE_REFUSING_COINS,
+    MULTI_WALLET_COINS,
+    SINGLE_WALLET_COINS,
     bip32,
     logger,
     ECPair,

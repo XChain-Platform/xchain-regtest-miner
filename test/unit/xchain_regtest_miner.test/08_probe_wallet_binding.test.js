@@ -10,6 +10,8 @@
 
 const assert = require('assert');
 const sinon = require('sinon');
+const { COIN_FULL_NAME } = require('../../../src/coins');
+const { MULTI_WALLET_COINS, SINGLE_WALLET_COINS } = require('../../../src/XChainRegtestMiner/constants.js');
 
 const OURS = 'xchain_regtest_wallet';
 
@@ -115,6 +117,48 @@ function probeUnreadableTests() {
         assert(connectorStub.loadWallet.notCalled);
         assert.strictEqual(miner.walletAddress, 'bcrt1qprobe');
     });
+
+    it('pins a bare-network multi-wallet daemon when wallet info cannot be read', async function () {
+        miner.network = 'regtest';
+        connectorStub.getWalletInfo.rejects(new Error('Error getting wallet info'));
+        connectorStub.listWallets.resolves(['cosigner_test']);
+        await miner.prepareWallet();
+        assert(connectorStub.loadWallet.calledOnceWith(OURS));
+        assert(connectorStub.setWalletName.calledOnceWith(OURS));
+        assert.strictEqual(miner.walletAddress, 'bcrt1qours');
+    });
+
+    it('keeps a bare-network single-wallet daemon on the base URL', async function () {
+        miner.network = 'regtest';
+        connectorStub.getWalletInfo.rejects(new Error('Error getting wallet info'));
+        await miner.prepareWallet();
+        assert(connectorStub.setWalletName.notCalled);
+        assert(connectorStub.loadWallet.notCalled);
+        assert.strictEqual(miner.walletAddress, 'bcrt1qprobe');
+    });
+
+    it('uses the registered Dogecoin model even if listwallets is stubbed', async function () {
+        miner.network = 'dogecoin-regtest';
+        connectorStub.getWalletInfo.rejects(new Error('Error getting wallet info'));
+        connectorStub.listWallets.resolves(['cosigner_test']);
+        await miner.prepareWallet();
+        assert(connectorStub.listWallets.notCalled);
+        assert(connectorStub.loadWallet.notCalled);
+        assert.strictEqual(miner.walletAddress, 'bcrt1qprobe');
+    });
+}
+
+function walletModelRegistryTests() {
+    it('puts every registered coin in exactly one wallet model', function () {
+        for (const coin of MULTI_WALLET_COINS) {
+            assert.ok(!SINGLE_WALLET_COINS.includes(coin), coin + ' is in both wallet models');
+        }
+        assert.deepStrictEqual(
+            [...MULTI_WALLET_COINS, ...SINGLE_WALLET_COINS].sort(),
+            Object.values(COIN_FULL_NAME).sort(),
+            'every registered coin belongs in one wallet model, and no other name does',
+        );
+    });
 }
 
 function alreadyLoadedTests() {
@@ -213,6 +257,7 @@ function loadClassificationTests() {
 describe('XChainRegtestMiner', function () {
     registerMinerHooks();
     describe('prepareWallet after a successful base-URL probe', probeSucceededTests);
+    describe('registered wallet models', walletModelRegistryTests);
     describe('ensureWalletLoaded with the wallet already loaded', alreadyLoadedTests);
     describe('ensureWalletLoaded load-failure classification', loadClassificationTests);
 });

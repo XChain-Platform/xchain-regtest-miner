@@ -21,7 +21,7 @@
 
 'use strict';
 
-const { logger } = require('./constants.js');
+const { logger, MULTI_WALLET_COINS, SINGLE_WALLET_COINS } = require('./constants.js');
 
 // The wallet-availability probe prepareWallet opens with. Resolves the probed
 // address, or null when every attempt failed and the load/create path must run.
@@ -56,8 +56,8 @@ async function probeWalletAddress() {
 }
 
 // Binds the miner to its own named wallet after the base-URL probe succeeded and
-// resolves the address to mine to. Core and LTC serve a base-URL wallet call from
-// whichever single wallet is loaded, so a foreign wallet answering is swapped for ours.
+// resolves the address to mine to. Known coins use their registered wallet model;
+// a bare or unknown network is classified by whether listwallets is available.
 async function bindProbedWallet(probeAddress) {
     let info = null;
     try {
@@ -67,7 +67,12 @@ async function bindProbedWallet(probeAddress) {
         const coin = String(this.network || '')
             .split('-')[0]
             .toLowerCase();
-        if (coin === 'bitcoin' || coin === 'litecoin') {
+        const knownMultiWallet = MULTI_WALLET_COINS.includes(coin);
+        const knownSingleWallet = SINGLE_WALLET_COINS.includes(coin);
+        const listedWallets = knownMultiWallet || knownSingleWallet
+            ? null
+            : await this.connector.listWallets();
+        if (knownMultiWallet || Array.isArray(listedWallets)) {
             logger.warn('Could not identify the wallet on the base RPC URL; loading and pinning the configured wallet');
             await this.ensureWalletLoaded();
             return await this.connector.getNewAddress();
