@@ -39,6 +39,10 @@ function registerIntegrationHooks() {
                 callLog.push('getWalletInfo');
                 throw new Error('No wallet loaded');
             }),
+            listWallets: sinon.stub().callsFake(async () => {
+                callLog.push('listWallets');
+                return null;
+            }),
             loadWallet: sinon.stub().callsFake(async (name) => {
                 callLog.push(`loadWallet(${name})`);
                 throw Object.assign(new Error('Wallet not found'), { rpcCode: -18 });
@@ -189,7 +193,7 @@ describe('T1 Regression: Miner↔Connector Integration Seams', function () {
         it('loaded + funded: getNewAddress→getBalance (minimal calls)', async function () {
             await miner.prepareWallet();
 
-            assert.deepStrictEqual(callLog, ['getNewAddress', 'getWalletInfo', 'getBalance']);
+            assert.deepStrictEqual(callLog, ['getNewAddress', 'getWalletInfo', 'listWallets', 'getBalance']);
         });
 
         it('loaded, empty balance, aged chain → still mines to maturity depth (101)', async function () {

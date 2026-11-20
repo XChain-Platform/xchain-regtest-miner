@@ -34,6 +34,10 @@ function createMiner() {
             callLog.push('getWalletInfo');
             throw new Error('No wallet loaded');
         }),
+        listWallets: sinon.stub().callsFake(async () => {
+            callLog.push('listWallets');
+            return null;
+        }),
         loadWallet: sinon.stub().callsFake(async (name) => {
             callLog.push(`loadWallet(${name})`);
             throw Object.assign(new Error('Wallet not found'), { rpcCode: -18 });
@@ -160,7 +164,13 @@ describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', functio
         it('B-3: wallet already loaded and funded, minimal calls', async function () {
             await miner.prepareWallet();
 
-            assert.deepStrictEqual(callLog, ['getNewAddress', 'getWalletInfo', 'getBalance', 'setTxFee']);
+            assert.deepStrictEqual(callLog, [
+                'getNewAddress',
+                'getWalletInfo',
+                'listWallets',
+                'getBalance',
+                'setTxFee',
+            ]);
             assert.strictEqual(connector.loadWallet.callCount, 0);
             assert.strictEqual(connector.createWallet.callCount, 0);
             assert.strictEqual(connector.generateToAddress.callCount, 0);
