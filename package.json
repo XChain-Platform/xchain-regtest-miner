@@ -29,7 +29,7 @@
         "ecpair": "2.1.0",
         "express": "^5.2.1",
         "helmet": "^8.2.0",
-        "tiny-secp256k1": "2.2.4"
+        "tiny-secp256k1": "2.2.5"
     },
     "scripts": {
         "api": "node ./src/api.js",
