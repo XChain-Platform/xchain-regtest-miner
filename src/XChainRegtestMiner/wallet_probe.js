@@ -69,9 +69,7 @@ async function bindProbedWallet(probeAddress) {
             .toLowerCase();
         const knownMultiWallet = MULTI_WALLET_COINS.includes(coin);
         const knownSingleWallet = SINGLE_WALLET_COINS.includes(coin);
-        const listedWallets = knownMultiWallet || knownSingleWallet
-            ? null
-            : await this.connector.listWallets();
+        const listedWallets = knownMultiWallet || knownSingleWallet ? null : await this.connector.listWallets();
         if (knownMultiWallet || Array.isArray(listedWallets)) {
             logger.warn('Could not identify the wallet on the base RPC URL; loading and pinning the configured wallet');
             await this.ensureWalletLoaded();
