@@ -134,6 +134,7 @@ async function recoverRuntimeWallet() {
         return;
     }
     this.walletReady = false;
+    this._walletWarmupPending = true;
     await prepareWalletFunding.call(this, { runtimeRecovery: true });
     this._walletWarmupPending = false;
     this.walletReady = true;

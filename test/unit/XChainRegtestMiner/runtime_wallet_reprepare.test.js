@@ -196,3 +196,55 @@ describe('runtime wallet recreation mining exclusion', function () {
         assert.strictEqual(miner._walletWarmupPending, false);
     });
 });
+
+describe('runtime wallet recreation transient preparation failures', function () {
+    registerHooks();
+
+    it('retries preparation after assigning the new address fails', async function () {
+        const connector = baseConnector();
+        connector.getBalance.onFirstCall().rejects(walletMissing('balance wallet missing'));
+        connector.getBalance.onSecondCall().resolves(0);
+        connector.getBalance.onThirdCall().resolves(50);
+        connector.loadWallet.rejects(loadMissing());
+        connector.getNewAddress.onFirstCall().rejects(new Error('address transport failed'));
+        const miner = makeMiner(connector);
+
+        await miner.refreshWalletFunds();
+        const failed = await miner.walletReloadInFlight;
+        assert.strictEqual(failed.ok, false);
+        assert.strictEqual(miner.walletReady, false);
+        assert.strictEqual(miner._walletWarmupPending, true);
+
+        connector.loadWallet.resolves(true);
+        const recovered = await miner.reloadWallet();
+        assert.strictEqual(recovered.ok, true);
+        assert.strictEqual(connector.getNewAddress.callCount, 2);
+        assert.ok(connector.generateToAddress.calledOnceWith(101, 'new-address'));
+        assert.strictEqual(miner.walletReady, true);
+        assert.strictEqual(miner._walletWarmupPending, false);
+    });
+
+    it('retries preparation after reading the recreated wallet balance fails', async function () {
+        const connector = baseConnector();
+        connector.getBalance.onFirstCall().rejects(walletMissing('balance wallet missing'));
+        connector.getBalance.onSecondCall().rejects(new Error('balance transport failed'));
+        connector.getBalance.onThirdCall().resolves(0);
+        connector.getBalance.onCall(3).resolves(50);
+        connector.loadWallet.rejects(loadMissing());
+        const miner = makeMiner(connector);
+
+        await miner.refreshWalletFunds();
+        const failed = await miner.walletReloadInFlight;
+        assert.strictEqual(failed.ok, false);
+        assert.strictEqual(miner.walletReady, false);
+        assert.strictEqual(miner._walletWarmupPending, true);
+
+        connector.loadWallet.resolves(true);
+        const recovered = await miner.reloadWallet();
+        assert.strictEqual(recovered.ok, true);
+        assert.strictEqual(connector.getNewAddress.callCount, 2);
+        assert.ok(connector.generateToAddress.calledOnceWith(101, 'new-address'));
+        assert.strictEqual(miner.walletReady, true);
+        assert.strictEqual(miner._walletWarmupPending, false);
+    });
+});
