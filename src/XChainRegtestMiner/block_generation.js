@@ -218,6 +218,7 @@ module.exports = {
         // Snapshot operator intent first: the API listens during preparation, so a
         // pause, fill or continue can land before the loop exists.
         const operatorGeneration = this._operatorMiningGeneration;
+        this._startupOperatorGeneration = operatorGeneration;
         //Prepare the wallet
         await this.prepareWallet();
 

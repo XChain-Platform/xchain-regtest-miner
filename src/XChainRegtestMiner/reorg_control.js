@@ -51,8 +51,8 @@ module.exports = {
             throw new Error('invalidateBlock: blockHash must be a non-empty string');
         }
         // Share one refcounted pause with every reorg primitive. A refused call
-        // releases its share, while an accepted call converts the shared pause
-        // into the caller-owned pause that continueMining closes.
+        // releases its share, while an accepted or uncertain-applied call converts
+        // the shared pause into the caller-owned pause that continueMining closes.
         this.enterReorgPause();
         // Raised before the queue barrier, not after it: a mine appended while
         // the queue drains would otherwise overlap the invalidate below.
@@ -61,8 +61,18 @@ module.exports = {
         let result;
         try {
             await this.pauseMining({ recordIntent: false, claim: false });
-            result = await callReorgRpc.call(this, 'invalidateblock', () => this.connector.invalidateBlock(blockHash));
-            accepted = true;
+            try {
+                result = await callReorgRpc.call(this, 'invalidateblock', () =>
+                    this.connector.invalidateBlock(blockHash),
+                );
+                accepted = true;
+            } catch (err) {
+                if (err && (err.timedOut || err.executionUncertain)) {
+                    accepted = true;
+                    noteMempoolChanged.call(this);
+                }
+                throw err;
+            }
         } finally {
             this.exitReorgMineHold(mineHold);
             if (accepted) exitAcceptedInvalidate.call(this);

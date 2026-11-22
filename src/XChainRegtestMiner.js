@@ -118,6 +118,8 @@ function initStatusFields() {
     this.walletReloadInFlight = null;
     this.walletReloadStartedAt = null;
     this._walletWarmupPending = false;
+    this._startupWarmupDeferred = false;
+    this._startupOperatorGeneration = null;
     this.fundingFeePinCheckInFlight = null;
     this._mempoolSize = 0;
     this._mempoolReadAt = null;

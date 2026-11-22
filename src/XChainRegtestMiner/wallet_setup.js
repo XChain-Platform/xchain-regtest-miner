@@ -60,6 +60,12 @@ function runtimeRecoveryMayMine() {
     return this.keepMining && !this.fillMempoolRunning && this._reorgPauseDepth === 0;
 }
 
+function startupWarmupMayMine() {
+    if (this.fillMempoolRunning || this._reorgPauseDepth > 0) return false;
+    if (this._startupOperatorGeneration === null) return true;
+    return this.keepMining || this._operatorMiningGeneration === this._startupOperatorGeneration;
+}
+
 function warmupDeferredError() {
     const err = new Error(
         'wallet recreated on the node; maturity warmup is deferred until mining resumes after the pause, fill, or reorg',
@@ -76,10 +82,12 @@ async function settleStartupBalance({ runtimeRecovery = false } = {}) {
         // add an immature coinbase (spendable after 100 confirmations), leaving
         // the balance at 0 while walletReady is about to be set true. The
         // bounded balance re-poll below is the real readiness guard.
-        // Startup may bypass the runtime gates. Recovery rechecks them at the
-        // queue append point and records the maturity work for the mine loop.
-        if (runtimeRecovery && !runtimeRecoveryMayMine.call(this)) {
+        // Both startup and recovery recheck their mining controls at the queue
+        // append point and record deferred maturity work for the mine loop.
+        const mayMine = runtimeRecovery ? runtimeRecoveryMayMine.call(this) : startupWarmupMayMine.call(this);
+        if (!mayMine) {
             this._walletWarmupPending = true;
+            if (!runtimeRecovery) this._startupWarmupDeferred = true;
             throw warmupDeferredError();
         }
         try {
@@ -128,6 +136,19 @@ async function prepareWalletFunding(options) {
 }
 
 async function recoverRuntimeWallet() {
+    if (this._startupWarmupDeferred) {
+        try {
+            this.balance = await this.connector.getBalance();
+            await settleStartupBalance.call(this, { runtimeRecovery: true });
+            this._startupWarmupDeferred = false;
+            this._walletWarmupPending = false;
+            this.walletReady = true;
+            return;
+        } catch (err) {
+            if (!err || !err.walletMissing) throw err;
+            this._startupWarmupDeferred = false;
+        }
+    }
     const outcome = await this.ensureWalletLoaded();
     if ((!outcome || !outcome.created) && !this._walletWarmupPending) {
         await this.pinFundingFeeRate();
@@ -310,18 +331,22 @@ module.exports = {
 
     async prepareWallet() {
         logger.info('Checking wallet availability');
-
-        const probeAddress = await probeWalletAddress.call(this);
-
-        if (probeAddress == null) {
-            await this.ensureWalletLoaded();
-            await prepareWalletFunding.call(this);
-        } else {
-            // Probe succeeded; make sure the wallet that answered is ours before using it
-            this.walletAddress = await bindProbedWallet.call(this, probeAddress);
-            logger.info('Checking wallet balance');
-            this.balance = await this.connector.getBalance();
-            await settleStartupBalance.call(this);
+        try {
+            const probeAddress = await probeWalletAddress.call(this);
+            if (probeAddress == null) {
+                await this.ensureWalletLoaded();
+                await prepareWalletFunding.call(this);
+            } else {
+                // Probe succeeded; make sure the wallet that answered is ours before using it
+                this.walletAddress = await bindProbedWallet.call(this, probeAddress);
+                logger.info('Checking wallet balance');
+                this.balance = await this.connector.getBalance();
+                await settleStartupBalance.call(this);
+            }
+        } catch (err) {
+            if (!err || !err.warmupDeferred) throw err;
+            logger.info('Wallet maturity warmup is deferred until mining resumes');
+            return;
         }
 
         // Wallet is fully prepared (address assigned, coinbase matured): wallet-dependent

@@ -55,15 +55,17 @@ module.exports = {
     },
 
     // Forces a disk write of the block index and coin database via
-    // gettxoutsetinfo; dogecoind otherwise flushes only hourly. Result discarded.
+    // gettxoutsetinfo; dogecoind otherwise flushes only hourly. The result body
+    // is unused, but it must be a successful JSON-RPC result.
     async flushNodeState(timeoutMs) {
         const data = {
             jsonrpc: '2.0',
             method: 'gettxoutsetinfo',
             id: 1,
         };
+        let response;
         try {
-            await axios.post(this.url, data, {
+            response = await axios.post(this.url, data, {
                 auth: {
                     username: this.rpcUser,
                     password: this.rpcPassword,
@@ -71,7 +73,16 @@ module.exports = {
                 timeout: timeoutMs,
             });
         } catch (error) {
-            throw new Error('Error flushing node state');
+            throw new Error('Error flushing node state: ' + (error && error.message ? error.message : error));
+        }
+        const body = response && response.data;
+        if (body && body.error) {
+            const code = body.error.code == null ? 'unknown' : body.error.code;
+            const message = body.error.message || 'unknown error';
+            throw new Error('Error flushing node state: RPC error ' + code + ': ' + message);
+        }
+        if (!body || !body.result || typeof body.result !== 'object' || Array.isArray(body.result)) {
+            throw new Error('Error flushing node state: RPC reply did not contain an object result');
         }
     },
 

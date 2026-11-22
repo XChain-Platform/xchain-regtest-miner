@@ -146,6 +146,30 @@ describe('uncertain reorg RPC settlement', function () {
     });
 });
 
+describe('uncertain invalidate outcome pause @regression', function () {
+    registerHooks();
+
+    it('keeps mining paused when the target block is no longer active', async function () {
+        const { miner } = fixture('invalidateblock', 'timedOut');
+        miner.setKeepMining(true);
+
+        await assert.rejects(miner.invalidateBlock(HASH), (err) => err.timedOut === true);
+
+        assert.strictEqual(miner.keepMining, false);
+    });
+
+    it('keeps mining paused even when the target block would still look active', async function () {
+        const { miner } = fixture('invalidateblock', 'executionUncertain');
+        miner.connector.getBlock = sinon.stub().resolves({ confirmations: 1 });
+        miner.setKeepMining(true);
+
+        await assert.rejects(miner.invalidateBlock(HASH), (err) => err.executionUncertain === true);
+
+        assert.strictEqual(miner.connector.getBlock.called, false);
+        assert.strictEqual(miner.keepMining, false);
+    });
+});
+
 describe('uncertain reorg RPC settlement without getrpcinfo', function () {
     registerHooks();
 
