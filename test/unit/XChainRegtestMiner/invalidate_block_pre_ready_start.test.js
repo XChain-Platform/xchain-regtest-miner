@@ -99,8 +99,14 @@ async function expectStaysPaused(run) {
     assert.strictEqual(miner.getStatus().mining_started, true);
 }
 
+// A fixed count of turns raced a slower CI runner (the loop mined after the spin ended), so
+// this waits for the first mine with a wall-clock bound and still fails if none lands.
 async function expectMines(run) {
-    await run.spin();
+    const deadline = realNow() + 3000;
+    while (run.counts.loopMines < 1 && realNow() < deadline) {
+        await run.spin();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+    }
     assert.ok(run.counts.loopMines >= 1, 'the loop must be mining');
     assert.strictEqual(miner.getStatus().mining_paused, false);
 }
