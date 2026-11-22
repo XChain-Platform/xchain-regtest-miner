@@ -8,15 +8,15 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
 // Stub BlockchainConnector before requiring XChainRegtestMiner
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let XChainRegtestMiner
-let miner
-let connectorStub
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
 
 function registerMinerHooks() {
     beforeEach(function () {
@@ -36,59 +36,59 @@ function registerMinerHooks() {
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
             getNetworkInfo: sinon.stub().resolves({}),
             setWalletName: sinon.stub(),
-        }
+        };
 
         // Stub the BlockchainConnector constructor
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
+        sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-        XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', undefined, '18332', 'user', 'pass')
-        miner.connector = connectorStub
+        XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+        miner = new XChainRegtestMiner('regtest', undefined, '18332', 'user', 'pass');
+        miner.connector = connectorStub;
 
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+        sinon.stub(miner, 'sleep').resolves();
+        sinon.stub(console, 'log');
+        sinon.stub(console, 'error');
+    });
 
     afterEach(function () {
-        sinon.restore()
+        sinon.restore();
         // Clear module cache so fresh require works each time
-        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
-    })
+        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+    });
 }
 
 // ─── setMockTime ────────────────────────────────────────────────────
 
 function setMockTimeTests() {
     it('delegates a valid timestamp to connector.setMockTime', async function () {
-        connectorStub.setMockTime = sinon.stub().resolves(true)
-        const result = await miner.setMockTime(1900000000)
-        assert.strictEqual(result, true)
-        assert(connectorStub.setMockTime.calledWith(1900000000))
-    })
+        connectorStub.setMockTime = sinon.stub().resolves(true);
+        const result = await miner.setMockTime(1900000000);
+        assert.strictEqual(result, true);
+        assert(connectorStub.setMockTime.calledWith(1900000000));
+    });
 
     it('accepts 0 (release the mock clock)', async function () {
-        connectorStub.setMockTime = sinon.stub().resolves(true)
-        await miner.setMockTime(0)
-        assert(connectorStub.setMockTime.calledWith(0))
-    })
+        connectorStub.setMockTime = sinon.stub().resolves(true);
+        await miner.setMockTime(0);
+        assert(connectorStub.setMockTime.calledWith(0));
+    });
 
     it('rejects a negative or non-numeric timestamp without calling the node', async function () {
-        connectorStub.setMockTime = sinon.stub().resolves(true)
-        await assert.rejects(() => miner.setMockTime(-1), /non-negative unix time/)
-        await assert.rejects(() => miner.setMockTime('soon'), /non-negative unix time/)
-        assert(connectorStub.setMockTime.notCalled)
-    })
+        connectorStub.setMockTime = sinon.stub().resolves(true);
+        await assert.rejects(() => miner.setMockTime(-1), /non-negative unix time/);
+        await assert.rejects(() => miner.setMockTime('soon'), /non-negative unix time/);
+        assert(connectorStub.setMockTime.notCalled);
+    });
 
     it('refuses on mainnet without forwarding to the node', async function () {
-        const mainnetMiner = new XChainRegtestMiner('bitcoin-mainnet', undefined, '8332', 'user', 'pass')
-        mainnetMiner.connector = { setMockTime: sinon.stub().resolves(true) }
-        await assert.rejects(() => mainnetMiner.setMockTime(1900000000), /refused on mainnet/)
-        assert(mainnetMiner.connector.setMockTime.notCalled)
-    })
+        const mainnetMiner = new XChainRegtestMiner('bitcoin-mainnet', undefined, '8332', 'user', 'pass');
+        mainnetMiner.connector = { setMockTime: sinon.stub().resolves(true) };
+        await assert.rejects(() => mainnetMiner.setMockTime(1900000000), /refused on mainnet/);
+        assert(mainnetMiner.connector.setMockTime.notCalled);
+    });
 }
 
 describe('XChainRegtestMiner', function () {
-    registerMinerHooks()
-    describe('setMockTime', setMockTimeTests)
-})
+    registerMinerHooks();
+    describe('setMockTime', setMockTimeTests);
+});

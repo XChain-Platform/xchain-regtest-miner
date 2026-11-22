@@ -24,25 +24,43 @@ const src = {
         ecmaVersion: 2023,
         sourceType: 'commonjs',
         globals: {
-            require: 'readonly', module: 'writable', exports: 'writable', process: 'readonly', Buffer: 'readonly',
-            __dirname: 'readonly', __filename: 'readonly', console: 'readonly', setTimeout: 'readonly',
-            clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', setImmediate: 'readonly',
-            URL: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly', AbortController: 'readonly',
+            require: 'readonly',
+            module: 'writable',
+            exports: 'writable',
+            process: 'readonly',
+            Buffer: 'readonly',
+            __dirname: 'readonly',
+            __filename: 'readonly',
+            console: 'readonly',
+            setTimeout: 'readonly',
+            clearTimeout: 'readonly',
+            setInterval: 'readonly',
+            clearInterval: 'readonly',
+            setImmediate: 'readonly',
+            URL: 'readonly',
+            TextEncoder: 'readonly',
+            TextDecoder: 'readonly',
+            AbortController: 'readonly',
         },
     },
     rules: {
         // Naming: camelCase everywhere except property keys, which carry
         // protocol fields and DB columns through one-to-one.
         camelcase: ['error', { properties: 'never', ignoreDestructuring: true, ignoreImports: true }],
-        'no-underscore-dangle': ['error', { enforceInMethodNames: true, allowAfterThis: false, allowFunctionParams: false }],
+        'no-underscore-dangle': [
+            'error',
+            { enforceInMethodNames: true, allowAfterThis: false, allowFunctionParams: false },
+        ],
         // Logging: one logger. Entry points override this below.
         'no-console': 'error',
         // Module shape: requires at the top, environment in config.js only,
         // one export shape per file.
-        'no-restricted-syntax': ['error',
+        'no-restricted-syntax': [
+            'error',
             {
                 selector: ':function CallExpression[callee.name="require"][arguments.0.type="Literal"]',
-                message: 'require() at the top of the file; inside a body only for a computed path (CODE-STYLE.md, Module shape)',
+                message:
+                    'require() at the top of the file; inside a body only for a computed path (CODE-STYLE.md, Module shape)',
             },
             {
                 selector: 'MemberExpression[object.name="process"][property.name="env"]',
@@ -59,10 +77,12 @@ const configAndEntry = {
     files: ['src/config.js', 'src/api.js', 'src/migrate.js', 'src/index.js', 'bin/**/*.js'],
     rules: {
         'no-console': 'off',
-        'no-restricted-syntax': ['error',
+        'no-restricted-syntax': [
+            'error',
             {
                 selector: ':function CallExpression[callee.name="require"][arguments.0.type="Literal"]',
-                message: 'require() at the top of the file; inside a body only for a computed path (CODE-STYLE.md, Module shape)',
+                message:
+                    'require() at the top of the file; inside a body only for a computed path (CODE-STYLE.md, Module shape)',
             },
         ],
     },

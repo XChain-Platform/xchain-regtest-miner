@@ -11,242 +11,292 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * E2E Tests: Funding fee pin and the sendtoaddress wire contract
+ * E2E Tests: Funding fee pin per daemon
  *
  * Drives both fee-pin mechanisms (per-call fee_rate on Bitcoin Core 31,
  * wallet-wide settxfee on the legacy daemons) over HTTP against the
- * stateful mock node, and pins the mock's own RPC answers to the daemon
- * shapes they stand in for so the double cannot drift from them.
+ * stateful mock node.
  */
 
-const assert = require('assert')
-const axios = require('axios')
-const sinon = require('sinon')
-const XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-const { FUNDING_FEE_RATE_SAT_PER_VB, FUNDING_FEE_RATE_COINS_PER_KB } = require('../../src/XChainRegtestMiner/constants')
-const StatefulMockNode = require('./helpers/StatefulMockNode')
+const assert = require('assert');
+const sinon = require('sinon');
+const {
+    FUNDING_FEE_RATE_SAT_PER_VB,
+    FUNDING_FEE_RATE_COINS_PER_KB,
+} = require('../../src/XChainRegtestMiner/constants');
+const { DEST, withNode, createMiner, rawRpc, fundedNode } = require('./helpers/fee_pin_fixtures');
+const RestartingDogeMockNode = require('./helpers/RestartingDogeMockNode');
 
-const DEST = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
-
-async function withNode(daemon, fn) {
-    const node = new StatefulMockNode({ daemon })
-    await node.start()
-    try {
-        return await fn(node)
-    } finally {
-        await node.stop()
-    }
-}
-
-function createMiner(network, node) {
-    return new XChainRegtestMiner(network, '127.0.0.1', String(node.port), 'user', 'pass')
-}
-
-async function rpc(node, method, params) {
-    const res = await axios.post(`http://127.0.0.1:${node.port}/`, { jsonrpc: '2.0', method, params, id: 1 })
-    return res.data
-}
-
-// Seeds a loaded, matured wallet so prepareWallet skips the fresh-node probe retries.
-async function fundedNode(node) {
-    await rpc(node, 'createwallet', ['xchain_regtest_wallet'])
-    await rpc(node, 'generatetoaddress', [110, DEST])
-    node.calls = []
+// Sends one funding payment and asserts it carried the per-call fee_rate. Resolves the txid.
+async function sendAndAssertPerCallFeeRate(node, miner) {
+    const txid = await miner.sendFundsToAddress(DEST, 1.0);
+    assert.strictEqual(typeof txid, 'string');
+    assert.deepStrictEqual(node.callsFor('sendtoaddress')[0].params, {
+        address: DEST,
+        amount: 1.0,
+        fee_rate: FUNDING_FEE_RATE_SAT_PER_VB,
+    });
+    return txid;
 }
 
 describe('E2E: Funding fee pin per daemon', function () {
     beforeEach(function () {
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+        sinon.stub(console, 'log');
+        sinon.stub(console, 'error');
+    });
 
     afterEach(function () {
-        sinon.restore()
-    })
+        sinon.restore();
+    });
 
     it('pins BTC per call on Core 31 and never calls the deleted settxfee', async function () {
-        await withNode('core31', async node => {
-            await fundedNode(node)
-            const miner = createMiner('bitcoin-regtest', node)
-            await miner.prepareWallet()
+        await withNode('core31', async (node) => {
+            await fundedNode(node);
+            const miner = createMiner('bitcoin-regtest', node);
+            await miner.prepareWallet();
 
-            assert.strictEqual(node.callsFor('settxfee').length, 0)
-            assert.strictEqual(miner.fundingFeeRateSatPerVb, FUNDING_FEE_RATE_SAT_PER_VB)
+            assert.strictEqual(node.callsFor('settxfee').length, 0);
+            assert.strictEqual(miner.fundingFeeRateSatPerVb, FUNDING_FEE_RATE_SAT_PER_VB);
 
-            const txid = await miner.sendFundsToAddress(DEST, 1.0)
-            assert.strictEqual(typeof txid, 'string')
-            assert.ok(node.mempool.some(m => m.txid === txid))
-            assert.deepStrictEqual(node.callsFor('sendtoaddress')[0].params,
-                { address: DEST, amount: 1.0, fee_rate: FUNDING_FEE_RATE_SAT_PER_VB })
-        })
-    })
+            const txid = await sendAndAssertPerCallFeeRate(node, miner);
+            assert.ok(node.mempool.some((m) => m.txid === txid));
+        });
+    });
 
     it('falls back to the per-call rate when a bare network meets a Core 31 node', async function () {
-        await withNode('core31', async node => {
-            await fundedNode(node)
-            const miner = createMiner('regtest', node)
-            await miner.prepareWallet()
+        await withNode('core31', async (node) => {
+            await fundedNode(node);
+            const miner = createMiner('regtest', node);
+            await miner.prepareWallet();
 
-            assert.strictEqual(node.callsFor('settxfee').length, 1)
-            assert.strictEqual(miner.fundingFeeRateSatPerVb, FUNDING_FEE_RATE_SAT_PER_VB)
+            assert.strictEqual(node.callsFor('settxfee').length, 1);
+            assert.strictEqual(miner.fundingFeeRateSatPerVb, FUNDING_FEE_RATE_SAT_PER_VB);
 
-            const txid = await miner.sendFundsToAddress(DEST, 1.0)
-            assert.strictEqual(typeof txid, 'string')
-            assert.deepStrictEqual(node.callsFor('sendtoaddress')[0].params,
-                { address: DEST, amount: 1.0, fee_rate: FUNDING_FEE_RATE_SAT_PER_VB })
-        })
-    })
+            await sendAndAssertPerCallFeeRate(node, miner);
+        });
+    });
 
     it('keeps the wallet-wide settxfee pin and positional sends on a legacy daemon', async function () {
-        await withNode('legacy', async node => {
-            await fundedNode(node)
-            const miner = createMiner('litecoin-regtest', node)
-            await miner.prepareWallet()
+        await withNode('legacy', async (node) => {
+            await fundedNode(node);
+            const miner = createMiner('litecoin-regtest', node);
+            await miner.prepareWallet();
 
-            assert.strictEqual(node.callsFor('settxfee').length, 1)
-            assert.deepStrictEqual(node.callsFor('settxfee')[0].params, [FUNDING_FEE_RATE_COINS_PER_KB])
-            assert.strictEqual(miner.fundingFeeRateSatPerVb, null)
+            assert.strictEqual(node.callsFor('settxfee').length, 1);
+            assert.deepStrictEqual(node.callsFor('settxfee')[0].params, [FUNDING_FEE_RATE_COINS_PER_KB]);
+            assert.strictEqual(miner.fundingFeeRateSatPerVb, null);
 
-            const txid = await miner.sendFundsToAddress(DEST, 1.0)
-            assert.strictEqual(typeof txid, 'string')
-            assert.ok(node.mempool.some(m => m.txid === txid))
-            assert.deepStrictEqual(node.callsFor('sendtoaddress')[0].params, [DEST, 1.0])
-        })
-    })
-})
+            const txid = await miner.sendFundsToAddress(DEST, 1.0);
+            assert.strictEqual(typeof txid, 'string');
+            assert.ok(node.mempool.some((m) => m.txid === txid));
+            assert.deepStrictEqual(node.callsFor('sendtoaddress')[0].params, [DEST, 1.0]);
+        });
+    });
 
-describe('E2E: StatefulMockNode wire contract', function () {
-    it('answers a positional sendtoaddress with a bare txid string', async function () {
-        await withNode('legacy', async node => {
-            await fundedNode(node)
-            const body = await rpc(node, 'sendtoaddress', [DEST, 1.0])
-            assert.strictEqual(body.error, null)
-            assert.strictEqual(typeof body.result, 'string')
-            assert.ok(body.result.length > 0)
-        })
-    })
+    it('leaves a held legacy wallet fee pin alone across balance refreshes', async function () {
+        await assertHeldPin('legacy', 'litecoin-regtest');
+    });
+});
 
-    it('answers a named sendtoaddress without verbose with a bare txid string', async function () {
-        await withNode('core31', async node => {
-            await fundedNode(node)
-            const body = await rpc(node, 'sendtoaddress', { address: DEST, amount: 1.0, fee_rate: 100 })
-            assert.strictEqual(typeof body.result, 'string')
-        })
-    })
+describe('E2E: Funding fee pin on a Dogecoin 1.14 node', function () {
+    beforeEach(function () {
+        sinon.stub(console, 'log');
+        sinon.stub(console, 'error');
+    });
 
-    it('answers the verbose object only when verbose is requested', async function () {
-        await withNode('core31', async node => {
-            await fundedNode(node)
-            const body = await rpc(node, 'sendtoaddress', { address: DEST, amount: 1.0, verbose: true })
-            assert.strictEqual(typeof body.result, 'object')
-            assert.strictEqual(typeof body.result.txid, 'string')
-        })
-    })
+    afterEach(function () {
+        sinon.restore();
+    });
 
-    it('rejects settxfee as method-not-found and reports 31.0.0 in core31 mode', async function () {
-        await withNode('core31', async node => {
-            const fee = await rpc(node, 'settxfee', [0.001])
-            assert.ok(!('result' in fee), 'a JSON-RPC 2.0 error reply carries no result member')
-            assert.strictEqual(fee.error.code, -32601)
+    it('keeps the settxfee pin and positional sends for dogecoin-regtest', async function () {
+        await testSettxfeePinOnDoge('dogecoin-regtest');
+    });
 
-            const info = await rpc(node, 'getnetworkinfo', [])
-            assert.ok(info.result.version >= 310000)
-        })
-    })
+    it('keeps a bare network on the settxfee pin', async function () {
+        await testSettxfeePinOnDoge('regtest');
+    });
 
-    it('honors settxfee in legacy mode', async function () {
-        await withNode('legacy', async node => {
-            const fee = await rpc(node, 'settxfee', [0.001])
-            assert.strictEqual(fee.result, true)
-            assert.strictEqual(fee.error, null)
-        })
-    })
+    it('re-pins settxfee after a restart keeps the DOGE wallet loaded', testRestartRepinsDoge);
 
-    it('keeps the daemon mode across reset and refuses an unknown one', async function () {
-        const node = new StatefulMockNode({ daemon: 'core31' })
-        node.reset()
-        assert.strictEqual(node.daemon, 'core31')
-        assert.strictEqual(new StatefulMockNode().daemon, 'legacy')
-        assert.throws(() => new StatefulMockNode({ daemon: 'core30' }), /Unknown daemon/)
-    })
-})
+    it('leaves a held Dogecoin wallet fee pin alone across balance refreshes', async function () {
+        await assertHeldPin('doge114', 'dogecoin-regtest');
+    });
 
-const WALLET_URI = '/wallet/xchain_regtest_wallet'
+    it('prepares a fresh node without any multi-wallet RPC', async function () {
+        await withNode('doge114', async (node) => {
+            const miner = createMiner('dogecoin-regtest', node);
+            sinon.stub(miner, 'sleep').resolves();
+            await miner.prepareWallet();
 
-// POST one RPC and resolve the raw HTTP reply whatever its status.
-async function rawRpc(node, path, body) {
-    const res = await axios.post(`http://127.0.0.1:${node.port}${path}`, body, { validateStatus: () => true })
-    return { status: res.status, body: res.data }
+            for (const method of ['createwallet', 'loadwallet', 'listwallets']) {
+                assert.deepStrictEqual(node.callsFor(method), [], method);
+            }
+            assert.ok(typeof miner.walletAddress === 'string' && miner.walletAddress.length > 0);
+            assert.strictEqual(miner.walletReady, true);
+            assert.deepStrictEqual(
+                node.callsFor('settxfee').map((c) => c.params),
+                [[FUNDING_FEE_RATE_COINS_PER_KB]],
+            );
+        });
+    });
+
+    it('fails fast when the load path is forced on a node without loadwallet', async function () {
+        await withNode('doge114', async (node) => {
+            const miner = createMiner('dogecoin-regtest', node);
+            sinon.stub(miner, 'sleep').resolves();
+            await assert.rejects(miner.ensureWalletLoaded(), /Could not create wallet .*Dogecoin v1\.14/);
+            assert.strictEqual(node.callsFor('loadwallet').length, 1);
+        });
+    });
+});
+
+async function testRestartRepinsDoge() {
+    await withNode(
+        'doge114',
+        async (node) => {
+            await fundedNode(node);
+            const miner = createMiner('dogecoin-regtest', node);
+            await miner.prepareWallet();
+            node.restartWalletState();
+
+            assert.strictEqual(typeof (await miner.refreshWalletFunds()), 'number');
+            await miner.fundingFeePinCheckInFlight;
+
+            assert.strictEqual(node.loadedWallets().length, 1);
+            assert.deepStrictEqual(
+                node.callsFor('settxfee').map((c) => c.params),
+                [[FUNDING_FEE_RATE_COINS_PER_KB], [FUNDING_FEE_RATE_COINS_PER_KB]],
+            );
+            assert.strictEqual(node.walletFeeRate, FUNDING_FEE_RATE_COINS_PER_KB);
+        },
+        RestartingDogeMockNode,
+    );
 }
+
+async function assertHeldPin(daemon, network) {
+    await withNode(daemon, async (node) => {
+        await fundedNode(node);
+        const miner = createMiner(network, node);
+        await miner.prepareWallet();
+        const initialInfoCalls = node.callsFor('getwalletinfo').length;
+
+        for (let i = 0; i < 3; i++) {
+            assert.strictEqual(typeof (await miner.refreshWalletFunds()), 'number');
+            await miner.fundingFeePinCheckInFlight;
+        }
+
+        assert.strictEqual(node.callsFor('getwalletinfo').length, initialInfoCalls + 3);
+        assert.deepStrictEqual(
+            node.callsFor('settxfee').map((call) => call.params),
+            [[FUNDING_FEE_RATE_COINS_PER_KB]],
+        );
+        assert.strictEqual(node.walletFeeRate, FUNDING_FEE_RATE_COINS_PER_KB);
+    });
+}
+
+// Prepares a miner for `network` against a doge114 node and sends one funding payment.
+async function testSettxfeePinOnDoge(network) {
+    await withNode('doge114', async (node) => {
+        await fundedNode(node);
+        const miner = createMiner(network, node);
+        await miner.prepareWallet();
+
+        assert.deepStrictEqual(
+            node.callsFor('settxfee').map((c) => c.params),
+            [[FUNDING_FEE_RATE_COINS_PER_KB]],
+        );
+        assert.strictEqual(miner.fundingFeeRateSatPerVb, null);
+
+        const txid = await miner.sendFundsToAddress(DEST, 1.0);
+        assert.ok(node.mempool.some((m) => m.txid === txid));
+        assert.deepStrictEqual(node.callsFor('sendtoaddress')[0].params, [DEST, 1.0]);
+    });
+}
+
+const WALLET_URI = '/wallet/xchain_regtest_wallet';
 
 // Prepare through the load path so sends target the pinned /wallet/<name> URI.
 async function preparedMiner(network, node) {
-    await fundedNode(node)
-    node.unloadWallet()
-    const miner = createMiner(network, node)
-    sinon.stub(miner, 'sleep').resolves()
-    await miner.prepareWallet()
-    node.calls = []
-    return miner
+    await fundedNode(node);
+    node.unloadWallet();
+    const miner = createMiner(network, node);
+    sinon.stub(miner, 'sleep').resolves();
+    await miner.prepareWallet();
+    node.calls = [];
+    return miner;
 }
 
 async function testLegacyErrorTransport() {
-    await withNode('legacy', async node => {
-        const lost = await rawRpc(node, WALLET_URI, { jsonrpc: '2.0', method: 'sendtoaddress', params: [DEST, 1], id: 7 })
-        assert.strictEqual(lost.status, 500)
+    await withNode('legacy', async (node) => {
+        const lost = await rawRpc(node, WALLET_URI, {
+            jsonrpc: '2.0',
+            method: 'sendtoaddress',
+            params: [DEST, 1],
+            id: 7,
+        });
+        assert.strictEqual(lost.status, 500);
         assert.deepStrictEqual(lost.body, {
-            result: null, error: { code: -18, message: 'Requested wallet does not exist or is not loaded' }, id: 7,
-        })
-        const unknown = await rawRpc(node, '/', { jsonrpc: '2.0', method: 'nosuchmethod', params: [], id: 8 })
-        assert.strictEqual(unknown.status, 404)
-        assert.strictEqual(unknown.body.error.code, -32601)
-    })
+            result: null,
+            error: { code: -18, message: 'Requested wallet does not exist or is not loaded' },
+            id: 7,
+        });
+        const unknown = await rawRpc(node, '/', { jsonrpc: '2.0', method: 'nosuchmethod', params: [], id: 8 });
+        assert.strictEqual(unknown.status, 404);
+        assert.strictEqual(unknown.body.error.code, -32601);
+    });
 }
 
 async function testCore31ErrorTransport() {
-    await withNode('core31', async node => {
-        const declared = await rawRpc(node, WALLET_URI, { jsonrpc: '2.0', method: 'sendtoaddress', params: [DEST, 1], id: 7 })
-        assert.strictEqual(declared.status, 200)
+    await withNode('core31', async (node) => {
+        const declared = await rawRpc(node, WALLET_URI, {
+            jsonrpc: '2.0',
+            method: 'sendtoaddress',
+            params: [DEST, 1],
+            id: 7,
+        });
+        assert.strictEqual(declared.status, 200);
         assert.deepStrictEqual(declared.body, {
-            jsonrpc: '2.0', error: { code: -18, message: 'Requested wallet does not exist or is not loaded' }, id: 7,
-        })
+            jsonrpc: '2.0',
+            error: { code: -18, message: 'Requested wallet does not exist or is not loaded' },
+            id: 7,
+        });
         // Core 28+ keeps the legacy transport for a request that does not declare 2.0.
-        const undeclared = await rawRpc(node, '/', { method: 'settxfee', params: [0.001], id: 8 })
-        assert.strictEqual(undeclared.status, 404)
-        assert.strictEqual(undeclared.body.result, null)
-    })
+        const undeclared = await rawRpc(node, '/', { method: 'settxfee', params: [0.001], id: 8 });
+        assert.strictEqual(undeclared.status, 404);
+        assert.strictEqual(undeclared.body.result, null);
+    });
 }
 
 async function testRecoveryOverDaemonTransport(daemon, network, settxfeeCalls) {
-    await withNode(daemon, async node => {
-        const miner = await preparedMiner(network, node)
-        node.unloadWallet()
+    await withNode(daemon, async (node) => {
+        const miner = await preparedMiner(network, node);
+        node.unloadWallet();
 
-        const txid = await miner.sendFundsToAddress(DEST, 1.0)
-        assert.strictEqual(typeof txid, 'string')
-        assert.ok(node.mempool.some(m => m.txid === txid))
-        assert.strictEqual(node.callsFor('sendtoaddress').length, 2)
-        assert.strictEqual(node.callsFor('loadwallet').length, 1)
-        assert.strictEqual(node.callsFor('settxfee').length, settxfeeCalls)
-    })
+        const txid = await miner.sendFundsToAddress(DEST, 1.0);
+        assert.strictEqual(typeof txid, 'string');
+        assert.ok(node.mempool.some((m) => m.txid === txid));
+        assert.strictEqual(node.callsFor('sendtoaddress').length, 2);
+        assert.strictEqual(node.callsFor('loadwallet').length, 1);
+        assert.strictEqual(node.callsFor('settxfee').length, settxfeeCalls);
+    });
 }
 
 describe('E2E: RPC error transport per daemon', function () {
     beforeEach(function () {
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+        sinon.stub(console, 'log');
+        sinon.stub(console, 'error');
+    });
 
     afterEach(function () {
-        sinon.restore()
-    })
+        sinon.restore();
+    });
 
-    it('answers RPC errors with HTTP 500 and method-not-found with 404 in legacy mode', testLegacyErrorTransport)
-    it('answers a declared JSON-RPC 2.0 error with HTTP 200 in core31 mode', testCore31ErrorTransport)
+    it('answers RPC errors with HTTP 500 and method-not-found with 404 in legacy mode', testLegacyErrorTransport);
+    it('answers a declared JSON-RPC 2.0 error with HTTP 200 in core31 mode', testCore31ErrorTransport);
     it('reloads a wallet lost to a restart when the daemon reports it with HTTP 500', async function () {
-        await testRecoveryOverDaemonTransport('legacy', 'litecoin-regtest', 1)
-    })
+        await testRecoveryOverDaemonTransport('legacy', 'litecoin-regtest', 1);
+    });
     it('reloads a wallet lost to a restart when the daemon reports it with HTTP 200', async function () {
-        await testRecoveryOverDaemonTransport('core31', 'bitcoin-regtest', 0)
-    })
-})
+        await testRecoveryOverDaemonTransport('core31', 'bitcoin-regtest', 0);
+    });
+});

@@ -15,4 +15,4 @@
 const { getLogger } = require('../../observability/logger');
 const logger = getLogger();
 
-module.exports = { logger }
+module.exports = { logger };

@@ -23,34 +23,32 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 describe('coverage ratchet floors', () => {
-  const repoRoot = path.join(__dirname, '..', '..');
-  const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
-  const declared = JSON.parse(
-    fs.readFileSync(path.join(repoRoot, 'bin', 'coverage-thresholds.json'), 'utf8'),
-  );
+    const repoRoot = path.join(__dirname, '..', '..');
+    const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+    const declared = JSON.parse(fs.readFileSync(path.join(repoRoot, 'bin', 'coverage-thresholds.json'), 'utf8'));
 
-  it('ships the coverage:check script the CI coverage job invokes', () => {
-    assert.equal(
-      typeof (pkg.scripts || {})['coverage:check'],
-      'string',
-      'ci.yml runs `npm run coverage:check`; without the script the job can only exit 1',
-    );
-  });
+    it('ships the coverage:check script the CI coverage job invokes', () => {
+        assert.equal(
+            typeof (pkg.scripts || {})['coverage:check'],
+            'string',
+            'ci.yml runs `npm run coverage:check`; without the script the job can only exit 1',
+        );
+    });
 
-  it('enforces every declared floor, at the declared value', () => {
-    const script = pkg.scripts['coverage:check'];
-    for (const metric of ['lines', 'statements', 'branches', 'functions']) {
-      const flag = script.match(new RegExp('--' + metric + '\\s+([0-9.]+)'));
-      assert.ok(flag, `coverage:check does not enforce --${metric}, so that floor is decorative`);
-      assert.equal(
-        Number(flag[1]),
-        declared[metric],
-        `${metric} floor drifted: thresholds.json says ${declared[metric]}, coverage:check enforces ${flag[1]}`,
-      );
-    }
-  });
+    it('enforces every declared floor, at the declared value', () => {
+        const script = pkg.scripts['coverage:check'];
+        for (const metric of ['lines', 'statements', 'branches', 'functions']) {
+            const flag = script.match(new RegExp('--' + metric + '\\s+([0-9.]+)'));
+            assert.ok(flag, `coverage:check does not enforce --${metric}, so that floor is decorative`);
+            assert.equal(
+                Number(flag[1]),
+                declared[metric],
+                `${metric} floor drifted: thresholds.json says ${declared[metric]}, coverage:check enforces ${flag[1]}`,
+            );
+        }
+    });
 
-  it('fails the job on a shortfall rather than only reporting it', () => {
-    assert.match(pkg.scripts['coverage:check'], /--check-coverage/);
-  });
+    it('fails the job on a shortfall rather than only reporting it', () => {
+        assert.match(pkg.scripts['coverage:check'], /--check-coverage/);
+    });
 });

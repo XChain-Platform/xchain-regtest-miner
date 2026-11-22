@@ -8,17 +8,17 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
-let XChainRegtestMiner
-let miner
-let connectorStub
-const OUTPUTS_QUANTITY_PER_TX = 2500
-const AMOUNT_FOR_EACH_ADDRESS = 1000
-const FEE = 1000
-const SATOSHI_UNIT = 100000000.0
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
+const OUTPUTS_QUANTITY_PER_TX = 2500;
+const AMOUNT_FOR_EACH_ADDRESS = 1000;
+const FEE = 1000;
+const SATOSHI_UNIT = 100000000.0;
 
 function setupMiner() {
     connectorStub = {
@@ -36,58 +36,61 @@ function setupMiner() {
         getRawTransaction: sinon.stub().resolves(null),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
         getNetworkInfo: sinon.stub().resolves({}),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 
-    miner.walletAddress = 'bcrt1qtest'
+    miner.walletAddress = 'bcrt1qtest';
 }
 
 function teardownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 function registerMinerHooks() {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 }
 
 describe('Boundary: fillMempool Chunking and Calculations', function () {
-    registerMinerHooks()
+    registerMinerHooks();
 
     // ─── F-09: tx_quantity = 50001 (21 chunks) ─────────────────────────
 
     describe('F-09: tx_quantity = 50001 (21 chunks, one past threshold)', function () {
         it('triggers intermediate mining once at chunk 20, then resets counter', function () {
-            const txQuantity = 50001
-            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
-            assert.strictEqual(chunks, 21)
+            const txQuantity = 50001;
+            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX);
+            assert.strictEqual(chunks, 21);
 
-            const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
-            assert.strictEqual(remainder, 1)
+            const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX;
+            assert.strictEqual(remainder, 1);
 
             // processedChunkCount hits 20 at chunk 20, triggering mining and resetting to 0.
             // Chunk 21 increments to 1, which does not trigger again.
-            let intermediateMineCalls = 0
-            let processedChunkCount = 0
+            let intermediateMineCalls = 0;
+            let processedChunkCount = 0;
             for (let i = 0; i < chunks; i++) {
-                processedChunkCount++
+                processedChunkCount++;
                 if (processedChunkCount >= 20) {
-                    intermediateMineCalls++
-                    processedChunkCount = 0
+                    intermediateMineCalls++;
+                    processedChunkCount = 0;
                 }
             }
-            assert.strictEqual(intermediateMineCalls, 1,
-                'processedChunkCount resets after mining: only one intermediate mine')
-        })
-    })
-})
+            assert.strictEqual(
+                intermediateMineCalls,
+                1,
+                'processedChunkCount resets after mining: only one intermediate mine',
+            );
+        });
+    });
+});

@@ -18,19 +18,19 @@
  * maintaining stateful Bitcoin Core behavior.
  */
 
-const StatefulMockNode = require('../../e2e/helpers/StatefulMockNode')
+const StatefulMockNode = require('../../e2e/helpers/StatefulMockNode');
 
 class LatencyMockNode extends StatefulMockNode {
     constructor() {
-        super()
+        super();
 
-        this._methodDelays = {}     // { methodName: ms }
-        this._globalDelay = 0
-        this._callTimestamps = []   // [{ method, startedAt, completedAt, latencyMs }]
+        this._methodDelays = {}; // { methodName: ms }
+        this._globalDelay = 0;
+        this._callTimestamps = []; // [{ method, startedAt, completedAt, latencyMs }]
 
         // Replace the POST handler registered by StatefulMockNode's constructor
         // with one that adds delay injection and call timing.
-        this._reinstallHandler()
+        this._reinstallHandler();
     }
 
     /**
@@ -40,57 +40,59 @@ class LatencyMockNode extends StatefulMockNode {
         // Remove the last route layer added by StatefulMockNode
         // Express 5 renamed app._router to app.router; support both so the
         // helper works across the 4->5 dependency bump.
-        const stack = (this.app.router || this.app._router).stack
+        const stack = (this.app.router || this.app._router).stack;
         // StatefulMockNode registers one layer for ['/', '/wallet/:walletName'],
         // so route.path can be a string or an array; match both shapes.
-        const handlesRoot = (p) => p === '/' || (Array.isArray(p) && p.includes('/'))
+        const handlesRoot = (p) => p === '/' || (Array.isArray(p) && p.includes('/'));
         for (let i = stack.length - 1; i >= 0; i--) {
             if (stack[i].route && handlesRoot(stack[i].route.path)) {
-                stack.splice(i, 1)
-                break
+                stack.splice(i, 1);
+                break;
             }
         }
 
         // Install the enhanced handler
         this.app.post(['/', '/wallet/:walletName'], async (req, res) => {
-            const { method, params, id } = req.body
-            this.calls.push({ method, params, id })
+            const { method, params, id } = req.body;
+            this.calls.push({ method, params, id });
 
-            const startedAt = Date.now()
+            const startedAt = Date.now();
 
             // Apply delay
-            const delay = this._methodDelays[method] !== undefined
-                ? this._methodDelays[method]
-                : this._globalDelay
+            const delay = this._methodDelays[method] !== undefined ? this._methodDelays[method] : this._globalDelay;
             if (delay > 0) {
-                await new Promise(r => setTimeout(r, delay))
+                await new Promise((r) => setTimeout(r, delay));
             }
 
             // Dispatch to the _rpc_* handler from StatefulMockNode
-            const handler = this['_rpc_' + method]
+            const handler = this['_rpc_' + method];
             if (!handler) {
-                const completedAt = Date.now()
-                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt })
+                const completedAt = Date.now();
+                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt });
                 return res.json({
-                    jsonrpc: '2.0', result: null,
-                    error: { code: -32601, message: `Method "${method}" not found` }, id,
-                })
+                    jsonrpc: '2.0',
+                    result: null,
+                    error: { code: -32601, message: `Method "${method}" not found` },
+                    id,
+                });
             }
 
             try {
-                const result = handler.call(this, params)
-                const completedAt = Date.now()
-                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt })
-                res.json({ jsonrpc: '2.0', result, error: null, id })
+                const result = handler.call(this, params);
+                const completedAt = Date.now();
+                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt });
+                res.json({ jsonrpc: '2.0', result, error: null, id });
             } catch (err) {
-                const completedAt = Date.now()
-                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt })
+                const completedAt = Date.now();
+                this._callTimestamps.push({ method, startedAt, completedAt, latencyMs: completedAt - startedAt });
                 res.json({
-                    jsonrpc: '2.0', result: null,
-                    error: { code: err.rpcCode || -1, message: err.message }, id,
-                })
+                    jsonrpc: '2.0',
+                    result: null,
+                    error: { code: err.rpcCode || -1, message: err.message },
+                    id,
+                });
             }
-        })
+        });
     }
 
     /**
@@ -100,8 +102,8 @@ class LatencyMockNode extends StatefulMockNode {
      * @returns {LatencyMockNode} this (chainable)
      */
     setMethodDelay(method, ms) {
-        this._methodDelays[method] = ms
-        return this
+        this._methodDelays[method] = ms;
+        return this;
     }
 
     /**
@@ -110,14 +112,14 @@ class LatencyMockNode extends StatefulMockNode {
      * @returns {LatencyMockNode} this (chainable)
      */
     setGlobalDelay(ms) {
-        this._globalDelay = ms
-        return this
+        this._globalDelay = ms;
+        return this;
     }
 
     /** Clear all configured delays. */
     clearDelays() {
-        this._methodDelays = {}
-        this._globalDelay = 0
+        this._methodDelays = {};
+        this._globalDelay = 0;
     }
 
     /**
@@ -126,7 +128,7 @@ class LatencyMockNode extends StatefulMockNode {
      * @returns {{method, startedAt, completedAt, latencyMs}[]}
      */
     getCallTimings(method) {
-        return this._callTimestamps.filter(c => c.method === method)
+        return this._callTimestamps.filter((c) => c.method === method);
     }
 
     /**
@@ -135,22 +137,22 @@ class LatencyMockNode extends StatefulMockNode {
      * @returns {number} average latency in ms, or 0 if no calls
      */
     getAverageLatency(method) {
-        const timings = this.getCallTimings(method)
-        if (timings.length === 0) return 0
-        return timings.reduce((sum, t) => sum + t.latencyMs, 0) / timings.length
+        const timings = this.getCallTimings(method);
+        if (timings.length === 0) return 0;
+        return timings.reduce((sum, t) => sum + t.latencyMs, 0) / timings.length;
     }
 
     /** Get all call timing records. */
     getAllCallTimings() {
-        return this._callTimestamps
+        return this._callTimestamps;
     }
 
     /** Reset state, delays, and timing records. */
     reset() {
-        super.reset()
-        this.clearDelays()
-        this._callTimestamps = []
+        super.reset();
+        this.clearDelays();
+        this._callTimestamps = [];
     }
 }
 
-module.exports = LatencyMockNode
+module.exports = LatencyMockNode;

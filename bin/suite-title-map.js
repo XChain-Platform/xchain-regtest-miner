@@ -56,8 +56,8 @@
 
 'use strict';
 
-const fs     = require('fs');
-const path   = require('path');
+const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const { loadSplits, compareWithSplits } = require('./suite_title_map/split_map.js');
@@ -84,14 +84,24 @@ function splitCommand(script) {
     let quote = null;
     let started = false;
     let quoted = false;
-    const push = () => { tokens.push({ value: current, quoted }); current = ''; started = false; quoted = false; };
+    const push = () => {
+        tokens.push({ value: current, quoted });
+        current = '';
+        started = false;
+        quoted = false;
+    };
     for (const ch of script) {
         if (quote) {
             if (ch === quote) quote = null;
             else current += ch;
             continue;
         }
-        if (ch === '"' || ch === "'") { quote = ch; started = true; quoted = true; continue; }
+        if (ch === '"' || ch === "'") {
+            quote = ch;
+            started = true;
+            quoted = true;
+            continue;
+        }
         if (/\s/.test(ch)) {
             if (started || current) push();
             continue;
@@ -141,6 +151,22 @@ function mochaArgsFor(script) {
     return { args: tokens.slice(i + 1).map((t) => t.value), env };
 }
 
+/**
+ * The mocha json report out of a run's stdout. The reporter writes it to stdout,
+ * but a spec file that logs at load time writes there too, and a timer a spec
+ * leaves running can log after the reporter has closed the object. The report
+ * is the one JSON object that opens at a line-start "stats" key and closes at the
+ * first line that is a bare brace (the reporter indents everything inside it and
+ * a JSON string cannot hold a raw newline), so both the lead-in and the tail
+ * are cut away.
+ */
+function parseMochaReport(stdout) {
+    const start = stdout.indexOf('{\n  "stats"');
+    const text = start === -1 ? stdout : stdout.slice(start);
+    const close = start === -1 ? -1 : text.indexOf('\n}');
+    return JSON.parse(close === -1 ? text : text.slice(0, close + 2));
+}
+
 /** Titles for one script, keyed by repo-relative test file. */
 function collect(scriptName, script) {
     const parsed = mochaArgsFor(script);
@@ -167,11 +193,7 @@ function collect(scriptName, script) {
 
     let report;
     try {
-        // The json reporter writes the report to stdout, but a spec file that
-        // logs at load time writes there too; the report is the last JSON
-        // object, so parsing starts at the last line that opens one.
-        const start = res.stdout.indexOf('{\n  "stats"');
-        report = JSON.parse(start === -1 ? res.stdout : res.stdout.slice(start));
+        report = parseMochaReport(res.stdout);
     } catch (e) {
         return { error: `unparseable mocha json (exit ${res.status}): ${res.stderr.slice(0, 400)}`, timing };
     }
@@ -213,7 +235,9 @@ function setKey(titles) {
 
 function buildMap(only) {
     const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
-    const names = Object.keys(pkg.scripts || {}).filter((n) => n.startsWith('test')).sort();
+    const names = Object.keys(pkg.scripts || {})
+        .filter((n) => n.startsWith('test'))
+        .sort();
     const titleSets = {};
     const scripts = {};
     for (const name of names) {
@@ -256,8 +280,7 @@ function timingRecord(map) {
                 passCount: entry.passCount,
                 pendingCount: entry.pendingCount,
             };
-        }
-        else scripts[name] = { notRun: entry.notRun || 'not run' };
+        } else scripts[name] = { notRun: entry.notRun || 'not run' };
     }
     return {
         timingMethod: 'UTC ISO 8601 date stamps captured around each Mocha process',
@@ -306,8 +329,14 @@ function compare(pin, fresh, renames, only) {
         for (const rel of Object.keys(before)) mapped[renames[rel] || rel] = before[rel];
         const files = Array.from(new Set(Object.keys(mapped).concat(Object.keys(after)))).sort();
         for (const rel of files) {
-            if (!mapped[rel]) { differences.push({ script: name, kind: 'file_added', file: rel }); continue; }
-            if (!after[rel]) { differences.push({ script: name, kind: 'file_dropped', file: rel }); continue; }
+            if (!mapped[rel]) {
+                differences.push({ script: name, kind: 'file_added', file: rel });
+                continue;
+            }
+            if (!after[rel]) {
+                differences.push({ script: name, kind: 'file_dropped', file: rel });
+                continue;
+            }
             const gone = mapped[rel].filter((t) => !after[rel].includes(t));
             const added = after[rel].filter((t) => !mapped[rel].includes(t));
             for (const t of gone) differences.push({ script: name, kind: 'title_dropped', file: rel, title: t });
@@ -321,13 +350,25 @@ function parseArgs(argv) {
     const opts = { json: false };
     for (let i = 0; i < argv.length; i += 1) {
         if (argv[i] === '--json') opts.json = true;
-        else if (argv[i] === '--out') { opts.out = path.resolve(argv[i + 1]); i += 1; }
-        else if (argv[i] === '--timings') { opts.timings = path.resolve(argv[i + 1]); i += 1; }
-        else if (argv[i] === '--script') { opts.script = argv[i + 1]; i += 1; }
-        else if (argv[i] === '--compare') { opts.compare = path.resolve(argv[i + 1]); i += 1; }
-        else if (argv[i] === '--rename-map') { opts.renameMap = path.resolve(argv[i + 1]); i += 1; }
-        else if (argv[i] === '--split-map') { opts.splitMap = path.resolve(argv[i + 1]); i += 1; }
-        else if (argv[i] === '--help' || argv[i] === '-h') opts.help = true;
+        else if (argv[i] === '--out') {
+            opts.out = path.resolve(argv[i + 1]);
+            i += 1;
+        } else if (argv[i] === '--timings') {
+            opts.timings = path.resolve(argv[i + 1]);
+            i += 1;
+        } else if (argv[i] === '--script') {
+            opts.script = argv[i + 1];
+            i += 1;
+        } else if (argv[i] === '--compare') {
+            opts.compare = path.resolve(argv[i + 1]);
+            i += 1;
+        } else if (argv[i] === '--rename-map') {
+            opts.renameMap = path.resolve(argv[i + 1]);
+            i += 1;
+        } else if (argv[i] === '--split-map') {
+            opts.splitMap = path.resolve(argv[i + 1]);
+            i += 1;
+        } else if (argv[i] === '--help' || argv[i] === '-h') opts.help = true;
     }
     return opts;
 }
@@ -352,9 +393,11 @@ function main() {
         const splits = opts.splitMap ? loadSplits(opts.splitMap) : {};
         const differences = compareWithSplits({ pin, fresh: map, renames, splits, only: opts.script, compare });
         if (!differences.length) {
-            console.log(`suite identity holds against ${path.relative(REPO_ROOT, opts.compare)}`
-                + `${opts.renameMap ? ' through the declared rename map' : ''}`
-                + `${opts.splitMap ? ' through the declared split map' : ''}`);
+            console.log(
+                `suite identity holds against ${path.relative(REPO_ROOT, opts.compare)}` +
+                    `${opts.renameMap ? ' through the declared rename map' : ''}` +
+                    `${opts.splitMap ? ' through the declared split map' : ''}`,
+            );
             return;
         }
         console.log(`${differences.length} difference(s) against ${path.relative(REPO_ROOT, opts.compare)}:`);
@@ -370,8 +413,10 @@ function main() {
     // some of them carry characters the platform's prose rules keep out of
     // committed files; escaping changes the encoding and not one parsed
     // character, so the pin stays exactly what mocha reported.
-    const text = `${JSON.stringify(map, null, 2).replace(/[-￿]/g,
-        (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)}\n`;
+    const text = `${JSON.stringify(map, null, 2).replace(
+        /[-￿]/g,
+        (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`,
+    )}\n`;
     if (opts.out) {
         fs.mkdirSync(path.dirname(opts.out), { recursive: true });
         fs.writeFileSync(opts.out, text);
@@ -383,11 +428,23 @@ function main() {
     let failed = 0;
     for (const name of Object.keys(measuredMap.scripts)) {
         const s = measuredMap.scripts[name];
-        if (s.notRun) { console.log(`${name.padEnd(26)} not run: ${s.notRun}`); continue; }
-        if (s.composite) { console.log(`${name.padEnd(26)} composite: ${s.composite.join(' + ')}`); continue; }
-        if (s.error) { console.log(`${name.padEnd(26)} ERROR: ${s.error}`); failed += 1; continue; }
-        console.log(`${name.padEnd(26)} ${String(s.fileCount).padStart(4)} files  `
-            + `${String(s.titleCount).padStart(5)} titles  ${String(s.passCount).padStart(5)} passing`);
+        if (s.notRun) {
+            console.log(`${name.padEnd(26)} not run: ${s.notRun}`);
+            continue;
+        }
+        if (s.composite) {
+            console.log(`${name.padEnd(26)} composite: ${s.composite.join(' + ')}`);
+            continue;
+        }
+        if (s.error) {
+            console.log(`${name.padEnd(26)} ERROR: ${s.error}`);
+            failed += 1;
+            continue;
+        }
+        console.log(
+            `${name.padEnd(26)} ${String(s.fileCount).padStart(4)} files  ` +
+                `${String(s.titleCount).padStart(5)} titles  ${String(s.passCount).padStart(5)} passing`,
+        );
     }
     if (opts.out) console.log(`\nwritten to ${path.relative(REPO_ROOT, opts.out)}`);
     if (failed) process.exitCode = 1;
@@ -396,5 +453,13 @@ function main() {
 if (require.main === module) main();
 
 module.exports = {
-    buildMap, collect, mochaArgsFor, splitCommand, compare, expand, timingRecord, withoutTimings,
+    buildMap,
+    collect,
+    parseMochaReport,
+    mochaArgsFor,
+    splitCommand,
+    compare,
+    expand,
+    timingRecord,
+    withoutTimings,
 };

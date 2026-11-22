@@ -8,8 +8,8 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const express = require('express')
-const { assertDaemon, sendRpcError } = require('../../helpers/rpcErrorReply')
+const express = require('express');
+const { assertDaemon, sendRpcError } = require('../../helpers/rpcErrorReply');
 
 /**
  * Lightweight Express server that mimics Bitcoin Core's JSON-RPC interface.
@@ -19,60 +19,60 @@ const { assertDaemon, sendRpcError } = require('../../helpers/rpcErrorReply')
  */
 class MockRpcServer {
     constructor({ daemon = 'legacy' } = {}) {
-        this.daemon = assertDaemon(daemon)
-        this.app = express()
-        this.app.use(express.json())
-        this.handlers = {}
-        this.calls = []
-        this.server = null
-        this.port = null
+        this.daemon = assertDaemon(daemon);
+        this.app = express();
+        this.app.use(express.json());
+        this.handlers = {};
+        this.calls = [];
+        this.server = null;
+        this.port = null;
 
         // Serve the base URL and the /wallet/<name> URI the connector switches
         // wallet RPCs to after setWalletName, recording which wallet each call named.
         this.app.post(['/', '/wallet/:walletName'], async (req, res) => {
-            const { method, params, id } = req.body
-            const authHeader = req.headers.authorization || null
-            const walletName = req.params.walletName || null
+            const { method, params, id } = req.body;
+            const authHeader = req.headers.authorization || null;
+            const walletName = req.params.walletName || null;
 
-            this.calls.push({ method, params, id, auth: authHeader, walletName })
+            this.calls.push({ method, params, id, auth: authHeader, walletName });
 
-            const handler = this.handlers[method]
+            const handler = this.handlers[method];
             if (!handler) {
                 return sendRpcError(res, {
-                    daemon: this.daemon, request: req.body,
+                    daemon: this.daemon,
+                    request: req.body,
                     error: { code: -32601, message: `Method "${method}" not found` },
-                })
+                });
             }
 
             // Error injection: fail N times before succeeding
             if (handler.failCount > 0) {
-                handler.failCount--
+                handler.failCount--;
                 if (handler.failMode === 'http') {
-                    return res.status(503).send('Service Unavailable')
+                    return res.status(503).send('Service Unavailable');
                 }
                 if (handler.failMode === 'timeout') {
                     // Don't respond; let the client timeout
-                    return
+                    return;
                 }
                 // Default: RPC-level error in this daemon's transport shape
                 return sendRpcError(res, {
-                    daemon: this.daemon, request: req.body,
+                    daemon: this.daemon,
+                    request: req.body,
                     error: handler.errorObj || { code: -1, message: 'Injected error' },
-                })
+                });
             }
 
             // Delay injection
             if (handler.delay > 0) {
-                await new Promise(resolve => setTimeout(resolve, handler.delay))
+                await new Promise((resolve) => setTimeout(resolve, handler.delay));
             }
 
             // Compute result (static value or function of params)
-            const result = typeof handler.resultFn === 'function'
-                ? handler.resultFn(params)
-                : handler.resultValue
+            const result = typeof handler.resultFn === 'function' ? handler.resultFn(params) : handler.resultValue;
 
-            res.json({ jsonrpc: '2.0', result, error: null, id })
-        })
+            res.json({ jsonrpc: '2.0', result, error: null, id });
+        });
     }
 
     /**
@@ -90,75 +90,75 @@ class MockRpcServer {
             failMode: 'rpc',
             errorObj: null,
             delay: 0,
-        }
-        this.handlers[method] = handler
+        };
+        this.handlers[method] = handler;
 
         const builder = {
             returns: (value) => {
-                handler.resultValue = value
-                handler.resultFn = null
-                return builder
+                handler.resultValue = value;
+                handler.resultFn = null;
+                return builder;
             },
             returnsFrom: (fn) => {
-                handler.resultFn = fn
-                return builder
+                handler.resultFn = fn;
+                return builder;
             },
             withDelay: (ms) => {
-                handler.delay = ms
-                return builder
+                handler.delay = ms;
+                return builder;
             },
             failTimes: (n, mode = 'rpc', errorObj = null) => {
-                handler.failCount = n
-                handler.failMode = mode
-                handler.errorObj = errorObj || { code: -1, message: 'Injected error' }
+                handler.failCount = n;
+                handler.failMode = mode;
+                handler.errorObj = errorObj || { code: -1, message: 'Injected error' };
                 return {
                     thenReturn: (value) => {
-                        handler.resultValue = value
-                        handler.resultFn = null
-                        return builder
+                        handler.resultValue = value;
+                        handler.resultFn = null;
+                        return builder;
                     },
                     thenReturnFrom: (fn) => {
-                        handler.resultFn = fn
-                        return builder
+                        handler.resultFn = fn;
+                        return builder;
                     },
-                }
+                };
             },
-        }
-        return builder
+        };
+        return builder;
     }
 
     /** Start listening on an ephemeral port. */
     async start() {
         return new Promise((resolve) => {
             this.server = this.app.listen(0, '127.0.0.1', () => {
-                this.port = this.server.address().port
-                resolve()
-            })
-        })
+                this.port = this.server.address().port;
+                resolve();
+            });
+        });
     }
 
     /** Shut down the server. */
     async stop() {
         return new Promise((resolve) => {
             if (this.server) {
-                this.server.close(resolve)
-                this.server = null
+                this.server.close(resolve);
+                this.server = null;
             } else {
-                resolve()
+                resolve();
             }
-        })
+        });
     }
 
     /** Clear all handlers and recorded calls. */
     reset() {
-        this.handlers = {}
-        this.calls = []
+        this.handlers = {};
+        this.calls = [];
     }
 
     /** Get recorded calls for a specific method. */
     callsFor(method) {
-        return this.calls.filter(c => c.method === method)
+        return this.calls.filter((c) => c.method === method);
     }
 }
 
-module.exports = MockRpcServer
+module.exports = MockRpcServer;

@@ -21,313 +21,278 @@
 
 'use strict';
 
-const CryptoNetworks = require('../networks/crypto_networks.js')
-const bip39 = require('bip39')
 const bitcoin = require('bitcoinjs-lib');
 const {
     WALLET_BALANCE_REFRESH_MS,
-    SATOSHI_UNIT,
+    FUNDING_FEE_REPROBE_MS,
     MAX_FILL_MEMPOOL_QUANTITY,
-    MAX_SEND_RETRIES,
-    bip32,
+    FUNDING_FEE_RATE_COINS_PER_KB,
+    PER_CALL_FEE_RATE_COINS,
     logger,
-    ECPair
-} = require('./constants.js')
+    ECPair,
+} = require('./constants.js');
+const { deriveFillKeys, fundMainAddress, findFundingUtxos } = require('./fill_plan.js');
+const { confirmSplitTxs } = require('./split_confirmation.js');
+const { assertMineSettled } = require('./mine_settle.js');
+const {
+    startFillProgress,
+    throwIfFillCancelled,
+    enterFillPhase,
+    noteStressSent,
+    finishFillProgress,
+    fillProgressSnapshot,
+} = require('./fill_progress.js');
 
-// Resolves the coin network, the per-output amounts and a fresh HD key tree: the
-// main address that collects the funding plus one derived key per stress tx.
-function deriveFillKeys(txQuantity){
-    //let AMOUNT_FOR_EACH_ADDRESS = 0.000001
-    //let FEE = 0.00001
+// Builds and signs the transaction spending one funding utxo into the outputs
+// for its slice of derived addresses, returning its hex.
+function buildSplitTxHex(
+    nextUtxo,
+    nextUtxoIndex,
+    { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_ADDRESS, FEE, network, address, addresses },
+) {
+    let utxoIndex = nextUtxo['utxoIndex'];
+    let txid = nextUtxo['txid'];
+    let rawTransaction = nextUtxo['rawTransaction'];
 
-    let OUTPUTS_QUANTITY_PER_TX = 2500
+    //Create a single transaction with txQuantity outputs
+    let psbt = new bitcoin.Psbt({ network: network });
 
-    //Create a seed
-    // Resolve coin-specific bitcoinjs params (P2PKH version byte, WIF,
-    // bip32) from the coin-network identifier so DOGE/LTC addresses and
-    // PSBTs encode correctly, not just Bitcoin. Falls back to Bitcoin
-    // regtest when only a bare network ("regtest") was supplied.
-    var network = CryptoNetworks.getBitcoinJsNetwork(this.network) || bitcoin.networks.regtest
-    if (!CryptoNetworks.getBitcoinJsNetwork(this.network)) {
-        logger.info("WARNING: NETWORK='"+this.network+"' did not resolve to a coin-specific network; falling back to bitcoin.networks.regtest for fillMempool. Set NETWORK to a coin-network form (e.g. dogecoin-regtest) for correct coin params.")
+    psbt.addInput({
+        hash: txid,
+        index: utxoIndex,
+        // transaction.outs[n].sequence doesn't exist (.sequence is an
+        // input field, not an output field); reading it always yields
+        // undefined, which bitcoinjs-lib coerces to 0 (disabling RBF
+        // signalling but also rejecting some nodes). Use the standard
+        // final-sequence value instead.
+        sequence: 0xffffffff,
+        nonWitnessUtxo: Buffer.from(rawTransaction, 'hex'),
+    });
+
+    for (
+        let nextAddressIndex = nextUtxoIndex * OUTPUTS_QUANTITY_PER_TX;
+        nextAddressIndex < (parseInt(nextUtxoIndex) + 1) * OUTPUTS_QUANTITY_PER_TX &&
+        nextAddressIndex < addresses.length;
+        nextAddressIndex++
+    ) {
+        let nextAddress = addresses[nextAddressIndex];
+        let nextAddressPayment = bitcoin.payments.p2pkh({ pubkey: nextAddress.publicKey, network }).address;
+
+        psbt.addOutput({
+            address: nextAddressPayment,
+            value: AMOUNT_FOR_EACH_ADDRESS + FEE,
+        });
     }
 
-    // Scale amounts to the coin's dust threshold so DOGE/LTC regtest
-    // nodes (which have much higher minimum relay fees than Bitcoin)
-    // don't reject the stress txs. The 1000-sat default applies only on the
-    // FALLBACK path above (a bare NETWORK='regtest', which resolves to the
-    // bitcoinjs-lib built-in and carries no dustThreshold). The resolved coin
-    // form 'bitcoin-regtest' DOES define one (546), so this is 1000 there only
-    // because 546 < 1000.
-    const coinDust = (network && network.dustThreshold) ? network.dustThreshold : 1000
-    let AMOUNT_FOR_EACH_ADDRESS = Math.max(coinDust, 1000)
-    let FEE = Math.max(coinDust, 1000)
-    // Per-output miner fee left on the intermediate 2500-output splitting tx.
-    // Must also scale to the coin: a flat 50 sat/output is ~1.5 sat/byte on a
-    // full split tx, below dogecoin-regtest's ~100 koinu/byte relay floor
-    // (dustThreshold 100000), so the node rejects the split tx with
-    // 'insufficient fee' and fill_mempool never runs on DOGE. Scale from the
-    // coin's real dust threshold when present, which keeps ample margin on every
-    // coin. The 50-sat floor is reached only on the bare-'regtest' FALLBACK path
-    // (no dustThreshold); under the resolved 'bitcoin-regtest' form this is
-    // max(50, 546) = 546, so real Bitcoin runs fund 2546/output, not 2050.
-    const rawDust = (network && network.dustThreshold) ? network.dustThreshold : 50
-    let SPLIT_TX_FEE_PER_OUTPUT = Math.max(50, rawDust)
-    var mnemonic = bip39.generateMnemonic()
-    var seed = bip39.mnemonicToSeedSync(mnemonic)
-    var root = bip32.fromSeed(seed, network)
-    var account = root.derivePath("m/44'/0'/0'/0")
-    var address = account.derive(0).derive(0)
-    var mainAddress = bitcoin.payments.p2pkh({ pubkey: address.publicKey, network }).address
-    logger.info("Main address to fill the mempool: "+mainAddress)
+    let keyToSign = ECPair.fromPrivateKey(address.privateKey, { network });
 
-    logger.info("Creating "+txQuantity+" addresses")
-    //Create txQuantity different addresses
-    let addresses = []
-    for (let i=0;i<txQuantity;i++){
-        let nextAddress = account.derive(i+1).derive(0)
-        addresses.push(nextAddress)
+    for (let nextInputIndex = 0; nextInputIndex < psbt.data.inputs.length; nextInputIndex++) {
+        psbt.signInput(parseInt(nextInputIndex), keyToSign);
     }
-    return { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_ADDRESS, FEE, SPLIT_TX_FEE_PER_OUTPUT, network, address, mainAddress, addresses }
-}
 
-// Sends the wallet funds to the main address in chunks of OUTPUTS_QUANTITY_PER_TX
-// outputs and confirms them. Resolves the chunk txids in send order.
-async function fundMainAddress(txQuantity, { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_ADDRESS, FEE, SPLIT_TX_FEE_PER_OUTPUT, mainAddress }){
-    //Ask for bitcoins
-    let txsChunksCount = Math.ceil((txQuantity / OUTPUTS_QUANTITY_PER_TX))
-    let chunksTxids = []
-    let processedChunkCount = 0
-    for (let i=0;i<txsChunksCount;i++){
-        let txRemainder = OUTPUTS_QUANTITY_PER_TX
-        if (i == txsChunksCount-1){
-            let remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
-
-            if (remainder > 0){
-                txRemainder = remainder
-            }
-        }
-        let totalAmount =
-            AMOUNT_FOR_EACH_ADDRESS*txRemainder + //Amount for every address
-            FEE*txRemainder + //Fee that every address must pay to send the amount
-            SPLIT_TX_FEE_PER_OUTPUT*txRemainder //Miner fee left on the split tx (coin-scaled)
-
-        logger.info("Sending "+totalAmount/SATOSHI_UNIT+" ("+i+") to "+mainAddress)
-
-        let sent = false
-        let txid = null
-        let sendRetries = 0
-        while(!sent){
-            try {
-                txid = await this.sendFundsToAddress(mainAddress, totalAmount/SATOSHI_UNIT)
-                sent = true
-            } catch(err){
-                sendRetries++
-                let detail = (err && err.message ? err.message : err)
-                if (sendRetries >= MAX_SEND_RETRIES) {
-                    throw new Error('Failed to send funds after ' + MAX_SEND_RETRIES + ' retries: ' + detail)
-                }
-                logger.info("Error sending funds: "+detail+"; retrying (attempt "+sendRetries+"/"+MAX_SEND_RETRIES+")")
-                await this.sleep(1000)
-            }
-        }
-        chunksTxids.push(txid)
-        processedChunkCount++
-
-        if (processedChunkCount>=20){
-            // Fill's OWN funding mine: takes the private entry point, because the
-            // public entry point is refusing mines for the duration of this
-            // fill and would otherwise reject the fill's own work.
-            await this.generateBlocksQueued(1)
-            processedChunkCount = 0
-        }
-    }
-    await this.generateBlocksQueued(1)
-    return chunksTxids
-}
-
-// Finds the output paying the main address in each confirmed chunk transaction.
-async function findFundingUtxos(chunksTxids, { network, mainAddress }){
-    let utxos = []
-    for (let nextChunkIndex in chunksTxids){
-        let nextChunkTxid = chunksTxids[nextChunkIndex]
-        let rawTransaction = null
-        let getRawTxRetries = 0
-        const MAX_GET_RAW_TX_RETRIES = 50
-        while (rawTransaction == null){
-            rawTransaction = await this.connector.getRawTransaction(nextChunkTxid)
-            if (rawTransaction == null) {
-                getRawTxRetries++
-                if (getRawTxRetries >= MAX_GET_RAW_TX_RETRIES) {
-                    throw new Error('Failed to get raw transaction after ' + MAX_GET_RAW_TX_RETRIES + ' retries for txid: ' + nextChunkTxid)
-                }
-                await this.sleep(1000)
-            }
-        }
-        let transaction = bitcoin.Transaction.fromHex(rawTransaction)
-        let utxoIndex = 0
-
-        for (let nextOutputIndex in transaction.outs){
-            let nextOutput = transaction.outs[nextOutputIndex]
-            let addressFromScript = bitcoin.address.fromOutputScript(nextOutput.script, network)
-
-            if (addressFromScript == mainAddress){
-                utxos.push({txid:nextChunkTxid, utxoIndex: utxoIndex, rawTransaction:rawTransaction})
-                break
-            } else {
-                utxoIndex++
-            }
-        }
-
-
-    }
-    return utxos
+    psbt.finalizeAllInputs();
+    return psbt.extractTransaction().toHex();
 }
 
 // Spends each funding utxo into one output per derived address, recording the
 // signed tx and its txid on the utxo entry for the stress loop to spend.
-async function splitFundingUtxos(utxos, { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_ADDRESS, FEE, network, address, addresses }){
-    for (let nextUtxoIndex in utxos){
-        let nextUtxo = utxos[nextUtxoIndex]
-        let utxoIndex = nextUtxo["utxoIndex"]
-        let txid = nextUtxo["txid"]
-        let rawTransaction = nextUtxo["rawTransaction"]
-        let transaction = bitcoin.Transaction.fromHex(rawTransaction)
+async function splitFundingUtxos(utxos, plan) {
+    for (let nextUtxoIndex in utxos) {
+        let nextUtxo = utxos[nextUtxoIndex];
+        let txHex = buildSplitTxHex(nextUtxo, nextUtxoIndex, plan);
 
-        //Create a single transaction with txQuantity outputs
-        let psbt = new bitcoin.Psbt({ network: network})
-
-
-        psbt.addInput({
-            hash: txid,
-            index: utxoIndex,
-            // transaction.outs[n].sequence doesn't exist (.sequence is an
-            // input field, not an output field); reading it always yields
-            // undefined, which bitcoinjs-lib coerces to 0 (disabling RBF
-            // signalling but also rejecting some nodes). Use the standard
-            // final-sequence value instead.
-            sequence: 0xffffffff,
-            nonWitnessUtxo: Buffer.from(rawTransaction, 'hex')
-        })
-
-
-        let total = 0
-
-        for (let nextAddressIndex=nextUtxoIndex*OUTPUTS_QUANTITY_PER_TX
-             ;nextAddressIndex<((parseInt(nextUtxoIndex) +1)*OUTPUTS_QUANTITY_PER_TX) && (nextAddressIndex<addresses.length)
-             ;nextAddressIndex++)
-        {
-            let nextAddress = addresses[nextAddressIndex]
-            let nextAddressPayment = bitcoin.payments.p2pkh({ pubkey: nextAddress.publicKey, network }).address
-            let paymentAmount = AMOUNT_FOR_EACH_ADDRESS + FEE
-
-            total = total + paymentAmount
-
-            psbt.addOutput({
-                address: nextAddressPayment,
-                value: paymentAmount
-            })
-        }
-
-        let keyToSign = ECPair.fromPrivateKey(address.privateKey, { network })
-
-        for (let nextInputIndex=0;nextInputIndex < psbt.data.inputs.length;nextInputIndex++){
-            psbt.signInput(parseInt(nextInputIndex), keyToSign)
-        }
-
-        psbt.finalizeAllInputs()
-        let extractedTransaction = psbt.extractTransaction()
-        let txHex = extractedTransaction.toHex()
-
-        nextUtxo["txHex"] = txHex
-        nextUtxo["txIdSource"] = await this.connector.sendRawTransaction(txHex)
+        nextUtxo['txHex'] = txHex;
+        throwIfFillCancelled.call(this);
+        nextUtxo['txIdSource'] = await this.connector.sendRawTransaction(txHex);
     }
 }
 
-async function stressMempool(utxos, { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_ADDRESS, network, mainAddress, addresses }){
+async function stressMempool(
+    utxos,
+    { OUTPUTS_QUANTITY_PER_TX, AMOUNT_FOR_EACH_ADDRESS, network, mainAddress, addresses },
+) {
     // Creates txQuantity transactions to stress the mempool.
-    for (let nextAddressIndex in addresses){
-        let nextAddress = addresses[nextAddressIndex]
-        let psbt = new bitcoin.Psbt({ network: network })
-        let paymentAmount = AMOUNT_FOR_EACH_ADDRESS
+    for (let nextAddressIndex in addresses) {
+        let nextAddress = addresses[nextAddressIndex];
+        let psbt = new bitcoin.Psbt({ network: network });
+        let paymentAmount = AMOUNT_FOR_EACH_ADDRESS;
 
-        let utxoIndex = Math.floor(nextAddressIndex/OUTPUTS_QUANTITY_PER_TX)
+        let utxoIndex = Math.floor(nextAddressIndex / OUTPUTS_QUANTITY_PER_TX);
 
-        let txIdSource = utxos[utxoIndex]["txIdSource"]
-        let txHex = utxos[utxoIndex]["txHex"]
-        let outputIndex = nextAddressIndex % OUTPUTS_QUANTITY_PER_TX
+        let txIdSource = utxos[utxoIndex]['txIdSource'];
+        let txHex = utxos[utxoIndex]['txHex'];
+        let outputIndex = nextAddressIndex % OUTPUTS_QUANTITY_PER_TX;
 
         psbt.addInput({
             hash: txIdSource,
             index: outputIndex,
             sequence: 0xffffffff,
-            nonWitnessUtxo: Buffer.from(txHex, 'hex')
-        })
+            nonWitnessUtxo: Buffer.from(txHex, 'hex'),
+        });
 
         psbt.addOutput({
             address: mainAddress,
-            value: paymentAmount
-        })
+            value: paymentAmount,
+        });
 
-        logger.info("Stressing the mempool with the transaction number "+nextAddressIndex)
+        logger.info('Stressing the mempool with the transaction number ' + nextAddressIndex);
 
-        let keyToSign = ECPair.fromPrivateKey(nextAddress.privateKey, { network })
-        psbt.signInput(0, keyToSign)
-        psbt.finalizeAllInputs()
-        let outputTxHex = psbt.extractTransaction().toHex()
+        let keyToSign = ECPair.fromPrivateKey(nextAddress.privateKey, { network });
+        psbt.signInput(0, keyToSign);
+        psbt.finalizeAllInputs();
+        let outputTxHex = psbt.extractTransaction().toHex();
 
-
-        await this.connector.sendRawTransaction(outputTxHex)
+        throwIfFillCancelled.call(this);
+        await this.connector.sendRawTransaction(outputTxHex);
+        noteStressSent.call(this);
     }
 }
 
+// Reloads a wallet the node lost (restarted under the miner) from the read path, in the
+// BACKGROUND: ensureWalletLoaded can retry for minutes, and refreshWalletFunds is awaited
+// inline by the auto-mine loop, so awaiting it would stall mining on a wallet that will not load.
+// Single-flight, at most one start per WALLET_BALANCE_REFRESH_MS, and never rejects.
+function startWalletReload() {
+    if (this.walletReloadInFlight) return this.walletReloadInFlight;
+    const now = Date.now();
+    if (this.walletReloadStartedAt != null && now - this.walletReloadStartedAt < WALLET_BALANCE_REFRESH_MS) return null;
+    this.walletReloadStartedAt = now;
+    logger.info('Wallet is no longer loaded on the node (restarted?); reloading it from the balance read');
+    const recovery = this.reloadWallet();
+    recovery.then((result) => {
+        if (!result.ok) {
+            const err = result.error;
+            logger.info('Could not reload the wallet: ' + (err && err.message ? err.message : err));
+        }
+    });
+    return recovery;
+}
+
+// Verify wallet-wide pins after restarts, and slowly retry only transient failures
+// that left a coin without any fee ceiling.
+function startFundingFeePinCheck() {
+    const coin = String(this.network || '')
+        .split('-')[0]
+        .toLowerCase();
+    // Every coin outside the per-call list pins through settxfee first, a bare NETWORK with no coin half included.
+    if (PER_CALL_FEE_RATE_COINS.includes(coin) || this.fundingFeePinCheckInFlight) return null;
+    if (this.fundingFeeMechanism === 'fee_rate') return null;
+    const reprobeDue =
+        this.fundingFeeMechanism === 'none' &&
+        this.fundingFeeReprobeNeeded &&
+        Date.now() - (this.fundingFeePinnedAt || 0) >= FUNDING_FEE_REPROBE_MS;
+    if (this.fundingFeeMechanism === 'none' && !reprobeDue) return null;
+    this.fundingFeePinCheckInFlight = (async () => {
+        try {
+            if (reprobeDue) {
+                await this.pinFundingFeeRate();
+                return;
+            }
+            const info = await this.connector.getWalletInfo(1);
+            if (!info || info.paytxfee !== FUNDING_FEE_RATE_COINS_PER_KB) {
+                await this.pinFundingFeeRate();
+            }
+        } catch (err) {
+            logger.info('Could not verify the wallet funding fee pin: ' + (err && err.message ? err.message : err));
+        } finally {
+            this.fundingFeePinCheckInFlight = null;
+        }
+    })();
+    return this.fundingFeePinCheckInFlight;
+}
+
+// Runs the claimed fill to its end, closing the progress record and releasing
+// the mutex however it ends.
+async function runFill(txQuantity) {
+    try {
+        await runFillPhases.call(this, txQuantity);
+        finishFillProgress.call(this, null);
+    } catch (err) {
+        finishFillProgress.call(this, err || new Error(String(err)));
+        throw err;
+    } finally {
+        this.fillMempoolRunning = false;
+        this._fillRun = null;
+    }
+}
+
+// The fill body. Each phase entry is a cancel point, as is every send loop inside.
+async function runFillPhases(txQuantity) {
+    // Mirror pauseMining's barrier: wait for any in-flight generateBlocks(1)
+    // to settle before proceeding, so a mine that started just before the
+    // flag flip can't land a new block while fillMempool is running.
+    await this._generateQueue;
+    assertMineSettled.call(this);
+    logger.info('Filling mempool with ' + txQuantity + ' transactions');
+    const plan = deriveFillKeys.call(this, txQuantity);
+
+    enterFillPhase.call(this, 'funding');
+    logger.info('Sending funds to the main address');
+    const chunksTxids = await fundMainAddress.call(this, txQuantity, plan);
+    const utxos = await findFundingUtxos.call(this, chunksTxids, plan);
+
+    enterFillPhase.call(this, 'splitting');
+    logger.info('Creating the transactions to send funds to those addresses');
+    await splitFundingUtxos.call(this, utxos, plan);
+
+    enterFillPhase.call(this, 'confirming');
+    await confirmSplitTxs.call(this, utxos);
+
+    enterFillPhase.call(this, 'stressing');
+    await stressMempool.call(this, utxos, plan);
+}
+
 module.exports = {
-    async fillMempool(txQuantity){
-            if (this.fillMempoolRunning) {
-                logger.info("fillMempool is already running, rejecting concurrent call")
-                throw new Error("fillMempool is already running")
-            }
+    async fillMempool(txQuantity) {
+        if (this.fillMempoolRunning) {
+            logger.info('fillMempool is already running, rejecting concurrent call');
+            throw new Error('fillMempool is already running');
+        }
 
-            if (!Number.isInteger(txQuantity) || txQuantity < 1) {
-                try { logger.info("INVALID txQuantity: "+txQuantity+". Must be a positive integer.") } catch(e) { logger.info("INVALID txQuantity (non-printable value). Must be a positive integer.") }
-                throw new Error("txQuantity must be a positive integer")
-            }
-
-            if (txQuantity > MAX_FILL_MEMPOOL_QUANTITY) {
-                logger.info("txQuantity "+txQuantity+" exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY)
-                throw new Error("txQuantity exceeds maximum of "+MAX_FILL_MEMPOOL_QUANTITY)
-            }
-
-            // Claim the mutex synchronously, before the first await below. The
-            // fillMempoolRunning guard at the top of this method and this assignment
-            // must not straddle an await, or the guard is a no-op under real
-            // concurrency: two fill_mempool RPCs arriving in the same tick would both
-            // pass the guard (flag still false) while parked on the _generateQueue
-            // barrier, then both run the stress body at once.
-            this.fillMempoolRunning = true
-            this.keepMining = false //Stop the mining so the txs stay in mempool
-            this._miningStateGeneration++
+        if (!Number.isInteger(txQuantity) || txQuantity < 1) {
             try {
-            // Mirror pauseMining's barrier: wait for any in-flight generateBlocks(1)
-            // to settle before proceeding, so a mine that started just before the
-            // flag flip can't land a new block while fillMempool is running.
-            await this._generateQueue
-            logger.info("Filling mempool with "+txQuantity+" transactions")
-            const plan = deriveFillKeys.call(this, txQuantity)
-
-            logger.info("Sending funds to the main address")
-            const chunksTxids = await fundMainAddress.call(this, txQuantity, plan)
-            const utxos = await findFundingUtxos.call(this, chunksTxids, plan)
-
-            logger.info("Creating the transactions to send funds to those addresses")
-            await splitFundingUtxos.call(this, utxos, plan)
-            await this.generateBlocksQueued(1)
-
-            await stressMempool.call(this, utxos, plan)
-
-            } finally {
-                this.fillMempoolRunning = false
+                logger.info('INVALID txQuantity: ' + txQuantity + '. Must be a positive integer.');
+            } catch (e) {
+                logger.info('INVALID txQuantity (non-printable value). Must be a positive integer.');
             }
+            throw new Error('txQuantity must be a positive integer');
+        }
+
+        if (txQuantity > MAX_FILL_MEMPOOL_QUANTITY) {
+            logger.info('txQuantity ' + txQuantity + ' exceeds maximum of ' + MAX_FILL_MEMPOOL_QUANTITY);
+            throw new Error('txQuantity exceeds maximum of ' + MAX_FILL_MEMPOOL_QUANTITY);
+        }
+
+        // Claim the mutex synchronously, before the first await below. The
+        // fillMempoolRunning guard at the top of this method and this assignment
+        // must not straddle an await, or the guard is a no-op under real
+        // concurrency: two fill_mempool RPCs arriving in the same tick would both
+        // pass the guard (flag still false) while parked on the _generateQueue
+        // barrier, then both run the stress body at once.
+        this.fillMempoolRunning = true;
+        this.setKeepMining(false); // Stop mining so the transactions stay in the mempool.
+        this._operatorMiningGeneration++;
+        startFillProgress.call(this, txQuantity);
+        const run = runFill.call(this, txQuantity);
+        this._fillRun = run.catch(() => {});
+        return run;
+    },
+
+    // Asks the running fill to stop and waits until it has: the run ends after the
+    // node call in flight, and its own fill_mempool call answers with a cancelled
+    // error. Like a finished fill it leaves keepMining as it stands, so the miner
+    // stays paused unless a continue_mining already landed; call continue_mining
+    // to resume. With no fill running it answers cancelled: false and does nothing.
+    async cancelFillMempool() {
+        const run = this._fillRun;
+        if (!this.fillMempoolRunning || !run) {
+            return { cancelled: false, fill_mempool: fillProgressSnapshot.call(this) };
+        }
+        this._fillCancelRequested = true;
+        logger.info('fill_mempool cancel requested; stopping after the node call in flight');
+        await run;
+        const progress = fillProgressSnapshot.call(this);
+        return { cancelled: !!progress && progress.phase === 'cancelled', fill_mempool: progress };
     },
 
     // Re-reads the spendable balance so a reorg that disconnected the matured
@@ -337,8 +302,8 @@ module.exports = {
     // RPC has already succeeded, so a failed balance read must not turn a
     // completed invalidate/reconsider into a rejected call, and in the auto-mine
     // loop a throw would kill mining outright. Deliberately does NOT
-    // touch walletReady, which is a startup-completion flag; see the note where
-    // prepareWallet sets it.
+    // touch walletReady for an ordinary read. Runtime wallet recreation lowers it
+    // only while the new mining address is warmed to maturity.
     //
     // Stamps _balanceReadAt on BOTH paths: it records the last read ATTEMPT, which
     // is what bounds staleness and what paces the loop's cadence guard. Stamping
@@ -346,14 +311,18 @@ module.exports = {
     // RPC on every 100ms loop tick.
     async refreshWalletFunds() {
         try {
-            const observed = await this.connector.getBalance()
-            this.balance = typeof observed === 'number' ? observed : null
+            const observed = await this.connector.getBalance();
+            this.balance = typeof observed === 'number' ? observed : null;
+            if (this.balance !== null) startFundingFeePinCheck.call(this);
         } catch (err) {
-            logger.info("Could not re-read the wallet balance: "+(err && err.message ? err.message : err))
-            this.balance = null
+            logger.info('Could not re-read the wallet balance: ' + (err && err.message ? err.message : err));
+            this.balance = null;
+            // A lost wallet is reloaded in the background, so the next read (one interval on) can
+            // succeed: without it wallet_funded stayed false until a send happened to reload it.
+            if (err && err.walletMissing) startWalletReload.call(this);
         }
-        this._balanceReadAt = Date.now()
-        return this.balance
+        this._balanceReadAt = Date.now();
+        return this.balance;
     },
 
     // True when the auto-mine loop owes a balance refresh. Split out as a
@@ -361,7 +330,7 @@ module.exports = {
     // load-bearing part: the loop wakes every CHECK_BLOCK_DELAY_MS, so a guard
     // that mis-answers turns one RPC per 5s into ten per second.
     walletRefreshDue(now) {
-        if (this._balanceReadAt == null) return true
-        return (now - this._balanceReadAt) >= WALLET_BALANCE_REFRESH_MS
-    }
-}
+        if (this._balanceReadAt == null) return true;
+        return now - this._balanceReadAt >= WALLET_BALANCE_REFRESH_MS;
+    },
+};

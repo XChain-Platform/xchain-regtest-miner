@@ -26,12 +26,12 @@
  * @returns {string|null}
  */
 function rejectedRpcErrorMessage(error) {
-    const body = error && error.response ? error.response.data : null
-    if (!body || typeof body !== 'object') return null
-    const rpcErr = body.error
-    if (!rpcErr) return null
-    if (typeof rpcErr.message === 'string') return rpcErr.message
-    return JSON.stringify(rpcErr)
+    const body = error && error.response ? error.response.data : null;
+    if (!body || typeof body !== 'object') return null;
+    const rpcErr = body.error;
+    if (!rpcErr) return null;
+    if (typeof rpcErr.message === 'string') return rpcErr.message;
+    return JSON.stringify(rpcErr);
 }
 
 /**
@@ -43,9 +43,30 @@ function rejectedRpcErrorMessage(error) {
  * @returns {number|null}
  */
 function rpcErrorCode(body) {
-    if (!body || typeof body !== 'object' || !body.error) return null
-    const code = body.error.code
-    return Number.isInteger(code) ? code : null
+    if (!body || typeof body !== 'object' || !body.error) return null;
+    const code = body.error.code;
+    return Number.isInteger(code) ? code : null;
 }
 
-module.exports = { rejectedRpcErrorMessage, rpcErrorCode }
+/**
+ * Whether a node's RPC error message says the miner's wallet is not loaded:
+ * "Requested wallet does not exist or is not loaded" on a /wallet/<name> URI, or
+ * "No wallet is loaded" on the base URL, which is what every wallet call gets
+ * after the node restarts under a long-running miner. Never throws.
+ *
+ * @param {*} nodeErr the node's error message, or null when it sent none
+ * @returns {boolean}
+ */
+function isWalletMissingMessage(nodeErr) {
+    return /wallet does not exist or is not loaded|no wallet is loaded/i.test(String(nodeErr));
+}
+
+// Codes axios sets on a call that hit its timeout.
+const TIMEOUT_ERROR_CODES = ['ECONNABORTED', 'ETIMEDOUT'];
+
+// Whether an axios rejection is the client giving up on a call the node may still be running.
+function isTimeout(error) {
+    return Boolean(error && TIMEOUT_ERROR_CODES.includes(error.code));
+}
+
+module.exports = { isTimeout, isWalletMissingMessage, rejectedRpcErrorMessage, rpcErrorCode };

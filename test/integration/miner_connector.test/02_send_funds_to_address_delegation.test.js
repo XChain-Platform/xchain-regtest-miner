@@ -18,41 +18,41 @@
  * returns realistic, interdependent responses.
  */
 
-const assert = require('assert')
-const sinon = require('sinon')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let miner, connector
+let miner, connector;
 
 function createMiner() {
-    connector = { sendToAddress: sinon.stub().resolves('txid_abc') }
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
-    const XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-    miner.connector = connector
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    connector = { sendToAddress: sinon.stub().resolves('txid_abc') };
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+    const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    miner.connector = connector;
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 }
 
 function restoreMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', function () {
-    beforeEach(createMiner)
-    afterEach(restoreMiner)
+    beforeEach(createMiner);
+    afterEach(restoreMiner);
 
     // ─── sendFundsToAddress Sequence ─────────────────────────────────────
 
     describe('sendFundsToAddress delegation', function () {
         it('passes through to connector.sendToAddress', async function () {
-            connector.sendToAddress.resolves('txid_result')
-            const result = await miner.sendFundsToAddress('bcrt1qaddr', 2.5)
-            assert.strictEqual(result, 'txid_result')
-            assert(connector.sendToAddress.calledWith('bcrt1qaddr', 2.5))
-        })
-    })
-})
+            connector.sendToAddress.resolves('txid_result');
+            const result = await miner.sendFundsToAddress('bcrt1qaddr', 2.5);
+            assert.strictEqual(result, 'txid_result');
+            assert(connector.sendToAddress.calledWith('bcrt1qaddr', 2.5));
+        });
+    });
+});

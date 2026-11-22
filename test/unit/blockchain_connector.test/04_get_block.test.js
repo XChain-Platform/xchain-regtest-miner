@@ -8,77 +8,77 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const axios = require('axios')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const axios = require('axios');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let connector
-let axiosPostStub
+let connector;
+let axiosPostStub;
 
 function setup() {
-    connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass')
-    axiosPostStub = sinon.stub(axios, 'post')
-    sinon.stub(connector, 'sleep').resolves()
-    sinon.stub(console, 'error')
-    sinon.stub(console, 'log')
+    connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass');
+    axiosPostStub = sinon.stub(axios, 'post');
+    sinon.stub(connector, 'sleep').resolves();
+    sinon.stub(console, 'error');
+    sinon.stub(console, 'log');
 }
 
 function teardown() {
-    sinon.restore()
+    sinon.restore();
 }
 
 function assertRpcCall(expectedMethod, expectedParams) {
-    const [url, data, config] = axiosPostStub.firstCall.args
-    assert.strictEqual(url, 'http://localhost:18332')
-    assert.strictEqual(data.jsonrpc, '2.0')
-    assert.strictEqual(data.method, expectedMethod)
-    assert.strictEqual(data.id, 1)
+    const [url, data, config] = axiosPostStub.firstCall.args;
+    assert.strictEqual(url, 'http://localhost:18332');
+    assert.strictEqual(data.jsonrpc, '2.0');
+    assert.strictEqual(data.method, expectedMethod);
+    assert.strictEqual(data.id, 1);
     if (expectedParams !== undefined) {
-        assert.deepStrictEqual(data.params, expectedParams)
+        assert.deepStrictEqual(data.params, expectedParams);
     }
-    assert.deepStrictEqual(config.auth, { username: 'rpcuser', password: 'rpcpass' })
+    assert.deepStrictEqual(config.auth, { username: 'rpcuser', password: 'rpcpass' });
 }
 
 function rpcSuccess(result) {
-    return { data: { result, error: null, id: 1 } }
+    return { data: { result, error: null, id: 1 } };
 }
 
 function rpcNoResult() {
-    return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } }
+    return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } };
 }
 
 describe('BlockchainConnector', function () {
-    beforeEach(setup)
-    afterEach(teardown)
+    beforeEach(setup);
+    afterEach(teardown);
 
     // ─── getBlock ───────────────────────────────────────────────────────
 
     describe('getBlock', function () {
         it('sends boolean false verbose for hex format (default)', async function () {
-            axiosPostStub.resolves(rpcSuccess('0100000000...'))
-            const result = await connector.getBlock('blockhash123')
-            assert.strictEqual(result, '0100000000...')
+            axiosPostStub.resolves(rpcSuccess('0100000000...'));
+            const result = await connector.getBlock('blockhash123');
+            assert.strictEqual(result, '0100000000...');
             // getblock verbose is a boolean (false=hex); Dogecoin 1.14 rejects integer verbosity.
-            assertRpcCall('getblock', ['blockhash123', false])
-        })
+            assertRpcCall('getblock', ['blockhash123', false]);
+        });
 
         it('sends boolean true verbose when hexFormat is false', async function () {
-            const blockObj = { hash: 'blockhash123', height: 1 }
-            axiosPostStub.resolves(rpcSuccess(blockObj))
-            const result = await connector.getBlock('blockhash123', false)
-            assert.deepStrictEqual(result, blockObj)
-            assertRpcCall('getblock', ['blockhash123', true])
-        })
+            const blockObj = { hash: 'blockhash123', height: 1 };
+            axiosPostStub.resolves(rpcSuccess(blockObj));
+            const result = await connector.getBlock('blockhash123', false);
+            assert.deepStrictEqual(result, blockObj);
+            assertRpcCall('getblock', ['blockhash123', true]);
+        });
 
         it('throws clean error on network error', async function () {
-            axiosPostStub.rejects(new Error('fail'))
-            await assert.rejects(() => connector.getBlock('hash'), /Error getting block/)
-        })
+            axiosPostStub.rejects(new Error('fail'));
+            await assert.rejects(() => connector.getBlock('hash'), /Error getting block/);
+        });
 
         it('throws when result is falsy', async function () {
-            axiosPostStub.resolves(rpcNoResult())
-            await assert.rejects(() => connector.getBlock('hash'), /Error getting block/)
-        })
-    })
-})
+            axiosPostStub.resolves(rpcNoResult());
+            await assert.rejects(() => connector.getBlock('hash'), /Error getting block/);
+        });
+    });
+});

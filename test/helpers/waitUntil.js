@@ -31,7 +31,7 @@
  * and say in a comment why the wall clock is load-bearing.
  */
 
-const POLL_INTERVAL_MS = 20
+const POLL_INTERVAL_MS = 20;
 
 /**
  * Polls `predicate` until it returns truthy, then resolves `true`.
@@ -43,29 +43,26 @@ const POLL_INTERVAL_MS = 20
  * @throws {Error} If the deadline passes with the predicate still unsatisfied.
  */
 async function waitUntil(predicate, timeoutMs = 5000, label = 'condition') {
-    const start = Date.now()
-    let lastError = null
+    const start = Date.now();
+    let lastError = null;
 
     for (;;) {
         try {
-            if (await predicate()) return true
-            lastError = null
+            if (await predicate()) return true;
+            lastError = null;
         } catch (err) {
             // A predicate reading state mid-mutation can throw. Keep polling, but
             // carry the last throw into the timeout message instead of swallowing it.
-            lastError = err
+            lastError = err;
         }
 
         if (Date.now() - start >= timeoutMs) {
-            const cause = lastError
-                ? ' (predicate last threw: ' + lastError.message + ')'
-                : ''
-            throw new Error(
-                'waitUntil timed out after ' + timeoutMs + 'ms waiting for ' + label + cause)
+            const cause = lastError ? ' (predicate last threw: ' + lastError.message + ')' : '';
+            throw new Error('waitUntil timed out after ' + timeoutMs + 'ms waiting for ' + label + cause);
         }
 
-        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     }
 }
 
-module.exports = waitUntil
+module.exports = waitUntil;

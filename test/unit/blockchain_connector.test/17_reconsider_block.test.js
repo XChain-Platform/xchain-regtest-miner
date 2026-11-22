@@ -8,75 +8,93 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const axios = require('axios')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const axios = require('axios');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let connector
-let axiosPostStub
+let connector;
+let axiosPostStub;
 
 function setup() {
-    connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass')
-    axiosPostStub = sinon.stub(axios, 'post')
-    sinon.stub(connector, 'sleep').resolves()
-    sinon.stub(console, 'error')
-    sinon.stub(console, 'log')
+    connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass');
+    axiosPostStub = sinon.stub(axios, 'post');
+    sinon.stub(connector, 'sleep').resolves();
+    sinon.stub(console, 'error');
+    sinon.stub(console, 'log');
 }
 
 function teardown() {
-    sinon.restore()
+    sinon.restore();
 }
 
 function assertRpcCall(expectedMethod, expectedParams) {
-    const [url, data, config] = axiosPostStub.firstCall.args
-    assert.strictEqual(url, 'http://localhost:18332')
-    assert.strictEqual(data.jsonrpc, '2.0')
-    assert.strictEqual(data.method, expectedMethod)
-    assert.strictEqual(data.id, 1)
+    const [url, data, config] = axiosPostStub.firstCall.args;
+    assert.strictEqual(url, 'http://localhost:18332');
+    assert.strictEqual(data.jsonrpc, '2.0');
+    assert.strictEqual(data.method, expectedMethod);
+    assert.strictEqual(data.id, 1);
     if (expectedParams !== undefined) {
-        assert.deepStrictEqual(data.params, expectedParams)
+        assert.deepStrictEqual(data.params, expectedParams);
     }
-    assert.deepStrictEqual(config.auth, { username: 'rpcuser', password: 'rpcpass' })
+    assert.deepStrictEqual(config.auth, { username: 'rpcuser', password: 'rpcpass' });
 }
 
 describe('BlockchainConnector', function () {
-    beforeEach(setup)
-    afterEach(teardown)
+    beforeEach(setup);
+    afterEach(teardown);
 
     // ─── reconsiderBlock ────────────────────────────────────────────────
 
     describe('reconsiderBlock', function () {
         it('calls reconsiderblock RPC and returns true on success', async function () {
-            axiosPostStub.resolves({ data: { result: null, error: null, id: 1 } })
-            const result = await connector.reconsiderBlock('abc123')
-            assert.strictEqual(result, true)
-            assertRpcCall('reconsiderblock', ['abc123'])
-        })
+            axiosPostStub.resolves({ data: { result: null, error: null, id: 1 } });
+            const result = await connector.reconsiderBlock('abc123');
+            assert.strictEqual(result, true);
+            assertRpcCall('reconsiderblock', ['abc123']);
+        });
 
         it('logs the node RPC error but throws a static message', async function () {
-            axiosPostStub.resolves({ data: { result: null, error: { code: -8, message: 'Block not found' }, id: 1 } })
-            await assert.rejects(() => connector.reconsiderBlock('badhash'), /Error reconsidering block/)
-            const logged = console.error.getCalls().map(c => c.args.join(' ')).join('\n')
-            assert.match(logged, /Block not found/)
-        })
+            axiosPostStub.resolves({ data: { result: null, error: { code: -8, message: 'Block not found' }, id: 1 } });
+            await assert.rejects(() => connector.reconsiderBlock('badhash'), /Error reconsidering block/);
+            const logged = console.error
+                .getCalls()
+                .map((c) => c.args.join(' '))
+                .join('\n');
+            assert.match(logged, /Block not found/);
+        });
 
         it('throws a static message on network error (no transport detail leak)', async function () {
-            axiosPostStub.rejects(new Error('connect ECONNREFUSED 127.0.0.1:18332'))
-            await assert.rejects(() => connector.reconsiderBlock('abc123'), /Error reconsidering block/)
-        })
+            axiosPostStub.rejects(new Error('connect ECONNREFUSED 127.0.0.1:18332'));
+            await assert.rejects(() => connector.reconsiderBlock('abc123'), /Error reconsidering block/);
+        });
+
+        it('classifies timeout and response-less transport uncertainty', async function () {
+            axiosPostStub.rejects(Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }));
+            await assert.rejects(
+                connector.reconsiderBlock('abc123'),
+                (err) => err.message === 'Error reconsidering block' && err.timedOut === true,
+            );
+            axiosPostStub.rejects(Object.assign(new Error('connection reset'), { code: 'ECONNRESET' }));
+            await assert.rejects(connector.reconsiderBlock('abc123'), (err) => err.executionUncertain === true);
+            axiosPostStub.rejects(Object.assign(new Error('not connected'), { code: 'ECONNREFUSED' }));
+            await assert.rejects(
+                connector.reconsiderBlock('abc123'),
+                (err) => err.timedOut === undefined && err.executionUncertain === undefined,
+            );
+        });
 
         // reconsiderblock answers result:null on success, so the absence of an error
         // member is not itself a success signal: an empty or truncated body could
         // certify a chain operation the node never performed.
         it('rejects an error-less body that carries no result', async function () {
-            axiosPostStub.resolves({ data: {} })
-            await assert.rejects(() => connector.reconsiderBlock('abc123'), /Error reconsidering block/)
-        })
+            axiosPostStub.resolves({ data: {} });
+            await assert.rejects(() => connector.reconsiderBlock('abc123'), /Error reconsidering block/);
+        });
 
         it('rejects a 2xx body whose result member is absent', async function () {
-            axiosPostStub.resolves({ data: { id: 1 } })
-            await assert.rejects(() => connector.reconsiderBlock('abc123'), /Error reconsidering block/)
-        })
-    })
-})
+            axiosPostStub.resolves({ data: { id: 1 } });
+            await assert.rejects(() => connector.reconsiderBlock('abc123'), /Error reconsidering block/);
+        });
+    });
+});

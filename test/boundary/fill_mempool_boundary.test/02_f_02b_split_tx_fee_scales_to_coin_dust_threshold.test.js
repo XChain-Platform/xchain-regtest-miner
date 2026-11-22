@@ -8,17 +8,17 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
-let XChainRegtestMiner
-let miner
-let connectorStub
-const OUTPUTS_QUANTITY_PER_TX = 2500
-const AMOUNT_FOR_EACH_ADDRESS = 1000
-const FEE = 1000
-const SATOSHI_UNIT = 100000000.0
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
+const OUTPUTS_QUANTITY_PER_TX = 2500;
+const AMOUNT_FOR_EACH_ADDRESS = 1000;
+const FEE = 1000;
+const SATOSHI_UNIT = 100000000.0;
 
 function setupMiner() {
     connectorStub = {
@@ -36,55 +36,55 @@ function setupMiner() {
         getRawTransaction: sinon.stub().resolves(null),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
         getNetworkInfo: sinon.stub().resolves({}),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 
-    miner.walletAddress = 'bcrt1qtest'
+    miner.walletAddress = 'bcrt1qtest';
 }
 
 function teardownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 function registerMinerHooks() {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 }
 
 describe('Boundary: fillMempool Chunking and Calculations', function () {
-    registerMinerHooks()
+    registerMinerHooks();
 
     // ─── F-02b: split-tx fee scales to the coin's dust threshold ───────
     // Regression guard for the DOGE fill_mempool failure: the split tx's
     // per-output miner fee is Math.max(50, network.dustThreshold), not a
     // flat 50, so it clears dogecoin-regtest's relay floor.
     describe('F-02b: split-tx fee scales to coin dust threshold', function () {
-        const splitFeeFor = (dustThreshold) => Math.max(50, dustThreshold || 50)
+        const splitFeeFor = (dustThreshold) => Math.max(50, dustThreshold || 50);
 
         it('floors at 50 sat/output only when no dustThreshold resolves (bare-network fallback)', function () {
-            assert.strictEqual(splitFeeFor(undefined), 50)
-        })
+            assert.strictEqual(splitFeeFor(undefined), 50);
+        });
 
         it('uses 546 sat/output for the resolved bitcoin-regtest coin config', function () {
-            assert.strictEqual(splitFeeFor(546), 546)
-        })
+            assert.strictEqual(splitFeeFor(546), 546);
+        });
 
         it('scales to 100000 koinu/output for dogecoin-regtest', function () {
-            assert.strictEqual(splitFeeFor(100000), 100000)
-        })
+            assert.strictEqual(splitFeeFor(100000), 100000);
+        });
 
         it('scales to 5460 litoshi/output for litecoin-regtest', function () {
-            assert.strictEqual(splitFeeFor(5460), 5460)
-        })
-    })
-})
+            assert.strictEqual(splitFeeFor(5460), 5460);
+        });
+    });
+});

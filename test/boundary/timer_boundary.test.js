@@ -8,14 +8,14 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
-let XChainRegtestMiner
-let miner
-let connectorStub
-let clock
+const BlockchainConnector = require('../../src/rpc/blockchain_connector');
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
+let clock;
 
 function setupMiner() {
     connectorStub = {
@@ -33,76 +33,77 @@ function setupMiner() {
         getRawTransaction: sinon.stub().resolves('0200000001...'),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
         getNetworkInfo: sinon.stub().resolves({}),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(miner, 'prepareWallet').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(miner, 'prepareWallet').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 
-    miner.walletAddress = 'bcrt1qtest'
+    miner.walletAddress = 'bcrt1qtest';
 
-    clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false })
+    clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false });
 }
 
 function teardownMiner() {
-    clock.restore()
-    sinon.restore()
-    delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
+    clock.restore();
+    sinon.restore();
+    delete require.cache[require.resolve('../../src/XChainRegtestMiner')];
 }
 
 function registerMinerHooks() {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 }
 
 async function runLoopIterations(miner, iterations) {
-    let loopCount = 0
+    let loopCount = 0;
     miner.sleep.callsFake(async () => {
-        loopCount++
+        loopCount++;
         if (loopCount >= iterations) {
-            miner.keepMining = false
-            throw new Error('__LOOP_BREAK__')
+            miner.keepMining = false;
+            throw new Error('__LOOP_BREAK__');
         }
-    })
+    });
     try {
-        await miner.start()
+        await miner.start();
     } catch (e) {
-        if (e.message !== '__LOOP_BREAK__') throw e
+        if (e.message !== '__LOOP_BREAK__') throw e;
     }
 }
 
 describe('Boundary: Adaptive Mining Timer Logic', function () {
-    registerMinerHooks()
+    registerMinerHooks();
 
     // ─── T-01: maxTimeToMineTxs = 0 ────────────────────────────────────
 
     describe('T-01: maxTimeToMineTxs = 0', function () {
         it('mines immediately on next poll after first tx detected', async function () {
-            miner.maxTimeToMineTxs = 0
-            miner.addedTimeToMineTxs = 50000
+            miner.maxTimeToMineTxs = 0;
+            miner.addedTimeToMineTxs = 50000;
 
-            connectorStub.getRawMempool.resolves(['txid1'])
+            connectorStub.getRawMempool.resolves(['txid1']);
 
-            let iterCount = 0
+            let iterCount = 0;
             miner.sleep.callsFake(async () => {
-                iterCount++
+                iterCount++;
                 // No clock.tick needed; 0ms timer means it fires on next check
-                if (iterCount >= 3) throw new Error('__LOOP_BREAK__')
-            })
+                if (iterCount >= 3) throw new Error('__LOOP_BREAK__');
+            });
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
+            try {
+                await miner.start();
+            } catch (e) {
+                if (e.message !== '__LOOP_BREAK__') throw e;
             }
 
-            assert(connectorStub.generateToAddress.called,
-                'Should mine immediately when maxTimeToMineTxs=0')
-        })
-    })
-})
+            assert(connectorStub.generateToAddress.called, 'Should mine immediately when maxTimeToMineTxs=0');
+        });
+    });
+});

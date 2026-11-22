@@ -1,3 +1,12 @@
+/*********************************************************************
+ *
+ * Copyright © 2025-2026 Dankest, LLC
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md.
+ *
+ **********************************************************************/
 'use strict';
 
 // Regression test for the Express 5 / body-parser 2.x JSON-RPC crash.
@@ -22,7 +31,10 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const jsonRouter = require('express-json-rpc-router');
 
-const GUARD = (req, res, next) => { if (req.body === undefined) req.body = {}; next(); };
+const GUARD = (req, res, next) => {
+    if (req.body === undefined) req.body = {};
+    next();
+};
 const METHODS = { ping: () => 'pong' };
 
 function buildApp(withGuard) {
@@ -32,7 +44,9 @@ function buildApp(withGuard) {
     app.use(jsonRouter({ methods: METHODS }));
     // Silence Express's default error-handler stack dump so the control case
     // (unguarded -> 500) doesn't spew to stderr; the 500 status is what we assert.
-    app.use((err, req, res, next) => { res.status(500).json({ error: 'internal' }); }); // eslint-disable-line no-unused-vars
+    app.use((err, req, res, next) => {
+        res.status(500).json({ error: 'internal' });
+    }); // eslint-disable-line no-unused-vars
     return app;
 }
 
@@ -70,18 +84,15 @@ describe('JSON-RPC body guard (Express 5 / body-parser 2.x regression)', functio
         const r = await request(buildApp(true), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' })
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
         });
         assert.strictEqual(r.status, 200);
         assert.strictEqual(JSON.parse(r.text).result, 'pong');
     });
 
-    it('src/api.js wires the guard before the jsonRouter mount', () => {
+    it('src/api.js mounts the owned dispatcher instead of the lenient router', () => {
         const src = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
-        const guardIdx = src.indexOf('if (req.body === undefined) req.body = {}');
-        const routerIdx = src.indexOf('jsonRouter(');
-        assert.notStrictEqual(guardIdx, -1, 'req.body guard missing from src/api.js');
-        assert.notStrictEqual(routerIdx, -1, 'jsonRouter mount missing from src/api.js');
-        assert.ok(guardIdx < routerIdx, 'guard must be registered before the jsonRouter mount');
+        assert.match(src, /createJsonRpcDispatcher\(jsonRpcController\)/);
+        assert.doesNotMatch(src, /express-json-rpc-router/);
     });
 });

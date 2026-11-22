@@ -59,19 +59,19 @@ npm run api        # start the miner and JSON-RPC API server
 
 The miner runs a layered suite. Pick the tier that matches your change:
 
-| Tier | Command | Needs external services |
-|---|---|---|
-| Smoke | `npm run test:smoke` | No |
-| Unit | `npm run test:unit` | No |
-| Security | `npm run test:security` | No |
-| CI (unit, fast gate) | `npm run ci` | No |
-| Fuzz | `npm run test:fuzz` (`:quick` for 60s) | No |
-| Chaos | `npm run test:chaos` | No |
-| Performance | `npm run test:performance` | No |
-| Regression T0 (critical) | `npm run test:regression:t0` | No |
-| Regression T1 (standard) | `npm run test:regression:t1` | No |
-| End-to-end | `npm run test:e2e` | bitcoind regtest |
-| Regression T2 (full e2e) | `npm run test:regression:t2` | bitcoind regtest |
+| Tier                     | Command                                | Needs external services |
+| ------------------------ | -------------------------------------- | ----------------------- |
+| Smoke                    | `npm run test:smoke`                   | No                      |
+| Unit                     | `npm run test:unit`                    | No                      |
+| Security                 | `npm run test:security`                | No                      |
+| CI (unit, fast gate)     | `npm run ci`                           | No                      |
+| Fuzz                     | `npm run test:fuzz` (`:quick` for 60s) | No                      |
+| Chaos                    | `npm run test:chaos`                   | No                      |
+| Performance              | `npm run test:performance`             | No                      |
+| Regression T0 (critical) | `npm run test:regression:t0`           | No                      |
+| Regression T1 (standard) | `npm run test:regression:t1`           | No                      |
+| End-to-end               | `npm run test:e2e`                     | bitcoind regtest        |
+| Regression T2 (full e2e) | `npm run test:regression:t2`           | bitcoind regtest        |
 
 Run the no-external-services tiers before every commit; the README documents the full script catalogue. New API or mining logic should come with security test coverage, since the API surface accepts untrusted caller input.
 
@@ -81,7 +81,7 @@ Run the no-external-services tiers before every commit; the README documents the
 
 - **Plain JavaScript**, no TypeScript. No ORM.
 - **No linter is configured.** Match the style of the surrounding file: naming, structure, and comment density.
-- **Comments are rare on purpose.** Don't restate what well-named code already says. Do comment a *why* that isn't obvious: a hidden invariant, a safety constraint around network selection, a workaround with a reference.
+- **Comments are rare on purpose.** Don't restate what well-named code already says. Do comment a _why_ that isn't obvious: a hidden invariant, a safety constraint around network selection, a workaround with a reference.
 - **Never use the em-dash character** in code, comments, or docs. Rewrite the sentence (a comma, colon, or parentheses) instead.
 - **Two trailing spaces** on consecutive bold-label markdown lines so CommonMark renders the line break instead of collapsing them.
 - **Network safety matters.** Any change that touches network selection, configuration loading, or credential handling should come with a clear justification and appropriate test coverage.
@@ -92,7 +92,7 @@ Run the no-external-services tiers before every commit; the README documents the
 
 Match the existing log style: a concise subject line, then a short body explaining what changed and why.
 
-- Branch off `master` and keep history linear (rebase, don't merge).
+- Fork the repository, branch off `develop`, and open your pull request against `develop`. Keep history linear (rebase, don't merge). `master` is what production runs and only ever receives release merges from `develop`; a pull request into `master` from a fork or any other branch fails the `base-branch guard` check and cannot be merged.
 - One logical change per commit; don't batch unrelated work.
 - **No `Co-Authored-By` trailers.** This is a project policy.
 - **Never `--no-verify`.** If a hook fails, fix the cause; don't bypass it.
@@ -107,6 +107,7 @@ Match the existing log style: a concise subject line, then a short body explaini
 2. Update `CHANGELOG.md` with a terse entry for your change.
 3. Make sure `git status` is clean apart from intended changes (no `node_modules/`, no editor leftovers, no `.env`).
 4. Open the PR with a clear title and a description of what changed and why.
+5. Agree to the Contributor License Agreement when the CLA Assistant bot links it on your first PR. Its `license/cla` check must pass before merge, so a PR from a contributor who has not signed cannot be merged. One signature covers every XChain Platform repository.
 
 For non-security bugs, open an issue at <https://github.com/XChain-Platform/xchain-regtest-miner/issues/new>. For security bugs, see [`SECURITY.md`](./SECURITY.md).
 

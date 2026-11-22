@@ -31,12 +31,13 @@ describe('no-API-key boot warning @regression', function () {
     const src = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
 
     it('warns at boot when MINER_API_KEY is unset', function () {
-        assert.ok(/if\s*\(\s*!MINER_API_KEY\s*\)\s*\{\s*\n\s*console\.warn\(\s*'WARNING: MINER_API_KEY is not set/.test(src),
-            'src/api.js must print a loud startup warning when MINER_API_KEY is unset (see operations/API_KEYS.md)');
+        assert.ok(
+            /if\s*\(\s*!MINER_API_KEY\s*\)\s*\{\s*\n\s*console\.warn\(\s*'WARNING: MINER_API_KEY is not set/.test(src),
+            'src/api.js must print a loud startup warning when MINER_API_KEY is unset (see operations/API_KEYS.md)',
+        );
     });
 
     it('the warning states authentication is disabled (fail-open)', function () {
-        assert.ok(src.includes('authentication is DISABLED (open access)'),
-            'warning must state the API is open');
+        assert.ok(src.includes('authentication is DISABLED (open access)'), 'warning must state the API is open');
     });
 });

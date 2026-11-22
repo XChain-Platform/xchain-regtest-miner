@@ -1,4 +1,4 @@
-'use strict'
+'use strict';
 
 // Copyright © 2025–2026 Dankest, LLC
 // Based on XChain Platform by Dankest, LLC – https://dankest.llc
@@ -10,13 +10,13 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const base = require('./stryker.config.js')
+const base = require('./stryker.config.js');
 
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 module.exports = {
-  ...base,
-  mochaOptions: {
-    ...base.mochaOptions,
-    spec: ['test/unit/*.test.js'],
-  },
-}
+    ...base,
+    mochaOptions: {
+        ...base.mochaOptions,
+        spec: ['test/unit/*.test.js'],
+    },
+};

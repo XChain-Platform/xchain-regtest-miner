@@ -8,17 +8,17 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
-let XChainRegtestMiner
-let miner
-let connectorStub
-const OUTPUTS_QUANTITY_PER_TX = 2500
-const AMOUNT_FOR_EACH_ADDRESS = 1000
-const FEE = 1000
-const SATOSHI_UNIT = 100000000.0
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
+const OUTPUTS_QUANTITY_PER_TX = 2500;
+const AMOUNT_FOR_EACH_ADDRESS = 1000;
+const FEE = 1000;
+const SATOSHI_UNIT = 100000000.0;
 
 function setupMiner() {
     connectorStub = {
@@ -36,51 +36,51 @@ function setupMiner() {
         getRawTransaction: sinon.stub().resolves(null),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
         getNetworkInfo: sinon.stub().resolves({}),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 
-    miner.walletAddress = 'bcrt1qtest'
+    miner.walletAddress = 'bcrt1qtest';
 }
 
 function teardownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 function registerMinerHooks() {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 }
 
 describe('Boundary: fillMempool Chunking and Calculations', function () {
-    registerMinerHooks()
+    registerMinerHooks();
 
     // ─── F-10: Negative tx_quantity ────────────────────────────────────
 
     describe('F-10: negative tx_quantity', function () {
         it('Math.ceil of negative produces 0 or negative chunks', function () {
-            const txQuantity = -1
-            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
-            assert.strictEqual(chunks, -0)
+            const txQuantity = -1;
+            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX);
+            assert.strictEqual(chunks, -0);
             // The for loop (i=0; i<chunks) won't execute since -0 is not > 0
-        })
+        });
 
         it('address array loop with negative count creates no addresses', function () {
-            const txQuantity = -5
-            const addresses = []
+            const txQuantity = -5;
+            const addresses = [];
             for (let i = 0; i < txQuantity; i++) {
-                addresses.push('addr_' + i)
+                addresses.push('addr_' + i);
             }
-            assert.strictEqual(addresses.length, 0)
-        })
-    })
-})
+            assert.strictEqual(addresses.length, 0);
+        });
+    });
+});

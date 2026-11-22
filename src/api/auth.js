@@ -12,7 +12,7 @@
  *
  *********************************************************************/
 
-const crypto = require('crypto')
+const crypto = require('crypto');
 
 // Read-only health/observability RPC methods that bypass the MINER_API_KEY gate. The
 // bundled Docker HEALTHCHECK POSTs its probe method with no X-API-Key, so gating it
@@ -21,7 +21,7 @@ const crypto = require('crypto')
 // compose file in this tree makes the miner a depends_on target, so the claim is
 // dropped rather than restated.) Exported so the auth contract is asserted directly
 // rather than via a drift-prone mirror.
-const UNAUTHENTICATED_METHODS = new Set(['ping', 'status', 'health'])
+const UNAUTHENTICATED_METHODS = new Set(['ping', 'status', 'health']);
 
 // Constant-time API-key comparison. Plain `!==` on strings short-circuits on the
 // first differing character, leaking the key byte-by-byte via response timing to
@@ -29,29 +29,29 @@ const UNAUTHENTICATED_METHODS = new Set(['ping', 'status', 'health'])
 // crypto.timingSafeEqual throws on unequal-length buffers; a missing header coerces
 // to '' and fails closed (401) rather than throwing.
 function timingSafeStringEqual(a, b) {
-    const bufA = Buffer.from(String(a ?? ''))
-    const bufB = Buffer.from(String(b ?? ''))
-    return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB)
+    const bufA = Buffer.from(String(a ?? ''));
+    const bufB = Buffer.from(String(b ?? ''));
+    return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
 }
 
 function installAuthentication(app, apiKey, logger) {
-    if (!apiKey) return
+    if (!apiKey) return;
 
-    logger.log('MINER_API_KEY is set: API key authentication is enabled')
+    logger.log('MINER_API_KEY is set: API key authentication is enabled');
     app.use((req, res, next) => {
         if (UNAUTHENTICATED_METHODS.has(req.body && req.body.method)) {
-            return next()
+            return next();
         }
-        const provided = req.headers['x-api-key']
+        const provided = req.headers['x-api-key'];
         if (!timingSafeStringEqual(provided, apiKey)) {
-            return res.status(401).json({ error: 'Unauthorized: missing or invalid X-API-Key' })
+            return res.status(401).json({ error: 'Unauthorized: missing or invalid X-API-Key' });
         }
-        next()
-    })
+        next();
+    });
 }
 
 module.exports = {
     UNAUTHENTICATED_METHODS,
     installAuthentication,
-    timingSafeStringEqual
-}
+    timingSafeStringEqual,
+};

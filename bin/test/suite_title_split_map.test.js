@@ -33,12 +33,12 @@
 'use strict';
 
 const assert = require('assert');
-const fs     = require('fs');
-const os     = require('os');
-const path   = require('path');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 const { compare } = require('../suite-title-map.js');
-const splitMap    = require('../suite_title_map/split_map.js');
+const splitMap = require('../suite_title_map/split_map.js');
 
 const OLD = 'test/unit/db_queries.test.js';
 const ORDERS = 'test/unit/db_queries/orders.test.js';
@@ -64,7 +64,7 @@ function mapOf(scripts) {
     for (const name of Object.keys(scripts)) {
         const files = {};
         for (const rel of Object.keys(scripts[name])) {
-            const key = `set${n += 1}`;
+            const key = `set${(n += 1)}`;
             titleSets[key] = scripts[name][rel].slice().sort();
             files[rel] = key;
         }
@@ -76,7 +76,11 @@ function mapOf(scripts) {
 /** The compare the CLI runs: pin against tree, through a rename map and a split map. */
 function run(pin, fresh, splits, renames) {
     return splitMap.compareWithSplits({
-        pin: mapOf(pin), fresh: mapOf(fresh), renames: renames || {}, splits, compare,
+        pin: mapOf(pin),
+        fresh: mapOf(fresh),
+        renames: renames || {},
+        splits,
+        compare,
     });
 }
 
@@ -101,7 +105,13 @@ describe('bin/suite_title_map/split_map.js: a declared split that is honest', ()
     });
 
     it('lets one part keep the old path', () => {
-        const tree = { test: { [OLD]: ['db orders reads', 'db orders writes'], [STAKES]: ['db stakes reads', 'db stakes writes'], [OTHER]: ['other one'] } };
+        const tree = {
+            test: {
+                [OLD]: ['db orders reads', 'db orders writes'],
+                [STAKES]: ['db stakes reads', 'db stakes writes'],
+                [OTHER]: ['other one'],
+            },
+        };
         assert.deepStrictEqual(run(PIN, tree, { [OLD]: [OLD, STAKES] }), []);
     });
 
@@ -122,31 +132,46 @@ describe('bin/suite_title_map/split_map.js: a declared split that is honest', ()
     it('takes the path the file has after the rename map, not the one the pin holds', () => {
         const pin = { test: { 'test/unit/db-queries.test.js': OLD_TITLES } };
         const renames = { 'test/unit/db-queries.test.js': OLD };
-        assert.deepStrictEqual(run(pin, FRESH, SPLIT, renames).filter((d) => d.file !== OTHER), []);
+        assert.deepStrictEqual(
+            run(pin, FRESH, SPLIT, renames).filter((d) => d.file !== OTHER),
+            [],
+        );
     });
 });
 
 describe('bin/suite_title_map/split_map.js: what a declared split still refuses', () => {
     it('refuses a title that no part carries any more', () => {
         const diffs = run(PIN, moveTitle(STAKES, null, 'db stakes writes'), SPLIT);
-        assert.deepStrictEqual(diffs, [{ script: 'test', kind: 'title_dropped', file: OLD, title: 'db stakes writes' }]);
+        assert.deepStrictEqual(diffs, [
+            { script: 'test', kind: 'title_dropped', file: OLD, title: 'db stakes writes' },
+        ]);
     });
 
     it('refuses a title two parts both carry', () => {
         const tree = JSON.parse(JSON.stringify(FRESH));
         tree.test[STAKES] = tree.test[STAKES].concat(['db orders reads']);
         const diffs = run(PIN, tree, SPLIT);
-        assert.deepStrictEqual(diffs, [{
-            script: 'test', kind: 'title_duplicated', file: `${ORDERS}, ${STAKES}`, title: 'db orders reads',
-        }]);
+        assert.deepStrictEqual(diffs, [
+            {
+                script: 'test',
+                kind: 'title_duplicated',
+                file: `${ORDERS}, ${STAKES}`,
+                title: 'db orders reads',
+            },
+        ]);
     });
 
     it('refuses a title that moved to a file the record does not name, and says where it went', () => {
         const diffs = run(PIN, moveTitle(STAKES, OTHER, 'db stakes writes'), SPLIT);
         const moved = diffs.filter((d) => d.kind === 'title_moved_outside_split');
-        assert.deepStrictEqual(moved, [{
-            script: 'test', kind: 'title_moved_outside_split', file: `${OLD} -> ${OTHER}`, title: 'db stakes writes',
-        }]);
+        assert.deepStrictEqual(moved, [
+            {
+                script: 'test',
+                kind: 'title_moved_outside_split',
+                file: `${OLD} -> ${OTHER}`,
+                title: 'db stakes writes',
+            },
+        ]);
         // The file it landed in is a pinned file of its own, so the ordinary
         // compare reports the arrival as well: the split hides nothing from it.
         assert.deepStrictEqual(kinds(diffs), ['title_added', 'title_moved_outside_split']);
@@ -160,9 +185,14 @@ describe('bin/suite_title_map/split_map.js: what a declared split still refuses'
     it('refuses a title the old file never had', () => {
         const tree = JSON.parse(JSON.stringify(FRESH));
         tree.test[ORDERS] = tree.test[ORDERS].concat(['db orders brand new']);
-        assert.deepStrictEqual(run(PIN, tree, SPLIT), [{
-            script: 'test', kind: 'title_added', file: ORDERS, title: 'db orders brand new',
-        }]);
+        assert.deepStrictEqual(run(PIN, tree, SPLIT), [
+            {
+                script: 'test',
+                kind: 'title_added',
+                file: ORDERS,
+                title: 'db orders brand new',
+            },
+        ]);
     });
 
     it('grades every other file exactly as before', () => {
@@ -190,7 +220,12 @@ describe('bin/suite_title_map/split_map.js: the record has to mean one thing', (
     });
 
     it('refuses merging into a file that is already pinned', () => {
-        const tree = { test: { [ORDERS]: ['db orders reads', 'db orders writes'], [OTHER]: ['other one', 'db stakes reads', 'db stakes writes'] } };
+        const tree = {
+            test: {
+                [ORDERS]: ['db orders reads', 'db orders writes'],
+                [OTHER]: ['other one', 'db stakes reads', 'db stakes writes'],
+            },
+        };
         const diffs = run(PIN, tree, { [OLD]: [ORDERS, OTHER] });
         // Three ways at once, which is the point: the part is called out by
         // name, the titles it already held read as a surplus in the union, and

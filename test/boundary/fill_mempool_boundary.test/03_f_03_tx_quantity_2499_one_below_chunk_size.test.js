@@ -8,17 +8,17 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
-let XChainRegtestMiner
-let miner
-let connectorStub
-const OUTPUTS_QUANTITY_PER_TX = 2500
-const AMOUNT_FOR_EACH_ADDRESS = 1000
-const FEE = 1000
-const SATOSHI_UNIT = 100000000.0
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
+const OUTPUTS_QUANTITY_PER_TX = 2500;
+const AMOUNT_FOR_EACH_ADDRESS = 1000;
+const FEE = 1000;
+const SATOSHI_UNIT = 100000000.0;
 
 function setupMiner() {
     connectorStub = {
@@ -36,44 +36,44 @@ function setupMiner() {
         getRawTransaction: sinon.stub().resolves(null),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
         getNetworkInfo: sinon.stub().resolves({}),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 
-    miner.walletAddress = 'bcrt1qtest'
+    miner.walletAddress = 'bcrt1qtest';
 }
 
 function teardownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 function registerMinerHooks() {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 }
 
 describe('Boundary: fillMempool Chunking and Calculations', function () {
-    registerMinerHooks()
+    registerMinerHooks();
 
     // ─── F-03: tx_quantity = 2499 ──────────────────────────────────────
 
     describe('F-03: tx_quantity = 2499 (one below chunk size)', function () {
         it('creates 1 chunk with 2499 outputs', function () {
-            const txQuantity = 2499
-            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
-            assert.strictEqual(chunks, 1)
+            const txQuantity = 2499;
+            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX);
+            assert.strictEqual(chunks, 1);
 
-            const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
-            assert.strictEqual(remainder, 2499)
-        })
-    })
-})
+            const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX;
+            assert.strictEqual(remainder, 2499);
+        });
+    });
+});

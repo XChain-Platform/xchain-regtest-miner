@@ -8,77 +8,77 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const axios = require('axios')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const axios = require('axios');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let connector
-let axiosPostStub
+let connector;
+let axiosPostStub;
 
 function setup() {
-    connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass')
-    axiosPostStub = sinon.stub(axios, 'post')
-    sinon.stub(connector, 'sleep').resolves()
-    sinon.stub(console, 'error')
-    sinon.stub(console, 'log')
+    connector = new BlockchainConnector('localhost', '18332', 'rpcuser', 'rpcpass');
+    axiosPostStub = sinon.stub(axios, 'post');
+    sinon.stub(connector, 'sleep').resolves();
+    sinon.stub(console, 'error');
+    sinon.stub(console, 'log');
 }
 
 function teardown() {
-    sinon.restore()
+    sinon.restore();
 }
 
 function assertRpcCall(expectedMethod, expectedParams) {
-    const [url, data, config] = axiosPostStub.firstCall.args
-    assert.strictEqual(url, 'http://localhost:18332')
-    assert.strictEqual(data.jsonrpc, '2.0')
-    assert.strictEqual(data.method, expectedMethod)
-    assert.strictEqual(data.id, 1)
+    const [url, data, config] = axiosPostStub.firstCall.args;
+    assert.strictEqual(url, 'http://localhost:18332');
+    assert.strictEqual(data.jsonrpc, '2.0');
+    assert.strictEqual(data.method, expectedMethod);
+    assert.strictEqual(data.id, 1);
     if (expectedParams !== undefined) {
-        assert.deepStrictEqual(data.params, expectedParams)
+        assert.deepStrictEqual(data.params, expectedParams);
     }
-    assert.deepStrictEqual(config.auth, { username: 'rpcuser', password: 'rpcpass' })
+    assert.deepStrictEqual(config.auth, { username: 'rpcuser', password: 'rpcpass' });
 }
 
 function rpcSuccess(result) {
-    return { data: { result, error: null, id: 1 } }
+    return { data: { result, error: null, id: 1 } };
 }
 
 function rpcNoResult() {
-    return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } }
+    return { data: { result: null, error: { code: -1, message: 'fail' }, id: 1 } };
 }
 
 describe('BlockchainConnector', function () {
-    beforeEach(setup)
-    afterEach(teardown)
+    beforeEach(setup);
+    afterEach(teardown);
 
     // ─── getRawTransaction (silent null pattern) ────────────────────────
 
     describe('getRawTransaction', function () {
         it('returns raw tx hex on success', async function () {
-            axiosPostStub.resolves(rpcSuccess('0200000001...'))
-            const result = await connector.getRawTransaction('txid1')
-            assert.strictEqual(result, '0200000001...')
-            assertRpcCall('getrawtransaction', ['txid1'])
-        })
+            axiosPostStub.resolves(rpcSuccess('0200000001...'));
+            const result = await connector.getRawTransaction('txid1');
+            assert.strictEqual(result, '0200000001...');
+            assertRpcCall('getrawtransaction', ['txid1']);
+        });
 
         it('returns null on network error instead of throwing', async function () {
-            axiosPostStub.rejects(new Error('ECONNREFUSED'))
-            const result = await connector.getRawTransaction('txid1')
-            assert.strictEqual(result, null)
-        })
+            axiosPostStub.rejects(new Error('ECONNREFUSED'));
+            const result = await connector.getRawTransaction('txid1');
+            assert.strictEqual(result, null);
+        });
 
         it('returns null on RPC error instead of throwing', async function () {
-            axiosPostStub.rejects(new Error('RPC error'))
-            const result = await connector.getRawTransaction('bad_txid')
-            assert.strictEqual(result, null)
-        })
+            axiosPostStub.rejects(new Error('RPC error'));
+            const result = await connector.getRawTransaction('bad_txid');
+            assert.strictEqual(result, null);
+        });
 
         it('throws when result is falsy (caught internally, returns null)', async function () {
             // When the RPC returns no result, the internal throw is caught and null is returned
-            axiosPostStub.resolves(rpcNoResult())
-            const result = await connector.getRawTransaction('txid')
-            assert.strictEqual(result, null)
-        })
-    })
-})
+            axiosPostStub.resolves(rpcNoResult());
+            const result = await connector.getRawTransaction('txid');
+            assert.strictEqual(result, null);
+        });
+    });
+});

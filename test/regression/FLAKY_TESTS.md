@@ -5,11 +5,11 @@ Tests listed here have been removed from the regression suite due to non-determi
 ## Active Quarantine
 
 | Test ID | File | Symptom | Quarantined | Issue |
-|---------|------|---------|-------------|-------|
+| ------- | ---- | ------- | ----------- | ----- |
 | (none)  |      |         |             |       |
 
 ## Resolved
 
 | Test ID | File | Root Cause | Resolved | Issue |
-|---------|------|------------|----------|-------|
+| ------- | ---- | ---------- | -------- | ----- |
 | (none)  |      |            |          |       |

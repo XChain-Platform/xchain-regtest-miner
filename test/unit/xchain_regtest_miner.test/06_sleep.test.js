@@ -8,15 +8,15 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
 // Stub BlockchainConnector before requiring XChainRegtestMiner
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let XChainRegtestMiner
-let miner
-let connectorStub
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
 
 function registerMinerHooks() {
     beforeEach(function () {
@@ -36,54 +36,54 @@ function registerMinerHooks() {
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
             getNetworkInfo: sinon.stub().resolves({}),
             setWalletName: sinon.stub(),
-        }
+        };
 
         // Stub the BlockchainConnector constructor
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
+        sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-        XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', undefined, '18332', 'user', 'pass')
-        miner.connector = connectorStub
+        XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+        miner = new XChainRegtestMiner('regtest', undefined, '18332', 'user', 'pass');
+        miner.connector = connectorStub;
 
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+        sinon.stub(miner, 'sleep').resolves();
+        sinon.stub(console, 'log');
+        sinon.stub(console, 'error');
+    });
 
     afterEach(function () {
-        sinon.restore()
+        sinon.restore();
         // Clear module cache so fresh require works each time
-        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
-    })
+        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+    });
 }
 
 // ─── sleep ──────────────────────────────────────────────────────────
 
 function sleepTests() {
     beforeEach(function () {
-        miner.sleep.restore()
-    })
+        miner.sleep.restore();
+    });
 
     it('resolves after the specified delay', async function () {
-        const fakeClock = sinon.useFakeTimers()
-        const promise = miner.sleep(100)
+        const fakeClock = sinon.useFakeTimers();
+        const promise = miner.sleep(100);
 
         // Before the delay has elapsed the promise must still be pending.
         // Race it against an immediately-resolved sentinel: if sleep resolved
         // early the sentinel would lose, so the sentinel winning proves pending.
-        const sentinel = Promise.resolve('sentinel')
-        const earlyWinner = await Promise.race([promise.then(() => 'sleep'), sentinel])
-        assert.strictEqual(earlyWinner, 'sentinel', 'sleep resolved before the delay elapsed')
+        const sentinel = Promise.resolve('sentinel');
+        const earlyWinner = await Promise.race([promise.then(() => 'sleep'), sentinel]);
+        assert.strictEqual(earlyWinner, 'sentinel', 'sleep resolved before the delay elapsed');
 
         // Advance time past the delay; sleep must then resolve.
-        fakeClock.tick(100)
-        await promise
+        fakeClock.tick(100);
+        await promise;
 
-        fakeClock.restore()
-    })
+        fakeClock.restore();
+    });
 }
 
 describe('XChainRegtestMiner', function () {
-    registerMinerHooks()
-    describe('sleep', sleepTests)
-})
+    registerMinerHooks();
+    describe('sleep', sleepTests);
+});

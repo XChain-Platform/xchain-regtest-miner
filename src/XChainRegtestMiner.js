@@ -13,21 +13,19 @@
  **********************************************************************
  *
  * XChain Regtest Miner - Miner Class
- * 
+ *
  * This file handles starting the regtest miner and mining blocks
- * 
+ *
  ********************************************************************/
 
-const BlockchainConnector = require('./rpc/blockchain_connector.js')
-const {
-    DEFAULT_MAX_TIME_TO_MINE_TXS,
-    DEFAULT_ADDED_TIME_TO_MINE_TXS
-} = require('./XChainRegtestMiner/constants.js')
-const miningSchedule = require('./XChainRegtestMiner/mining_schedule.js')
-const mempoolFill = require('./XChainRegtestMiner/mempool_fill.js')
-const reorgControl = require('./XChainRegtestMiner/reorg_control.js')
-const walletSetup = require('./XChainRegtestMiner/wallet_setup.js')
-const blockGeneration = require('./XChainRegtestMiner/block_generation.js')
+const BlockchainConnector = require('./rpc/blockchain_connector.js');
+const { DEFAULT_MAX_TIME_TO_MINE_TXS, DEFAULT_ADDED_TIME_TO_MINE_TXS } = require('./XChainRegtestMiner/constants.js');
+const miningSchedule = require('./XChainRegtestMiner/mining_schedule.js');
+const mempoolFill = require('./XChainRegtestMiner/mempool_fill.js');
+const reorgControl = require('./XChainRegtestMiner/reorg_control.js');
+const walletSetup = require('./XChainRegtestMiner/wallet_setup.js');
+const blockGeneration = require('./XChainRegtestMiner/block_generation.js');
+const { initStatusMempoolRead } = require('./XChainRegtestMiner/status_mempool_read.js');
 
 // Idle mine-empty heartbeat. The auto-mine loop only ever mines when the mempool
 // is non-empty, so a quiet chain never advances a block. Anything gated on HEIGHT
@@ -39,7 +37,12 @@ const blockGeneration = require('./XChainRegtestMiner/block_generation.js')
 // (src/api/startup.js) always sets the interval at boot and defaults it ON
 // (60000) when IDLE_MINE_INTERVAL_MS is unset, so a venue whose tests count
 // blocks (reorg, confirmation depth) must set IDLE_MINE_INTERVAL_MS=0 itself.
-const DEFAULT_IDLE_MINE_INTERVAL_MS = 0 //0 = disabled; class fallback only, the API service boots with 60000
+const DEFAULT_IDLE_MINE_INTERVAL_MS = 0; //0 = disabled; class fallback only, the API service boots with 60000
+
+// Node flush cadence after an idle block (maybeFlushNode in XChainRegtestMiner/node_flush.js).
+// Same split as the idle interval: 0 here is the class fallback, and the API
+// service boots it at DEFAULT_NODE_FLUSH_INTERVAL_MS unless NODE_FLUSH_INTERVAL_MS says otherwise.
+const DEFAULT_NODE_FLUSH_INTERVAL_MS_CLASS = 0;
 
 // Mining-state generation, the shared reorg pause and the mine-vs-reorg holds:
 // the fields reconsiderBlock, pauseMining and generateBlocks coordinate through.
@@ -51,25 +54,34 @@ function initMineExclusionState() {
     // awaited window was told "ok" and then silently overridden, resuming the
     // auto-mine loop under an operator who believed the miner was paused. A new
     // mutation site MUST bump this or it reopens that override.
-    this._miningStateGeneration = 0
-    // Ownership of the reorg pause reconsiderBlock restores from. The guard
+    this._miningStateGeneration = 0;
+    // Bumped only by operator mining controls: pauseMining, continueMining,
+    // fillMempool and an invalidateBlock the node accepted. start() compares it
+    // across wallet preparation, while the API already listens, so a control that
+    // landed there is honoured; the reorg pause must not bump it, or a
+    // reconsider_block before ready would leave the miner never started, and a
+    // refused invalidateBlock must not either.
+    this._operatorMiningGeneration = 0;
+    // Ownership of the pause shared by invalidateBlock and reconsiderBlock. The guard
     // above cannot be "any generation change since my snapshot": reconsiderBlock
     // is itself a keepMining writer and a generation bumper, so a SECOND
     // reconsider_block (api.js exposes it with no queue) bumps past the first's
     // snapshot and both then decline to restore, leaving the miner silently
     // stalled with nobody left to call continueMining().
     //
-    // So the reorg pause is refcounted and shared instead. Concurrent
-    // reconsiders inherit one record of "was auto-mining live before the reorg
+    // So the reorg pause is refcounted and shared instead. Concurrent reorg calls
+    // inherit one record of "was auto-mining live before the reorg
     // started" plus the generation the LAST reorg pause claimed; only a
     // generation the reorg pause did not claim (an operator pause_mining /
     // continue_mining, fillMempool, the loop starting) counts as a foreign
     // mutation that cancels the restore. The last reconsider out is the one that
-    // restores.
-    this._reorgPauseDepth = 0
-    this._reorgPauseWasMining = false
-    this._reorgPauseGeneration = 0
-    this._generateQueue = Promise.resolve()
+    // restores. An accepted invalidate gives up that restore for the whole group.
+    this._reorgPauseDepth = 0;
+    this._reorgPauseWasMining = false;
+    this._reorgPauseGeneration = 0;
+    this._generateQueue = Promise.resolve();
+    this._mineUnsettled = null;
+    this._mineSettleProbe = null;
     // Mine-vs-reorg exclusion. _generateQueue serializes MINES against each
     // other, and pauseMining()/the bare "await this._generateQueue" only DRAIN
     // it: the queue is settled the instant that await resolves, so a
@@ -85,26 +97,33 @@ function initMineExclusionState() {
     // APPEND time, so a mine waits only for reorgs raised before it. Every
     // mine/reorg pair therefore has exactly one waiter. Gating a mine on a reorg
     // that is itself draining that same mine is the deadlock this avoids.
-    this._reorgMineHoldSeq = 0
-    this._reorgMineHolds = new Map()
+    this._reorgMineHoldSeq = 0;
+    this._reorgMineHolds = new Map();
 }
 
 // Wallet readiness and balance plus the mempool and mining counters that status
 // exports. Runs with the new instance as `this`, from the constructor only.
 function initStatusFields() {
-    this.walletReady = false
+    this.walletReady = false;
     // Last observed spendable balance, exported by status as wallet_balance.
     // null means "never read, or the last read failed" and is deliberately
     // distinct from an observed 0, so neither reads as funded.
-    this.balance = null
+    this.balance = null;
     // Epoch ms of the last balance READ ATTEMPT (not the last successful one),
     // exported as wallet_balance_at so a drill can tell a fresh reading from a
     // never-refreshed one. null until prepareWallet has read a balance.
-    this._balanceReadAt = null
-    this._mempoolSize = 0
-    this._blocksMined = 0
-    this._lastMineAt = null
-    this._consecutiveErrors = 0
+    this._balanceReadAt = null;
+    // The in-flight runtime wallet recovery shared by balance reads and funding
+    // sends, plus the epoch ms the read path last started one.
+    this.walletReloadInFlight = null;
+    this.walletReloadStartedAt = null;
+    this._walletWarmupPending = false;
+    this.fundingFeePinCheckInFlight = null;
+    this._mempoolSize = 0;
+    this._mempoolReadAt = null;
+    this._blocksMined = 0;
+    this._lastMineAt = null;
+    this._consecutiveErrors = 0;
     // Failed block generations in a row, counted SEPARATELY from the RPC/mempool
     // read streak above. One shared counter cross-cancelled: the loop zeroes it on
     // every successful getRawMempool(), which runs immediately before the idle-mine
@@ -112,31 +131,45 @@ function initStatusFields() {
     // 1 and the health probe stayed green while block height never advanced. Only a
     // successful mine PERFORMED BY THE LOOP clears this one, so an operator
     // generate_blocks call cannot mask a broken loop.
-    this._mineFailures = 0
+    this._mineFailures = 0;
+    initStatusMempoolRead.call(this);
 }
 
 class XChainRegtestMiner {
     constructor(network, nodeUrl, nodePort, nodeUser, nodePassword) {
-      this.network = network
-      this.connector = new BlockchainConnector(nodeUrl, nodePort, nodeUser, nodePassword)
-      this.walletNameParam = "xchain_regtest_wallet"
-      // Per-call funding fee ceiling in sat/vB, chosen by pinFundingFeeRate at
-      // wallet preparation. Null means the ceiling is wallet-wide (settxfee) or
-      // absent, and funding sends go out positionally as they always have.
-      this.fundingFeeRateSatPerVb = null
-      this.keepMining = false
-      // Separates "never started" from "operator-paused". keepMining is false in both
-      // states, so mining_paused alone cannot tell a wedged prepareWallet apart from a
-      // deliberate pause_mining, and a health probe that treats a pause as healthy
-      // then certifies a miner that never mined a block. start() sets
-      // this true at the same point it sets keepMining, after prepareWallet resolves.
-      this.miningStarted = false
-      this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS
-      this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS
-      this.idleMineIntervalMs = DEFAULT_IDLE_MINE_INTERVAL_MS
-      this.fillMempoolRunning = false
-      initMineExclusionState.call(this)
-      initStatusFields.call(this)
+        this.network = network;
+        this.connector = new BlockchainConnector(nodeUrl, nodePort, nodeUser, nodePassword);
+        this.walletNameParam = 'xchain_regtest_wallet';
+        // Per-call funding fee ceiling in sat/vB, chosen by pinFundingFeeRate at
+        // wallet preparation. Null means the ceiling is wallet-wide (settxfee) or
+        // absent, and funding sends go out positionally as they always have.
+        this.fundingFeeRateSatPerVb = null;
+        this.fundingFeeMechanism = null;
+        this.fundingFeePinnedAt = null;
+        this.fundingFeeReprobeNeeded = false;
+        this.keepMining = false;
+        // Separates "never started" from "operator-paused". keepMining is false in both
+        // states, so mining_paused alone cannot tell a wedged prepareWallet apart from a
+        // deliberate pause_mining, and a health probe that treats a pause as healthy
+        // then certifies a miner that never mined a block. start() sets this true
+        // once prepareWallet resolves, even when a pause that landed earlier keeps
+        // keepMining false.
+        this.miningStarted = false;
+        this.maxTimeToMineTxs = DEFAULT_MAX_TIME_TO_MINE_TXS;
+        this.addedTimeToMineTxs = DEFAULT_ADDED_TIME_TO_MINE_TXS;
+        this.idleMineIntervalMs = DEFAULT_IDLE_MINE_INTERVAL_MS;
+        this.idleMineIntervalBootMs = DEFAULT_IDLE_MINE_INTERVAL_MS;
+        this.nodeFlushIntervalMs = DEFAULT_NODE_FLUSH_INTERVAL_MS_CLASS;
+        this._nodeFlushInFlight = null;
+        this.fillMempoolRunning = false;
+        // The running fill as a promise cancelFillMempool can wait on, the cancel
+        // request its cancel points read, and the progress record status reports
+        // (see fill_progress.js). All three are empty until the first fill.
+        this._fillRun = null;
+        this._fillCancelRequested = false;
+        this._fillProgress = null;
+        initMineExclusionState.call(this);
+        initStatusFields.call(this);
     }
 }
 
@@ -151,18 +184,18 @@ class XChainRegtestMiner {
 function installMethods(target, ...sources) {
     for (const source of sources) {
         for (const key of Reflect.ownKeys(source)) {
-            if (!Object.prototype.propertyIsEnumerable.call(source, key)) continue
+            if (!Object.prototype.propertyIsEnumerable.call(source, key)) continue;
             Object.defineProperty(target, key, {
                 value: source[key],
                 writable: true,
                 enumerable: false,
                 configurable: true,
-            })
+            });
         }
     }
-    return target
+    return target;
 }
 
-installMethods(XChainRegtestMiner.prototype, miningSchedule, mempoolFill, reorgControl, walletSetup, blockGeneration)
+installMethods(XChainRegtestMiner.prototype, miningSchedule, mempoolFill, reorgControl, walletSetup, blockGeneration);
 
-module.exports = XChainRegtestMiner
+module.exports = XChainRegtestMiner;

@@ -18,92 +18,132 @@ function createObservabilityMethods(miner, health) {
             // ready reflects wallet preparation (mine-readiness), not just that the port is
             // listening: start() runs prepareWallet() detached, so a cold start after a reset
             // can answer ping before walletAddress is set. Callers that mine should gate on ready.
-            return {status:"success", ready: !!miner.walletReady};
+            return { status: 'success', ready: !!miner.walletReady };
         },
 
         // Return current loop state so operators and CI can distinguish
-        // idle-healthy from stuck-retrying without watching stdout.
+        // idle-healthy from stuck-retrying without watching stdout. Refresh the
+        // mempool first so a caller after a wallet action cannot receive a value
+        // from the ordinary loop sleep that began before that action.
         async status() {
-            return miner.getStatus()
+            return miner.getFreshStatus();
         },
 
-        health
-    }
+        health,
+    };
 }
 
 function createTransactionMethods(miner) {
     return {
-        async send_funds({address, amount}) {
-            let txid = null
+        async send_funds({ address, amount }) {
+            let txid = null;
 
             try {
-                txid = await miner.sendFundsToAddress(address, amount)
-            } catch(err){
-                return {"error":"There was a problem sending funds: " + (err && err.message ? err.message : err)}
+                txid = await miner.sendFundsToAddress(address, amount);
+            } catch (err) {
+                return { error: 'There was a problem sending funds: ' + (err && err.message ? err.message : err) };
             }
 
-            return txid
+            return txid;
         },
 
         // Fills the mempool with tx_quantity randomly created transactions; this
-        // stops automatic mining until continue_mining is called.
-        async fill_mempool({tx_quantity}) {
+        // stops automatic mining until continue_mining is called. Progress shows
+        // in status as fill_mempool; a run stopped by cancel_fill_mempool answers
+        // with cancelled: true and how many stress transactions it sent.
+        async fill_mempool({ tx_quantity }) {
             try {
-                await miner.fillMempool(tx_quantity)
-            } catch(err){
-                return {"error":"There was a problem trying to fill the mempool: " + (err && err.message ? err.message : err)}
+                await miner.fillMempool(tx_quantity);
+            } catch (err) {
+                const error =
+                    'There was a problem trying to fill the mempool: ' + (err && err.message ? err.message : err);
+                if (!err || err.cancelled !== true) return { error };
+                return { error, cancelled: true, sent: err.sent, requested: err.requested };
             }
 
-            return "ok"
-        }
-    }
+            return 'ok';
+        },
+
+        // Stops a running fill_mempool after the node call it is waiting on and
+        // answers once it has stopped, with the run's final progress. The miner
+        // stays paused as after a finished fill: call continue_mining to resume.
+        async cancel_fill_mempool(params) {
+            if (hasJunkParams(params)) return { error: NO_PARAMS_ERROR };
+            try {
+                return await miner.cancelFillMempool();
+            } catch (err) {
+                return { error: 'There was a problem cancelling the mempool fill' };
+            }
+        },
+    };
 }
+
+// The pause/continue controls take no arguments. Accept the shapes callers
+// send for "nothing" (absent, null, {} or []) and refuse a scalar or a
+// non-empty positional list, so a malformed request never flips mining state.
+// A named-params object is not inspected; its keys are simply unused.
+function hasJunkParams(params) {
+    if (params === undefined || params === null) return false;
+    if (Array.isArray(params)) return params.length > 0;
+    return typeof params !== 'object';
+}
+
+const NO_PARAMS_ERROR = 'This method takes no params';
 
 function createMiningControlMethods(miner) {
     return {
         // Stop the auto-mine loop from firing further blocks. Any block already
         // in flight at the moment of the call completes normally. Use
         // continue_mining to resume.
-        async pause_mining({} = {}) {
+        async pause_mining(params) {
+            if (hasJunkParams(params)) return { error: NO_PARAMS_ERROR };
             try {
-                await miner.pauseMining()
-            } catch(err){
-                return {"error":"There was a problem trying to pause the mining"}
+                await miner.pauseMining();
+            } catch (err) {
+                return {
+                    error: err && err.mineUnsettled ? err.message : 'There was a problem trying to pause the mining',
+                };
             }
 
-            return "ok"
+            return 'ok';
         },
 
-        async continue_mining({} = {}) {
+        async continue_mining(params) {
+            if (hasJunkParams(params)) return { error: NO_PARAMS_ERROR };
             try {
-                await miner.continueMining()
-            } catch(err){
-                return {"error":"There was a problem trying to continue the mining"}
+                await miner.continueMining();
+            } catch (err) {
+                return { error: 'There was a problem trying to continue the mining' };
             }
 
-            return "ok"
+            return 'ok';
         },
 
-        async set_mining_time({max_time, tx_added_time}){
-            try{
-                await miner.setMiningTime(max_time, tx_added_time)
-            } catch (err){
-                return {"error": (err && err.message) ? err.message : "There was a problem trying to set a new time to mine blocks"}
+        async set_mining_time({ max_time, tx_added_time }) {
+            try {
+                await miner.setMiningTime(max_time, tx_added_time);
+            } catch (err) {
+                return {
+                    error:
+                        err && err.message
+                            ? err.message
+                            : 'There was a problem trying to set a new time to mine blocks',
+                };
             }
 
-            return "ok"
+            return 'ok';
         },
 
-        async set_default_mining_time(){
-            try{
-                await miner.setDefaultMiningTime()
-            } catch (err){
-                return {"error":"There was a problem trying to set a the default time to mine blocks"}
+        async set_default_mining_time() {
+            try {
+                await miner.setDefaultMiningTime();
+            } catch (err) {
+                return { error: 'There was a problem trying to set a the default time to mine blocks' };
             }
 
-            return "ok"
-        }
-    }
+            return 'ok';
+        },
+    };
 }
 
 function createTimeMethods(miner) {
@@ -112,12 +152,14 @@ function createTimeMethods(miner) {
         // the next generate_blocks stamps its block at that time. Used by the
         // multi-chain parity harness to make time-based expiries (ORDER_EXPIRE)
         // fire at a deterministic, cross-chain-identical block. Refused on mainnet.
-        async set_mock_time({timestamp}){
+        async set_mock_time({ timestamp }) {
             try {
-                await miner.setMockTime(timestamp)
-                return "ok"
-            } catch (err){
-                return { "error": "There was a problem setting the mock time: " + (err && err.message ? err.message : err) }
+                await miner.setMockTime(timestamp);
+                return 'ok';
+            } catch (err) {
+                return {
+                    error: 'There was a problem setting the mock time: ' + (err && err.message ? err.message : err),
+                };
             }
         },
 
@@ -126,15 +168,33 @@ function createTimeMethods(miner) {
         // use this when a drill must WAIT OUT a height-gated window (stake
         // ACTIVATION_DELAY_BLOCKS, confirmation depth) rather than jump it, and
         // no transactions are in flight to make the loop mine.
-        async set_idle_mine_interval({interval_ms}){
+        async set_idle_mine_interval({ interval_ms }) {
             try {
-                await miner.setIdleMineInterval(interval_ms)
-                return "ok"
-            } catch (err){
-                return { "error": "There was a problem setting the idle mine interval: " + (err && err.message ? err.message : err) }
+                await miner.setIdleMineInterval(interval_ms);
+                return 'ok';
+            } catch (err) {
+                return {
+                    error:
+                        'There was a problem setting the idle mine interval: ' +
+                        (err && err.message ? err.message : err),
+                };
             }
-        }
-    }
+        },
+    };
+}
+
+// A failed mine can still have landed blocks (a client timeout leaves the node
+// mining). Report the count so the caller never mistakes a mined branch for
+// nothing; earlier failures (bad count, fill running) carry no count and keep
+// their plain shape.
+function generateBlocksError(err) {
+    const message = 'There was a problem generating blocks: ' + (err && err.message ? err.message : err);
+    if (!err || !Number.isInteger(err.minedBlocks)) return { error: message };
+    return {
+        error: message + ' (the node mined ' + err.minedBlocks + ' of ' + err.requestedBlocks + ' requested blocks)',
+        mined: err.minedBlocks,
+        requested: err.requestedBlocks,
+    };
 }
 
 function createBlockMethods(miner) {
@@ -143,38 +203,42 @@ function createBlockMethods(miner) {
         // past indexer time-locked states (e.g. STAKE ACTIVATION_DELAY_BLOCKS).
         // This mines them NOW; set_idle_mine_interval instead lets an idle chain
         // advance on its own schedule.
-        async generate_blocks({count}){
+        async generate_blocks({ count }) {
             try {
-                let hashes = await miner.generateBlocks(count)
-                return { "count": hashes.length, "hashes": hashes }
-            } catch (err){
-                return { "error": "There was a problem generating blocks: " + (err && err.message ? err.message : err) }
+                let hashes = await miner.generateBlocks(count);
+                return { count: hashes.length, hashes: hashes };
+            } catch (err) {
+                return generateBlocksError(err);
             }
         },
 
         // Mark a block as invalid so the node rolls back to the fork point.
         // Auto-mining is paused; call continue_mining when the reorg is complete.
         // Enables deterministic reorg tests without dropping to raw node RPC.
-        async invalidate_block({block_hash}) {
+        async invalidate_block({ block_hash }) {
             try {
-                await miner.invalidateBlock(block_hash)
-                return "ok"
+                await miner.invalidateBlock(block_hash);
+                return 'ok';
             } catch (err) {
-                return { "error": "There was a problem invalidating the block: " + (err && err.message ? err.message : err) }
+                return {
+                    error: 'There was a problem invalidating the block: ' + (err && err.message ? err.message : err),
+                };
             }
         },
 
         // Remove a block from the invalid set so the node can re-evaluate chain
         // selection. Call after mining the competing branch, before continue_mining.
-        async reconsider_block({block_hash}) {
+        async reconsider_block({ block_hash }) {
             try {
-                await miner.reconsiderBlock(block_hash)
-                return "ok"
+                await miner.reconsiderBlock(block_hash);
+                return 'ok';
             } catch (err) {
-                return { "error": "There was a problem reconsidering the block: " + (err && err.message ? err.message : err) }
+                return {
+                    error: 'There was a problem reconsidering the block: ' + (err && err.message ? err.message : err),
+                };
             }
-        }
-    }
+        },
+    };
 }
 
 function createRpcMethods(miner, health) {
@@ -183,8 +247,8 @@ function createRpcMethods(miner, health) {
         ...createTransactionMethods(miner),
         ...createMiningControlMethods(miner),
         ...createTimeMethods(miner),
-        ...createBlockMethods(miner)
-    }
+        ...createBlockMethods(miner),
+    };
 }
 
-module.exports = { createRpcMethods }
+module.exports = { createRpcMethods };

@@ -25,7 +25,7 @@ Email **security@dankest.llc** with:
 - The affected version (see `CHANGELOG.md` and the version badge in `README.md`).
 - Any patches or mitigations you'd like considered.
 
-For sensitive reports, encrypt the email body to our PGP key. The fingerprint will be published alongside the first signed release artifact; until then, the email channel is acceptable for first contact and we will coordinate an encrypted exchange before you share proof-of-concept details.
+For sensitive reports, the private advisory channel above is the confidential path we recommend: it is private until we publish it and needs no key exchange. If you would rather use email, send a first message without sensitive details and we will coordinate an encrypted exchange before you share them. We do not publish a PGP key for this address. Published release signing keys are provided only to verify downloads; do not encrypt a report to them.
 
 We do not currently offer a paid bug bounty. We do offer public credit in release notes and the advisory itself, unless you prefer to remain anonymous.
 
@@ -33,11 +33,11 @@ We do not currently offer a paid bug bounty. We do offer public credit in releas
 
 ## Response timeline
 
-| Stage | Target |
-|---|---|
-| Initial acknowledgement | within 72 hours |
-| Triage + severity assignment | within 7 days |
-| Fix or mitigation in master | within 30 days for high/critical, 90 days for lower severities |
+| Stage                         | Target                                                                                        |
+| ----------------------------- | --------------------------------------------------------------------------------------------- |
+| Initial acknowledgement       | within 72 hours                                                                               |
+| Triage + severity assignment  | within 7 days                                                                                 |
+| Fix or mitigation in master   | within 30 days for high/critical, 90 days for lower severities                                |
 | Coordinated public disclosure | up to 90 days from initial report, or sooner if a fix has shipped and operators are protected |
 
 If we cannot meet a timeline, we will tell you why and propose a new one. We will not silently let a report age.
@@ -89,4 +89,4 @@ We ship security fixes against the latest release on `master`. Older releases ar
 
 ---
 
-Last reviewed: 2026-06-16.
+Last reviewed: 2026-10-30.

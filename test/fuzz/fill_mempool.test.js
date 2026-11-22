@@ -8,15 +8,15 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const fc = require('fast-check')
-const BlockchainConnector = require('../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const fc = require('fast-check');
+const BlockchainConnector = require('../../src/rpc/blockchain_connector');
 
-const OUTPUTS_QUANTITY_PER_TX = 2500
-let XChainRegtestMiner
-let miner
-let connectorStub
+const OUTPUTS_QUANTITY_PER_TX = 2500;
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
 
 function useMiner() {
     beforeEach(function () {
@@ -34,97 +34,92 @@ function useMiner() {
             setWalletName: sinon.stub(),
             getRawTransaction: sinon.stub(),
             sendRawTransaction: sinon.stub().resolves('txid_sent'),
-        }
+        };
 
-        sinon.stub(BlockchainConnector.prototype, 'constructor')
+        sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-        XChainRegtestMiner = require('../../src/XChainRegtestMiner')
-        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-        miner.connector = connectorStub
+        XChainRegtestMiner = require('../../src/XChainRegtestMiner');
+        miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+        miner.connector = connectorStub;
 
-        sinon.stub(miner, 'sleep').resolves()
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+        sinon.stub(miner, 'sleep').resolves();
+        sinon.stub(console, 'log');
+        sinon.stub(console, 'error');
+    });
 
     afterEach(function () {
-        sinon.restore()
-        delete require.cache[require.resolve('../../src/XChainRegtestMiner')]
-    })
+        sinon.restore();
+        delete require.cache[require.resolve('../../src/XChainRegtestMiner')];
+    });
 }
 
 function checkTotalAmount() {
-    const AMOUNT_FOR_EACH_ADDRESS = 1000
-    const FEE = 1000
+    const AMOUNT_FOR_EACH_ADDRESS = 1000;
+    const FEE = 1000;
 
     fc.assert(
         fc.property(fc.integer({ min: 1, max: 50000 }), (txQuantity) => {
-            const txsChunksCount = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
+            const txsChunksCount = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX);
 
             for (let i = 0; i < txsChunksCount; i++) {
-                let txRemainder = OUTPUTS_QUANTITY_PER_TX
+                let txRemainder = OUTPUTS_QUANTITY_PER_TX;
                 if (i === txsChunksCount - 1) {
-                    const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
+                    const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX;
                     if (remainder > 0) {
-                        txRemainder = remainder
+                        txRemainder = remainder;
                     }
                 }
-                const totalAmount =
-                    AMOUNT_FOR_EACH_ADDRESS * txRemainder +
-                    FEE * txRemainder +
-                    50 * txRemainder
+                const totalAmount = AMOUNT_FOR_EACH_ADDRESS * txRemainder + FEE * txRemainder + 50 * txRemainder;
 
-                assert.ok(Number.isFinite(totalAmount), `totalAmount must be finite`)
-                assert.ok(totalAmount > 0, `totalAmount must be positive`)
-                assert.ok(
-                    totalAmount <= Number.MAX_SAFE_INTEGER,
-                    `totalAmount must be within safe integer range`
-                )
+                assert.ok(Number.isFinite(totalAmount), `totalAmount must be finite`);
+                assert.ok(totalAmount > 0, `totalAmount must be positive`);
+                assert.ok(totalAmount <= Number.MAX_SAFE_INTEGER, `totalAmount must be within safe integer range`);
             }
         }),
-        { numRuns: 500 }
-    )
+        { numRuns: 500 },
+    );
 }
 
 function checkUtxoIndexes() {
     fc.assert(
         fc.property(fc.integer({ min: 1, max: 10000 }), (txQuantity) => {
-            const txsChunksCount = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
+            const txsChunksCount = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX);
 
             for (let nextAddressIndex = 0; nextAddressIndex < txQuantity; nextAddressIndex++) {
-                const utxoIndex = Math.floor(nextAddressIndex / OUTPUTS_QUANTITY_PER_TX)
-                const outputIndex = nextAddressIndex % OUTPUTS_QUANTITY_PER_TX
+                const utxoIndex = Math.floor(nextAddressIndex / OUTPUTS_QUANTITY_PER_TX);
+                const outputIndex = nextAddressIndex % OUTPUTS_QUANTITY_PER_TX;
 
-                assert.ok(utxoIndex >= 0, 'utxoIndex must be >= 0')
-                assert.ok(utxoIndex < txsChunksCount,
-                    `utxoIndex ${utxoIndex} must be < txsChunksCount ${txsChunksCount}`)
-                assert.ok(outputIndex >= 0, 'outputIndex must be >= 0')
-                assert.ok(outputIndex < OUTPUTS_QUANTITY_PER_TX,
-                    'outputIndex must be < OUTPUTS_QUANTITY_PER_TX')
+                assert.ok(utxoIndex >= 0, 'utxoIndex must be >= 0');
+                assert.ok(
+                    utxoIndex < txsChunksCount,
+                    `utxoIndex ${utxoIndex} must be < txsChunksCount ${txsChunksCount}`,
+                );
+                assert.ok(outputIndex >= 0, 'outputIndex must be >= 0');
+                assert.ok(outputIndex < OUTPUTS_QUANTITY_PER_TX, 'outputIndex must be < OUTPUTS_QUANTITY_PER_TX');
             }
         }),
-        { numRuns: 100 }
-    )
+        { numRuns: 100 },
+    );
 }
 
 describe('Fuzz: fillMempool input handling', function () {
-    useMiner()
+    useMiner();
 
     // ─── txQuantity = 0 ─────────────────────────────────────────────
 
     describe('fillMempool with txQuantity = 0', function () {
         it('rejects zero without crash or transactions', async function () {
-            await assert.rejects(() => miner.fillMempool(0), /txQuantity must be a positive integer/)
+            await assert.rejects(() => miner.fillMempool(0), /txQuantity must be a positive integer/);
 
-            assert.strictEqual(miner.keepMining, false)
-            assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
-            assert.strictEqual(connectorStub.sendRawTransaction.callCount, 0)
-        })
-    })
-})
+            assert.strictEqual(miner.keepMining, false);
+            assert.strictEqual(connectorStub.sendToAddress.callCount, 0);
+            assert.strictEqual(connectorStub.sendRawTransaction.callCount, 0);
+        });
+    });
+});
 
 describe('Fuzz: fillMempool input handling', function () {
-    useMiner()
+    useMiner();
 
     // ─── Invalid txQuantity values (all rejected by validation) ─────
 
@@ -144,87 +139,84 @@ describe('Fuzz: fillMempool input handling', function () {
             ['Infinity', Infinity],
             ['-Infinity', -Infinity],
             ['zero', 0],
-        ]
+        ];
 
         for (const [label, value] of cases) {
             it(`rejects ${label} with a validation error`, async function () {
-                await assert.rejects(() => miner.fillMempool(value), /txQuantity must be a positive integer/)
+                await assert.rejects(() => miner.fillMempool(value), /txQuantity must be a positive integer/);
 
-                assert.strictEqual(miner.keepMining, false)
+                assert.strictEqual(miner.keepMining, false);
                 // Should not have attempted any RPC calls beyond logging
-                assert.strictEqual(connectorStub.sendToAddress.callCount, 0)
-            })
+                assert.strictEqual(connectorStub.sendToAddress.callCount, 0);
+            });
         }
-    })
-})
+    });
+});
 
 describe('Fuzz: fillMempool input handling', function () {
-    useMiner()
+    useMiner();
 
     // ─── Chunk math edge cases ──────────────────────────────────────
 
     describe('fillMempool chunk math boundaries', function () {
         it('txQuantity = 2500 (exact multiple) calculates 1 chunk', function () {
-            const chunks = Math.ceil(2500 / OUTPUTS_QUANTITY_PER_TX)
-            assert.strictEqual(chunks, 1)
-        })
+            const chunks = Math.ceil(2500 / OUTPUTS_QUANTITY_PER_TX);
+            assert.strictEqual(chunks, 1);
+        });
 
         it('txQuantity = 2501 calculates 2 chunks', function () {
-            const chunks = Math.ceil(2501 / OUTPUTS_QUANTITY_PER_TX)
-            assert.strictEqual(chunks, 2)
-        })
+            const chunks = Math.ceil(2501 / OUTPUTS_QUANTITY_PER_TX);
+            assert.strictEqual(chunks, 2);
+        });
 
         it('txQuantity = 2499 calculates 1 chunk', function () {
-            const chunks = Math.ceil(2499 / OUTPUTS_QUANTITY_PER_TX)
-            assert.strictEqual(chunks, 1)
-        })
+            const chunks = Math.ceil(2499 / OUTPUTS_QUANTITY_PER_TX);
+            assert.strictEqual(chunks, 1);
+        });
 
         it('chunk math never produces negative or NaN values for positive inputs', function () {
             fc.assert(
                 fc.property(fc.integer({ min: 1, max: 100000 }), (txQuantity) => {
-                    const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
-                    assert.ok(chunks > 0, `chunks must be positive, got ${chunks}`)
-                    assert.ok(!isNaN(chunks), 'chunks must not be NaN')
-                    assert.ok(Number.isFinite(chunks), 'chunks must be finite')
+                    const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX);
+                    assert.ok(chunks > 0, `chunks must be positive, got ${chunks}`);
+                    assert.ok(!isNaN(chunks), 'chunks must not be NaN');
+                    assert.ok(Number.isFinite(chunks), 'chunks must be finite');
                 }),
-                { numRuns: 1000 }
-            )
-        })
-    })
+                { numRuns: 1000 },
+            );
+        });
+    });
 
     describe('fillMempool chunk math boundaries', function () {
-        it('totalAmount calculation never overflows for realistic txQuantity', checkTotalAmount)
+        it('totalAmount calculation never overflows for realistic txQuantity', checkTotalAmount);
 
-        it('UTXO index math stays within bounds', checkUtxoIndexes)
-    })
-})
+        it('UTXO index math stays within bounds', checkUtxoIndexes);
+    });
+});
 
 describe('Fuzz: fillMempool input handling', function () {
-    useMiner()
+    useMiner();
 
     // ─── getRawTransaction null loop detection ──────────────────────
 
     describe('fillMempool getRawTransaction retry limit', function () {
         it('throws after 50 retries when getRawTransaction perpetually returns null', async function () {
-            connectorStub.sendToAddress.resolves('a'.repeat(64))
+            connectorStub.sendToAddress.resolves('a'.repeat(64));
 
-            let getRawTxCalls = 0
+            let getRawTxCalls = 0;
             connectorStub.getRawTransaction.callsFake(async () => {
-                getRawTxCalls++
-                return null
-            })
+                getRawTxCalls++;
+                return null;
+            });
 
-            await assert.rejects(
-                () => miner.fillMempool(1),
-                /Failed to get raw transaction after 50 retries/
-            )
-            assert.strictEqual(getRawTxCalls, 50)
-        })
-    })
-})
+            await assert.rejects(() => miner.fillMempool(1), /Failed to get raw transaction after 50 retries/);
+            assert.strictEqual(getRawTxCalls, 50);
+        });
+    });
+});
 
 describe('Fuzz: fillMempool input handling', function () {
-    useMiner()
+    useMiner();
 
     // ─── fillMempool does not change keepMining for invalid inputs ────
 
@@ -241,24 +233,30 @@ describe('Fuzz: fillMempool input handling', function () {
                         fc.constant(null),
                         fc.constant(undefined),
                         fc.constant(NaN),
-                        fc.constant(Infinity)
+                        fc.constant(Infinity),
                     ),
                     fc.boolean(),
                     async (txQuantity, initialKeepMining) => {
-                        miner.keepMining = initialKeepMining
-                        await assert.rejects(() => miner.fillMempool(txQuantity), /txQuantity must be a positive integer/)
-                        assert.strictEqual(miner.keepMining, initialKeepMining,
-                            'keepMining must be unchanged after fillMempool with invalid input')
-                    }
+                        miner.keepMining = initialKeepMining;
+                        await assert.rejects(
+                            () => miner.fillMempool(txQuantity),
+                            /txQuantity must be a positive integer/,
+                        );
+                        assert.strictEqual(
+                            miner.keepMining,
+                            initialKeepMining,
+                            'keepMining must be unchanged after fillMempool with invalid input',
+                        );
+                    },
                 ),
-                { numRuns: 100 }
-            )
-        })
-    })
-})
+                { numRuns: 100 },
+            );
+        });
+    });
+});
 
 describe('Fuzz: fillMempool input handling', function () {
-    useMiner()
+    useMiner();
 
     // ─── Resource exhaustion guard ──────────────────────────────────
 
@@ -271,15 +269,15 @@ describe('Fuzz: fillMempool input handling', function () {
                     // fillMempool creates txQuantity addresses
                     // Each address requires BIP32 key derivation
                     // Verify the math is bounded
-                    const addressCount = txQuantity
-                    const chunkCount = Math.ceil(txQuantity / 2500)
+                    const addressCount = txQuantity;
+                    const chunkCount = Math.ceil(txQuantity / 2500);
 
-                    assert.ok(addressCount === txQuantity)
-                    assert.ok(chunkCount <= Math.ceil(100000 / 2500))
-                    assert.ok(chunkCount >= 1)
+                    assert.ok(addressCount === txQuantity);
+                    assert.ok(chunkCount <= Math.ceil(100000 / 2500));
+                    assert.ok(chunkCount >= 1);
                 }),
-                { numRuns: 500 }
-            )
-        })
-    })
-})
+                { numRuns: 500 },
+            );
+        });
+    });
+});

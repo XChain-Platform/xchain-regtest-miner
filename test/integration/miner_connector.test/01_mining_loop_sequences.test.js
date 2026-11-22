@@ -18,79 +18,79 @@
  * returns realistic, interdependent responses.
  */
 
-const assert = require('assert')
-const sinon = require('sinon')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let XChainRegtestMiner, miner, connector, callLog
+let XChainRegtestMiner, miner, connector, callLog;
 
 function createMiner() {
-    callLog = []
+    callLog = [];
 
     // Stateful connector mock that records every call in order
     connector = {
         getWalletInfo: sinon.stub().callsFake(async () => {
-            callLog.push('getWalletInfo')
-            throw new Error('No wallet loaded')
+            callLog.push('getWalletInfo');
+            throw new Error('No wallet loaded');
         }),
         loadWallet: sinon.stub().callsFake(async (name) => {
-            callLog.push(`loadWallet(${name})`)
-            throw new Error('Wallet not found')
+            callLog.push(`loadWallet(${name})`);
+            throw new Error('Wallet not found');
         }),
         createWallet: sinon.stub().callsFake(async (name) => {
-            callLog.push(`createWallet(${name})`)
-            return { name }
+            callLog.push(`createWallet(${name})`);
+            return { name };
         }),
         getNewAddress: sinon.stub().callsFake(async () => {
-            callLog.push('getNewAddress')
-            return 'bcrt1qtest'
+            callLog.push('getNewAddress');
+            return 'bcrt1qtest';
         }),
         getBalance: sinon.stub().callsFake(async () => {
-            callLog.push('getBalance')
-            return 50.0
+            callLog.push('getBalance');
+            return 50.0;
         }),
         getBlockchainInfo: sinon.stub().callsFake(async () => {
-            callLog.push('getBlockchainInfo')
-            return { blocks: 200 }
+            callLog.push('getBlockchainInfo');
+            return { blocks: 200 };
         }),
         generateToAddress: sinon.stub().callsFake(async (count, addr) => {
-            callLog.push(`generateToAddress(${count})`)
-            return ['blockhash']
+            callLog.push(`generateToAddress(${count})`);
+            return ['blockhash'];
         }),
         getRawMempool: sinon.stub().resolves([]),
         sendToAddress: sinon.stub().resolves('txid_abc'),
         setTxFee: sinon.stub().callsFake(async () => {
-            callLog.push('setTxFee')
-            return true
+            callLog.push('setTxFee');
+            return true;
         }),
         setWalletName: sinon.stub().callsFake((name) => {
-            callLog.push(`setWalletName(${name})`)
+            callLog.push(`setWalletName(${name})`);
         }),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-    miner.connector = connector
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    miner.connector = connector;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 }
 
 function restoreMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 function configureMining() {
     // Bypass prepareWallet for loop tests
-    sinon.stub(miner, 'prepareWallet').resolves()
-    miner.walletAddress = 'bcrt1qtest'
+    sinon.stub(miner, 'prepareWallet').resolves();
+    miner.walletAddress = 'bcrt1qtest';
     // Use very short timers for fast tests
-    miner.maxTimeToMineTxs = 50
-    miner.addedTimeToMineTxs = 30
+    miner.maxTimeToMineTxs = 50;
+    miner.addedTimeToMineTxs = 30;
 }
 
 // Helper: run the loop for a bounded workload window, then wait for the
@@ -104,172 +104,172 @@ function configureMining() {
 function runLoopWithTimeout(miner, timeoutMs) {
     return new Promise(async (resolve) => {
         const timer = setTimeout(() => {
-            miner._shutdown = true
-        }, timeoutMs)
+            miner._shutdown = true;
+        }, timeoutMs);
 
         // Replace sleep with a short real delay
         miner.sleep.callsFake(async () => {
-            return new Promise(r => setTimeout(r, 5))
-        })
+            return new Promise((r) => setTimeout(r, 5));
+        });
 
         try {
-            await miner.start()
+            await miner.start();
         } catch (e) {
             // Loop exited via keepMining=false → sleep throws or loop breaks
         }
 
-        clearTimeout(timer)
-        resolve()
-    })
+        clearTimeout(timer);
+        resolve();
+    });
 }
 
 describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', function () {
-    beforeEach(createMiner)
-    afterEach(restoreMiner)
+    beforeEach(createMiner);
+    afterEach(restoreMiner);
 
     // ─── Mining Loop Sequences ──────────────────────────────────────────
 
     describe('mining loop sequences', function () {
-        beforeEach(configureMining)
+        beforeEach(configureMining);
 
         it('B-9: mines when mempool has transactions and timer expires', async function () {
-            connector.getRawMempool.resolves(['txid1'])
+            connector.getRawMempool.resolves(['txid1']);
 
-            await runLoopWithTimeout(miner, 200)
+            await runLoopWithTimeout(miner, 200);
 
-            assert.ok(connector.generateToAddress.callCount >= 1,
-                'Should have mined at least 1 block')
-        })
+            assert.ok(connector.generateToAddress.callCount >= 1, 'Should have mined at least 1 block');
+        });
 
         it('B-10: no mining with empty mempool', async function () {
-            connector.getRawMempool.resolves([])
+            connector.getRawMempool.resolves([]);
 
-            await runLoopWithTimeout(miner, 100)
+            await runLoopWithTimeout(miner, 100);
 
-            assert.strictEqual(connector.generateToAddress.callCount, 0,
-                'Should not mine with empty mempool')
-        })
+            assert.strictEqual(connector.generateToAddress.callCount, 0, 'Should not mine with empty mempool');
+        });
 
         it('B-11: mines multiple blocks across timer resets', async function () {
-            connector.getRawMempool.resolves(['txid1'])
+            connector.getRawMempool.resolves(['txid1']);
 
-            await runLoopWithTimeout(miner, 400)
+            await runLoopWithTimeout(miner, 400);
 
-            assert.ok(connector.generateToAddress.callCount >= 2,
-                'Should have mined at least 2 blocks with timer resets')
-        })
-    })
-})
+            assert.ok(
+                connector.generateToAddress.callCount >= 2,
+                'Should have mined at least 2 blocks with timer resets',
+            );
+        });
+    });
+});
 
 describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', function () {
-    beforeEach(createMiner)
-    afterEach(restoreMiner)
+    beforeEach(createMiner);
+    afterEach(restoreMiner);
 
     describe('mining loop sequences', function () {
-        beforeEach(configureMining)
+        beforeEach(configureMining);
 
         it('B-12: paused mining does not generate blocks', async function () {
-            connector.getRawMempool.resolves(['txid1'])
+            connector.getRawMempool.resolves(['txid1']);
 
             // Disable mining immediately after start
-            let loopCount = 0
+            let loopCount = 0;
             miner.sleep.callsFake(async () => {
-                loopCount++
-                miner.keepMining = false
+                loopCount++;
+                miner.keepMining = false;
                 if (loopCount >= 3) {
-                    miner._shutdown = true
-                    throw new Error('__LOOP_BREAK__')
+                    miner._shutdown = true;
+                    throw new Error('__LOOP_BREAK__');
                 }
-                return new Promise(r => setTimeout(r, 5))
-            })
+                return new Promise((r) => setTimeout(r, 5));
+            });
 
             // Override prepareWallet to not set keepMining
-            miner.prepareWallet.callsFake(async () => {})
+            miner.prepareWallet.callsFake(async () => {});
 
             try {
-                await miner.start()
+                await miner.start();
             } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
+                if (e.message !== '__LOOP_BREAK__') throw e;
             }
 
             // keepMining was set false on first sleep, then loop skips mining
-            assert.strictEqual(connector.generateToAddress.callCount, 0)
-        })
+            assert.strictEqual(connector.generateToAddress.callCount, 0);
+        });
 
         it('B-13: recovers from getRawMempool errors', async function () {
-            let callCount = 0
+            let callCount = 0;
             connector.getRawMempool.callsFake(async () => {
-                callCount++
-                if (callCount <= 3) throw new Error('Connection lost')
-                return ['txid1']
-            })
+                callCount++;
+                if (callCount <= 3) throw new Error('Connection lost');
+                return ['txid1'];
+            });
 
-            await runLoopWithTimeout(miner, 300)
+            await runLoopWithTimeout(miner, 300);
 
             // Should have recovered from errors and eventually polled successfully
-            assert.ok(callCount > 3, 'Should have retried after errors')
+            assert.ok(callCount > 3, 'Should have retried after errors');
             // May or may not have mined depending on timing
-        })
-    })
-})
+        });
+    });
+});
 
 describe('Seam B: XChainRegtestMiner ↔ BlockchainConnector sequences', function () {
-    beforeEach(createMiner)
-    afterEach(restoreMiner)
+    beforeEach(createMiner);
+    afterEach(restoreMiner);
 
     describe('mining loop sequences', function () {
-        beforeEach(configureMining)
+        beforeEach(configureMining);
 
         it('B-14: recovers from generateToAddress errors', async function () {
-            connector.getRawMempool.resolves(['txid1'])
+            connector.getRawMempool.resolves(['txid1']);
 
-            let genCount = 0
+            let genCount = 0;
             connector.generateToAddress.callsFake(async () => {
-                genCount++
-                if (genCount === 1) throw new Error('Block generation failed')
-                return ['blockhash']
-            })
+                genCount++;
+                if (genCount === 1) throw new Error('Block generation failed');
+                return ['blockhash'];
+            });
 
-            await runLoopWithTimeout(miner, 300)
+            await runLoopWithTimeout(miner, 300);
 
-            assert.ok(genCount >= 2, 'Should have retried block generation')
-        })
+            assert.ok(genCount >= 2, 'Should have retried block generation');
+        });
 
         it('timer extension: new txs delay mining', async function () {
             // Use longer timers to make the test observable
-            miner.maxTimeToMineTxs = 200
-            miner.addedTimeToMineTxs = 80
+            miner.maxTimeToMineTxs = 200;
+            miner.addedTimeToMineTxs = 80;
 
-            let pollCount = 0
+            let pollCount = 0;
             connector.getRawMempool.callsFake(async () => {
-                pollCount++
+                pollCount++;
                 // Simulate new tx arriving every few polls
-                if (pollCount <= 3) return ['txid1']
-                if (pollCount <= 6) return ['txid1', 'txid2']
-                return ['txid1', 'txid2']
-            })
+                if (pollCount <= 3) return ['txid1'];
+                if (pollCount <= 6) return ['txid1', 'txid2'];
+                return ['txid1', 'txid2'];
+            });
 
-            await runLoopWithTimeout(miner, 500)
+            await runLoopWithTimeout(miner, 500);
 
             // Should have mined at least once (either initial or extended timer)
-            assert.ok(connector.generateToAddress.callCount >= 1)
-        })
+            assert.ok(connector.generateToAddress.callCount >= 1);
+        });
 
         it('keepMining toggle: continueMining resumes after pause', async function () {
-            connector.getRawMempool.resolves(['txid1'])
+            connector.getRawMempool.resolves(['txid1']);
 
-            let iteration = 0
+            let iteration = 0;
             miner.sleep.callsFake(async () => {
-                iteration++
-                if (iteration === 2) miner.keepMining = false
-                if (iteration === 6) miner.keepMining = true
-                return new Promise(r => setTimeout(r, 5))
-            })
+                iteration++;
+                if (iteration === 2) miner.keepMining = false;
+                if (iteration === 6) miner.keepMining = true;
+                return new Promise((r) => setTimeout(r, 5));
+            });
 
-            await runLoopWithTimeout(miner, 500)
+            await runLoopWithTimeout(miner, 500);
 
             // The miner should have generated blocks before pause and after resume
-            assert.ok(connector.generateToAddress.callCount >= 1)
-        })
-    })
-})
+            assert.ok(connector.generateToAddress.callCount >= 1);
+        });
+    });
+});

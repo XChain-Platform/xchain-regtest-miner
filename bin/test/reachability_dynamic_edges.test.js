@@ -42,7 +42,7 @@ describe('xchain-regtest-miner bin/reachability.js: DYNAMIC_EDGES only names pat
         assert.strictEqual(report.summary.dynamicEdgesDeclared, 0);
     });
 
-    it('does not throw against this repo\'s own tracked tree', () => {
+    it("does not throw against this repo's own tracked tree", () => {
         assert.doesNotThrow(() => assertDynamicEdgesResolve(new Set(['src/api.js'])));
     });
 
@@ -54,10 +54,7 @@ describe('xchain-regtest-miner bin/reachability.js: DYNAMIC_EDGES only names pat
         const bogus = { from: 'src/does_not_exist.js', why: 'a stale or copy-pasted declaration' };
         DYNAMIC_EDGES.push(bogus);
         try {
-            assert.throws(
-                () => assertDynamicEdgesResolve(new Set(['src/api.js'])),
-                /src\/does_not_exist\.js/,
-            );
+            assert.throws(() => assertDynamicEdgesResolve(new Set(['src/api.js'])), /src\/does_not_exist\.js/);
         } finally {
             DYNAMIC_EDGES.pop();
         }

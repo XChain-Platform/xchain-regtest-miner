@@ -1,0 +1,367 @@
+// Copyright © 2025–2026 Dankest, LLC
+// Based on XChain Platform by Dankest, LLC – https://dankest.llc
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of XChain Platform. Licensed under the GNU Affero
+// General Public License v3.0 or later; see LICENSE.md.
+//
+// A generatetoaddress that hits the client timeout leaves the node mining. The
+// mine queue must stay held until the node stops, or every barrier on it (pause,
+// fill, the reorg primitives and the next mine) reaches the node mid-generation.
+// The CONTROL drives an unflagged mine failure, which reproduces the early release,
+// so a green settled case cannot be a harness that never held the queue.
+
+const assert = require('assert');
+const sinon = require('sinon');
+const { MINE_SETTLE_DEADLINE_MS } = require('../../../src/XChainRegtestMiner/constants.js');
+
+// A node that keeps mining one block per poll interval after the client gave up.
+function miningNode(blocksAfterAbort) {
+    return { height: 100, remaining: blocksAfterAbort };
+}
+
+// Wire a miner to the node: the first mine times out (flagged or not), later mines
+// succeed, and each sleep lets the node land one more block.
+function wire(miner, node, { flagged, executionUncertain = false, landedBeforeThrow = 0 }) {
+    const seen = { remainingAtNextMine: null, remainingAtReconsider: null };
+    let mines = 0;
+    miner.walletAddress = 'bcrt1qtest';
+    miner.connector = {
+        generateToAddress: async () => {
+            if (++mines > 1) {
+                seen.remainingAtNextMine = node.remaining;
+                return ['hash'];
+            }
+            // Blocks the node landed before the client gave up (the rail case: by
+            // the 60 s timeout most or all of the branch is already mined).
+            node.height += landedBeforeThrow;
+            const err = new Error('Error generating to address');
+            if (flagged) err.timedOut = true;
+            if (executionUncertain) err.executionUncertain = true;
+            throw err;
+        },
+        getBlockchainInfo: async () => ({ blocks: node.height }),
+        reconsiderBlock: async () => {
+            seen.remainingAtReconsider = node.remaining;
+            return null;
+        },
+    };
+    sinon.stub(miner, 'refreshWalletFunds').resolves();
+    sinon.stub(miner, 'sleep').callsFake(async () => {
+        if (node.remaining > 0) {
+            node.height++;
+            node.remaining--;
+        }
+    });
+    return seen;
+}
+
+// Start a timed-out mine, then a pause, a reconsider and a second mine behind it.
+async function raceBarriers(miner, node) {
+    const mine = miner.generateBlocksQueued(5).catch((err) => err);
+    const paused = miner.pauseMining().then(() => node.remaining);
+    const reconsidered = miner.reconsiderBlock('ab'.repeat(32));
+    const nextMine = miner.generateBlocksQueued(1);
+    const remainingAtPause = await paused;
+    await Promise.all([reconsidered, nextMine]);
+    return { mineError: await mine, remainingAtPause };
+}
+
+let timeoutMiner;
+
+function setupTimeoutMiner() {
+    const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    timeoutMiner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'warn');
+    sinon.stub(console, 'error');
+}
+
+function teardownTimeoutMiner() {
+    timeoutMiner._shutdown = true;
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+}
+
+describe('a generatetoaddress client timeout holds the mine queue until the node stops', function () {
+    beforeEach(setupTimeoutMiner);
+    afterEach(teardownTimeoutMiner);
+
+    it('CONTROL: an unflagged mine failure releases the barriers while the node is still mining', async function () {
+        const node = miningNode(4);
+        const seen = wire(timeoutMiner, node, { flagged: false });
+        const { remainingAtPause } = await raceBarriers(timeoutMiner, node);
+        assert.strictEqual(
+            remainingAtPause,
+            4,
+            'control must reproduce the early release, or the settled case proves nothing',
+        );
+        assert.strictEqual(seen.remainingAtReconsider, 4);
+        assert.strictEqual(seen.remainingAtNextMine, 4);
+    });
+
+    it('keeps pause, reconsider and the next mine waiting until the node height settles', async function () {
+        const node = miningNode(4);
+        const seen = wire(timeoutMiner, node, { flagged: true });
+        const { mineError, remainingAtPause } = await raceBarriers(timeoutMiner, node);
+        assert.strictEqual(remainingAtPause, 0, 'pauseMining must not resolve while blocks are still landing');
+        assert.strictEqual(seen.remainingAtReconsider, 0);
+        assert.strictEqual(seen.remainingAtNextMine, 0);
+        assert.strictEqual(node.height, 104);
+        assert.strictEqual(mineError.timedOut, true, 'the timed-out mine still rejects with its flag');
+    });
+
+    it('settles a response-less transport failure before releasing barriers', async function () {
+        const node = miningNode(4);
+        const seen = wire(timeoutMiner, node, { executionUncertain: true });
+        const { mineError, remainingAtPause } = await raceBarriers(timeoutMiner, node);
+        assert.strictEqual(remainingAtPause, 0);
+        assert.strictEqual(seen.remainingAtReconsider, 0);
+        assert.strictEqual(seen.remainingAtNextMine, 0);
+        assert.strictEqual(mineError.executionUncertain, true);
+    });
+
+    it('releases the queue at the settle deadline when the node never stops', async function () {
+        const clock = sinon.useFakeTimers({ now: 1000, toFake: ['Date'] });
+        const node = miningNode(Infinity);
+        wire(timeoutMiner, node, { flagged: true });
+        timeoutMiner.sleep.callsFake(async (ms) => {
+            node.height++;
+            clock.tick(ms);
+        });
+        const err = await timeoutMiner.generateBlocksQueued(3).catch((e) => e);
+        assert.strictEqual(err.timedOut, true);
+        assert.ok(Date.now() - 1000 >= MINE_SETTLE_DEADLINE_MS, 'the hold must last until the deadline');
+        await assert.rejects(timeoutMiner.pauseMining(), (pauseErr) => pauseErr.mineUnsettled === true);
+        assert.ok(timeoutMiner.getStatus().mine_unsettled);
+        assert.strictEqual(err.minedBlocks, null, 'an unsettled node gives no count rather than a lower bound');
+    });
+});
+
+function quietMinerWithMethods() {
+    const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    const { createRpcMethods } = require('../../../src/api/rpc_methods.js');
+    const miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'warn');
+    sinon.stub(console, 'error');
+    return { miner, methods: createRpcMethods(miner, {}) };
+}
+
+// generate_blocks either mines the requested count or reports how many it mined.
+// Repro: after invalidate_block, generate_blocks {count:4} answered a bare
+// "Error generating to address" while the node had mined all 4 blocks.
+describe('a failed generatetoaddress reports the blocks the node actually mined', function () {
+    let miner;
+    let methods;
+
+    beforeEach(function () {
+        ({ miner, methods } = quietMinerWithMethods());
+    });
+
+    afterEach(function () {
+        sinon.restore();
+        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+    });
+
+    it('a timeout after the node mined part before and part after the abort reports all 4', async function () {
+        const node = miningNode(2);
+        wire(miner, node, { flagged: true, landedBeforeThrow: 2 });
+        const before = miner._blocksMined;
+        const err = await miner.generateBlocks(4).catch((e) => e);
+        assert.strictEqual(err.timedOut, true);
+        assert.strictEqual(node.height, 104);
+        assert.strictEqual(err.minedBlocks, 4, 'blocks landed before the timeout count too');
+        assert.strictEqual(err.requestedBlocks, 4);
+        assert.strictEqual(miner._blocksMined - before, 4, 'blocks_mined is credited with the mined delta');
+    });
+
+    it('generate_blocks answers with the mined count, not a bare error', async function () {
+        const node = miningNode(1);
+        wire(miner, node, { flagged: true, landedBeforeThrow: 3 });
+        const res = await methods.generate_blocks({ count: 4 });
+        assert.ok(res.error, 'the client did time out, so it is still an error');
+        assert.strictEqual(res.mined, 4);
+        assert.strictEqual(res.requested, 4);
+        assert.match(res.error, /mined 4 of 4 requested blocks/);
+    });
+
+    it('a timeout with nothing mined still errors, with a zero count', async function () {
+        const node = miningNode(0);
+        wire(miner, node, { flagged: true });
+        const before = miner._blocksMined;
+        const res = await methods.generate_blocks({ count: 4 });
+        assert.ok(res.error);
+        assert.strictEqual(res.mined, 0);
+        assert.strictEqual(miner._blocksMined, before);
+    });
+
+    it('an unreadable height leaves the count unknown and the error in its plain shape', async function () {
+        const node = miningNode(0);
+        wire(miner, node, { flagged: false, landedBeforeThrow: 2 });
+        miner.connector.getBlockchainInfo = async () => {
+            throw new Error('down');
+        };
+        const res = await methods.generate_blocks({ count: 4 });
+        assert.deepStrictEqual(Object.keys(res), ['error']);
+    });
+});
+
+// A node that pauses between blocks mid-call. Repro: generate_blocks {count:300}
+// timed out with the node at H0+35 and still inside the call; the height held for
+// a few seconds, the settle declared the node stopped, reported 35 of 300, credited
+// blocks_mined 35 and released the queue, while the node went on to mine all 300.
+// The node here lands 35 blocks before the timeout, pauses for `stallSleeps` polls,
+// then lands the rest 5 per poll.
+const STALL_H0 = 100;
+const STALL_REQUESTED = 300;
+
+// The connector half: the first mine times out inside the call, later mines land
+// at once, and getrpcinfo (when wired) lists generatetoaddress while the call runs.
+function stallingConnector(node, seen, rpcInfo) {
+    let mines = 0;
+    const connector = {
+        generateToAddress: async (n) => {
+            if (++mines > 1) {
+                seen.heightAtNextMine = node.height;
+                node.height += n;
+                return ['hash'];
+            }
+            node.height += 35;
+            node.inCall = true;
+            const err = new Error('Error generating to address');
+            err.timedOut = true;
+            throw err;
+        },
+        getBlockchainInfo: async () => ({ blocks: node.height }),
+        reconsiderBlock: async () => {
+            seen.heightAtReconsider = node.height;
+            return null;
+        },
+    };
+    if (rpcInfo) {
+        connector.getRpcInfo = async () => ({
+            active_commands: [
+                ...(node.inCall ? [{ method: 'generatetoaddress', duration: 1 }] : []),
+                { method: 'getrpcinfo', duration: 0 },
+            ],
+        });
+    }
+    return connector;
+}
+
+function wireStallingNode(miner, { stallSleeps, rpcInfo }) {
+    const node = { height: STALL_H0, inCall: false, sleeps: 0 };
+    const seen = { heightAtNextMine: null, heightAtReconsider: null };
+    miner.walletAddress = 'bcrt1qtest';
+    miner.connector = stallingConnector(node, seen, rpcInfo);
+    sinon.stub(miner, 'refreshWalletFunds').resolves();
+    sinon.stub(miner, 'sleep').callsFake(async () => {
+        if (!node.inCall) return;
+        if (++node.sleeps <= stallSleeps) return;
+        node.height = Math.min(node.height + 5, STALL_H0 + STALL_REQUESTED);
+        if (node.height === STALL_H0 + STALL_REQUESTED) node.inCall = false;
+    });
+    return { node, seen };
+}
+
+// Start the timed-out mine, then a pause, a reconsider and a second mine behind it.
+async function mineThenBarriers(miner, node) {
+    const mine = miner.generateBlocksQueued(STALL_REQUESTED).catch((err) => err);
+    const paused = miner.pauseMining().then(() => node.height);
+    const reconsidered = miner.reconsiderBlock('ab'.repeat(32));
+    const nextMine = miner.generateBlocksQueued(1);
+    const heightAtPause = await paused;
+    await Promise.all([reconsidered, nextMine]);
+    return { err: await mine, heightAtPause };
+}
+
+describe('a timed-out mine settles on the node finishing the call, not on a pause between blocks', function () {
+    const H0 = STALL_H0;
+    const REQUESTED = STALL_REQUESTED;
+    let miner;
+
+    beforeEach(function () {
+        ({ miner } = quietMinerWithMethods());
+    });
+
+    afterEach(function () {
+        sinon.restore();
+        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+    });
+
+    for (const rpcInfo of [true, false]) {
+        const label = rpcInfo ? 'getrpcinfo shows the call active' : 'the node has no getrpcinfo';
+        it(`reports all ${REQUESTED} mined and holds every barrier when ${label}`, async function () {
+            // 30 quiet polls: far past the old three-read window, inside the fallback one.
+            const { node, seen } = wireStallingNode(miner, { stallSleeps: 30, rpcInfo });
+            const before = miner._blocksMined;
+            const { err, heightAtPause } = await mineThenBarriers(miner, node);
+            assert.strictEqual(err.timedOut, true, 'the client did time out');
+            assert.strictEqual(err.minedBlocks, REQUESTED, 'mined is the real height delta of the call');
+            assert.strictEqual(err.requestedBlocks, REQUESTED);
+            assert.strictEqual(heightAtPause, H0 + REQUESTED, 'pause resolves only after the node stopped mining');
+            assert.strictEqual(seen.heightAtReconsider, H0 + REQUESTED);
+            assert.strictEqual(seen.heightAtNextMine, H0 + REQUESTED);
+            // The timed-out call credits all 300, plus the 1 the next mine returned.
+            assert.strictEqual(miner._blocksMined - before, REQUESTED + 1);
+        });
+    }
+
+    it('settles at once when getrpcinfo shows no generatetoaddress, without waiting out the quiet window', async function () {
+        const { node } = wireStallingNode(miner, { stallSleeps: 0, rpcInfo: true });
+        const err = await miner.generateBlocks(REQUESTED).catch((e) => e);
+        assert.strictEqual(err.minedBlocks, REQUESTED);
+        assert.ok(miner.sleep.callCount <= 60, 'the settle stops when the call ends, not a quiet window later');
+        assert.strictEqual(node.inCall, false);
+    });
+
+    it('a failing getrpcinfo read falls back to the quiet window rather than calling the node idle', async function () {
+        const { node } = wireStallingNode(miner, { stallSleeps: 30, rpcInfo: false });
+        miner.connector.getRpcInfo = async () => {
+            throw new Error('Error getting rpc info');
+        };
+        const err = await miner.generateBlocks(REQUESTED).catch((e) => e);
+        assert.strictEqual(err.minedBlocks, REQUESTED);
+        assert.strictEqual(node.height, H0 + REQUESTED);
+    });
+});
+
+// The count is the height delta, bounded to what this mine could have landed.
+describe('a failed generatetoaddress bounds the mined count it reports', function () {
+    let miner;
+
+    beforeEach(function () {
+        ({ miner } = quietMinerWithMethods());
+    });
+
+    afterEach(function () {
+        sinon.restore();
+        delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
+    });
+
+    it('a failure that is not a timeout reads the height once and reports what landed', async function () {
+        wire(miner, miningNode(0), { flagged: false, landedBeforeThrow: 2 });
+        const err = await miner.generateBlocks(4).catch((e) => e);
+        assert.strictEqual(err.timedOut, undefined);
+        assert.strictEqual(err.minedBlocks, 2);
+        assert.strictEqual(err.requestedBlocks, 4);
+    });
+
+    it('caps the count at the request, so blocks mined by another caller are not claimed', async function () {
+        wire(miner, miningNode(0), { flagged: false, landedBeforeThrow: 7 });
+        const before = miner._blocksMined;
+        const err = await miner.generateBlocks(4).catch((e) => e);
+        assert.strictEqual(err.minedBlocks, 4);
+        assert.strictEqual(miner._blocksMined - before, 4);
+    });
+
+    it('floors a height drop at zero, since a reorg that lowered the tip mined nothing', async function () {
+        wire(miner, miningNode(0), { flagged: false, landedBeforeThrow: -3 });
+        const before = miner._blocksMined;
+        const err = await miner.generateBlocks(4).catch((e) => e);
+        assert.strictEqual(err.minedBlocks, 0);
+        assert.strictEqual(miner._blocksMined, before);
+    });
+});

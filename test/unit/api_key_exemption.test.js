@@ -1,4 +1,13 @@
 /*********************************************************************
+ *
+ * Copyright © 2025-2026 Dankest, LLC
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md.
+ *
+ **********************************************************************/
+/*********************************************************************
  * test/unit/api_key_exemption.test.js
  *
  * When MINER_API_KEY is set, the read-only health/observability
@@ -19,8 +28,10 @@ const { UNAUTHENTICATED_METHODS } = require('../../src/api');
 
 describe('MINER_API_KEY exemption contract @regression', function () {
     it('exempts the healthcheck `ping` method', function () {
-        assert.ok(UNAUTHENTICATED_METHODS.has('ping'),
-            'ping must bypass the API-key gate or the Docker healthcheck 401s and the container goes permanently unhealthy');
+        assert.ok(
+            UNAUTHENTICATED_METHODS.has('ping'),
+            'ping must bypass the API-key gate or the Docker healthcheck 401s and the container goes permanently unhealthy',
+        );
     });
 
     it('exempts the read-only `status` method', function () {
@@ -28,8 +39,10 @@ describe('MINER_API_KEY exemption contract @regression', function () {
     });
 
     it('exempts the `health` readiness probe the container healthcheck POSTs', function () {
-        assert.ok(UNAUTHENTICATED_METHODS.has('health'),
-            'health must bypass the API-key gate or the Docker HEALTHCHECK 401s on every interval');
+        assert.ok(
+            UNAUTHENTICATED_METHODS.has('health'),
+            'health must bypass the API-key gate or the Docker HEALTHCHECK 401s on every interval',
+        );
     });
 
     it('does NOT exempt mutating/spend methods (the gate still protects them)', function () {

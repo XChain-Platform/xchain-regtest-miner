@@ -8,17 +8,17 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
+const assert = require('assert');
+const sinon = require('sinon');
 
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
-let XChainRegtestMiner
-let miner
-let connectorStub
-const OUTPUTS_QUANTITY_PER_TX = 2500
-const AMOUNT_FOR_EACH_ADDRESS = 1000
-const FEE = 1000
-const SATOSHI_UNIT = 100000000.0
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
+const OUTPUTS_QUANTITY_PER_TX = 2500;
+const AMOUNT_FOR_EACH_ADDRESS = 1000;
+const FEE = 1000;
+const SATOSHI_UNIT = 100000000.0;
 
 function setupMiner() {
     connectorStub = {
@@ -36,61 +36,61 @@ function setupMiner() {
         getRawTransaction: sinon.stub().resolves(null),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
         getNetworkInfo: sinon.stub().resolves({}),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', '127.0.0.1', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 
-    miner.walletAddress = 'bcrt1qtest'
+    miner.walletAddress = 'bcrt1qtest';
 }
 
 function teardownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
 }
 
 function registerMinerHooks() {
-    beforeEach(setupMiner)
-    afterEach(teardownMiner)
+    beforeEach(setupMiner);
+    afterEach(teardownMiner);
 }
 
 describe('Boundary: fillMempool Chunking and Calculations', function () {
-    registerMinerHooks()
+    registerMinerHooks();
 
     // ─── F-05: tx_quantity = 2501 ──────────────────────────────────────
 
     describe('F-05: tx_quantity = 2501 (one above chunk size)', function () {
         it('creates 2 chunks: one of 2500 and one of 1', function () {
-            const txQuantity = 2501
-            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
-            assert.strictEqual(chunks, 2)
+            const txQuantity = 2501;
+            const chunks = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX);
+            assert.strictEqual(chunks, 2);
 
-            const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
-            assert.strictEqual(remainder, 1)
-        })
+            const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX;
+            assert.strictEqual(remainder, 1);
+        });
 
         it('first chunk is full size, second is remainder', function () {
-            const txQuantity = 2501
-            const txsChunksCount = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX)
-            const chunkSizes = []
+            const txQuantity = 2501;
+            const txsChunksCount = Math.ceil(txQuantity / OUTPUTS_QUANTITY_PER_TX);
+            const chunkSizes = [];
 
             for (let i = 0; i < txsChunksCount; i++) {
-                let txRemainder = OUTPUTS_QUANTITY_PER_TX
+                let txRemainder = OUTPUTS_QUANTITY_PER_TX;
                 if (i === txsChunksCount - 1) {
-                    const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX
-                    if (remainder > 0) txRemainder = remainder
+                    const remainder = txQuantity % OUTPUTS_QUANTITY_PER_TX;
+                    if (remainder > 0) txRemainder = remainder;
                 }
-                chunkSizes.push(txRemainder)
+                chunkSizes.push(txRemainder);
             }
 
-            assert.deepStrictEqual(chunkSizes, [2500, 1])
-        })
-    })
-})
+            assert.deepStrictEqual(chunkSizes, [2500, 1]);
+        });
+    });
+});

@@ -8,14 +8,14 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const BlockchainConnector = require('../../../src/rpc/blockchain_connector')
+const assert = require('assert');
+const sinon = require('sinon');
+const BlockchainConnector = require('../../../src/rpc/blockchain_connector');
 
-let XChainRegtestMiner
-let miner
-let connectorStub
-let clock
+let XChainRegtestMiner;
+let miner;
+let connectorStub;
+let clock;
 
 function setUpMiner() {
     connectorStub = {
@@ -32,78 +32,79 @@ function setUpMiner() {
         setWalletName: sinon.stub(),
         getRawTransaction: sinon.stub().resolves('0200000001'),
         sendRawTransaction: sinon.stub().resolves('txid_sent'),
-    }
+    };
 
-    sinon.stub(BlockchainConnector.prototype, 'constructor')
+    sinon.stub(BlockchainConnector.prototype, 'constructor');
 
-    XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
-    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass')
-    miner.connector = connectorStub
+    XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
+    miner = new XChainRegtestMiner('regtest', 'localhost', '18332', 'user', 'pass');
+    miner.connector = connectorStub;
 
-    sinon.stub(miner, 'sleep').resolves()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
+    sinon.stub(miner, 'sleep').resolves();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 }
 
 function tearDownMiner() {
-    sinon.restore()
-    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')]
+    sinon.restore();
+    delete require.cache[require.resolve('../../../src/XChainRegtestMiner')];
     if (clock) {
-        clock.restore()
-        clock = null
+        clock.restore();
+        clock = null;
     }
 }
 
 describe('Fuzz: mining loop state machine', function () {
-    beforeEach(setUpMiner)
-    afterEach(tearDownMiner)
+    beforeEach(setUpMiner);
+    afterEach(tearDownMiner);
 
     // ─── Mempool timer reset after mining ────────────────────────────
 
     describe('timer state resets after block generation', function () {
         it('resets all timer state after successful mining', async function () {
-            clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false })
-            miner.maxTimeToMineTxs = 50
-            miner.addedTimeToMineTxs = 50
+            clock = sinon.useFakeTimers({ now: 1000000, shouldAdvanceTime: false });
+            miner.maxTimeToMineTxs = 50;
+            miner.addedTimeToMineTxs = 50;
 
-            let phase = 'filling' // filling -> mined -> verify
-            let mempoolReturns = ['txid1']
+            let phase = 'filling'; // filling -> mined -> verify
+            let mempoolReturns = ['txid1'];
 
             connectorStub.getRawMempool.callsFake(async () => {
-                return mempoolReturns
-            })
+                return mempoolReturns;
+            });
 
-            let generateCount = 0
+            let generateCount = 0;
             connectorStub.generateToAddress.callsFake(async () => {
-                generateCount++
+                generateCount++;
                 // After mining, empty the mempool
-                mempoolReturns = []
-                return ['hash']
-            })
+                mempoolReturns = [];
+                return ['hash'];
+            });
 
-            let loopCount = 0
+            let loopCount = 0;
             miner.sleep.callsFake(async () => {
-                loopCount++
-                clock.tick(20)
+                loopCount++;
+                clock.tick(20);
 
                 // After block is mined and mempool is empty, add new txs
                 if (generateCount === 1 && loopCount > 5) {
-                    mempoolReturns = ['txid_new']
+                    mempoolReturns = ['txid_new'];
                 }
 
                 if (loopCount >= 15) {
-                    miner.keepMining = false
-                    throw new Error('__LOOP_BREAK__')
+                    miner.keepMining = false;
+                    throw new Error('__LOOP_BREAK__');
                 }
-            })
+            });
 
-            try { await miner.start() } catch (e) {
-                if (e.message !== '__LOOP_BREAK__') throw e
+            try {
+                await miner.start();
+            } catch (e) {
+                if (e.message !== '__LOOP_BREAK__') throw e;
             }
 
             // Should have mined at least 2 blocks (first batch + second batch)
-            assert.ok(generateCount >= 2,
-                `Expected at least 2 block generations, got ${generateCount}`)
-        })
-    })
-})
+            assert.ok(generateCount >= 2, `Expected at least 2 block generations, got ${generateCount}`);
+        });
+    });
+});

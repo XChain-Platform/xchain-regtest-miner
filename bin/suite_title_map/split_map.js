@@ -83,7 +83,8 @@ function validateSplits(splits) {
         }
     }
     for (const part of Object.keys(owner)) {
-        if (part !== owner[part] && hasOwn(splits, part)) problems.push(`${part}: a part of ${owner[part]} and itself split`);
+        if (part !== owner[part] && hasOwn(splits, part))
+            problems.push(`${part}: a part of ${owner[part]} and itself split`);
     }
     return problems;
 }
@@ -122,7 +123,9 @@ function missingTitles({ script, old, named, after }, expected, got) {
     for (const [title, want] of expected) {
         const have = got.get(title) || 0;
         if (have >= want) continue;
-        const elsewhere = Object.keys(after).filter((rel) => !named.has(rel) && after[rel].includes(title)).sort();
+        const elsewhere = Object.keys(after)
+            .filter((rel) => !named.has(rel) && after[rel].includes(title))
+            .sort();
         const kind = elsewhere.length ? 'title_moved_outside_split' : 'title_dropped';
         const file = elsewhere.length ? `${old} -> ${elsewhere.join(', ')}` : old;
         for (let i = have; i < want; i += 1) out.push({ script, kind, file, title });
@@ -153,7 +156,12 @@ function gradeSplit({ script, old, parts, mapped, after }) {
     // titles it already had would be graded twice or not at all.
     for (const part of parts) {
         if (part !== old && mapped[part]) {
-            out.push({ script, kind: 'split_part_collides', file: part, detail: `already pinned, so it cannot take tests from ${old}` });
+            out.push({
+                script,
+                kind: 'split_part_collides',
+                file: part,
+                detail: `already pinned, so it cannot take tests from ${old}`,
+            });
         }
     }
     const ctx = { script, old, parts, named: new Set(parts), after };
@@ -168,7 +176,10 @@ function withoutFiles(map, dropByScript) {
     for (const name of Object.keys(map.scripts)) {
         const s = map.scripts[name];
         const drop = dropByScript[name];
-        if (!drop || !s.files) { scripts[name] = s; continue; }
+        if (!drop || !s.files) {
+            scripts[name] = s;
+            continue;
+        }
         const files = {};
         for (const rel of Object.keys(s.files)) if (!drop.has(rel)) files[rel] = s.files[rel];
         scripts[name] = { ...s, files };
@@ -188,7 +199,9 @@ function compareWithSplits({ pin, fresh, renames, splits, only, compare }) {
     const differences = [];
     const dropPin = {};
     const dropFresh = {};
-    for (const name of Object.keys(pin.scripts).filter((n) => !only || n === only).sort()) {
+    for (const name of Object.keys(pin.scripts)
+        .filter((n) => !only || n === only)
+        .sort()) {
         const before = filesOf(pin, name);
         const after = filesOf(fresh, name);
         if (!before || !after) continue;

@@ -22,34 +22,34 @@
  * Trigger: nightly; before releases; after dependency upgrades
  */
 
-const sinon = require('sinon')
-const StatefulMockNode = require('../../../e2e/helpers/StatefulMockNode')
+const sinon = require('sinon');
+const StatefulMockNode = require('../../../e2e/helpers/StatefulMockNode');
 
 const state = {
     completed: 0,
     node: null,
     registered: 0,
-}
+};
 
 function registerFile() {
-    state.registered++
+    state.registered++;
 }
 
 async function start() {
-    if (state.node) return state.node
-    state.node = new StatefulMockNode()
-    await state.node.start()
-    sinon.stub(console, 'log')
-    sinon.stub(console, 'error')
-    return state.node
+    if (state.node) return state.node;
+    state.node = new StatefulMockNode();
+    await state.node.start();
+    sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
+    return state.node;
 }
 
 async function finish() {
-    state.completed++
-    if (state.completed !== state.registered) return
-    sinon.restore()
-    await state.node.stop()
-    state.node = null
+    state.completed++;
+    if (state.completed !== state.registered) return;
+    sinon.restore();
+    await state.node.stop();
+    state.node = null;
 }
 
-module.exports = { finish, registerFile, start }
+module.exports = { finish, registerFile, start };

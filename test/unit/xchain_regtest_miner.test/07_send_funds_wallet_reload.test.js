@@ -12,24 +12,24 @@
 // wallet is loaded and before the retried send, or LTC and DOGE funding sends
 // fall back to estimatesmartfee for the rest of the run.
 
-const assert = require('assert')
-const sinon = require('sinon')
-const XChainRegtestMiner = require('../../../src/XChainRegtestMiner')
+const assert = require('assert');
+const sinon = require('sinon');
+const XChainRegtestMiner = require('../../../src/XChainRegtestMiner');
 
-let connector
+let connector;
 
 function minerFor(network) {
-    const miner = new XChainRegtestMiner(network, undefined, '18332', 'user', 'pass')
-    miner.connector = connector
-    return miner
+    const miner = new XChainRegtestMiner(network, undefined, '18332', 'user', 'pass');
+    miner.connector = connector;
+    return miner;
 }
 
 // The first send finds the wallet gone, the retry after the reload succeeds.
 function lostWalletOnce() {
-    const gone = new Error('Error sending funds to address')
-    gone.walletMissing = true
-    connector.sendToAddress.onFirstCall().rejects(gone)
-    connector.sendToAddress.onSecondCall().resolves('txidAfterReload')
+    const gone = new Error('Error sending funds to address');
+    gone.walletMissing = true;
+    connector.sendToAddress.onFirstCall().rejects(gone);
+    connector.sendToAddress.onSecondCall().resolves('txidAfterReload');
 }
 
 describe('XChainRegtestMiner', function () {
@@ -39,38 +39,38 @@ describe('XChainRegtestMiner', function () {
             setWalletName: sinon.stub(),
             setTxFee: sinon.stub().resolves(true),
             sendToAddress: sinon.stub(),
-        }
-        sinon.stub(console, 'log')
-        sinon.stub(console, 'error')
-    })
+        };
+        sinon.stub(console, 'log');
+        sinon.stub(console, 'error');
+    });
 
     afterEach(function () {
-        sinon.restore()
-    })
+        sinon.restore();
+    });
 
     describe('sendFundsToAddress wallet reload', function () {
         it('re-pins settxfee on LTC after reloading a lost wallet, before the retry', async function () {
-            const miner = minerFor('litecoin-regtest')
-            await miner.pinFundingFeeRate()
-            connector.setTxFee.resetHistory()
-            lostWalletOnce()
+            const miner = minerFor('litecoin-regtest');
+            await miner.pinFundingFeeRate();
+            connector.setTxFee.resetHistory();
+            lostWalletOnce();
 
-            assert.strictEqual(await miner.sendFundsToAddress('addr', 1.0), 'txidAfterReload')
-            assert.ok(connector.setTxFee.calledOnce, 'the reloaded wallet must be pinned again')
-            const pin = connector.setTxFee.firstCall
-            assert.ok(pin.calledAfter(connector.setWalletName.firstCall), 'pin the wallet just loaded')
-            assert.ok(pin.calledBefore(connector.sendToAddress.secondCall), 'pin before the retry')
-            assert.ok(!connector.sendToAddress.secondCall.args[2], 'the LTC retry stays positional')
-        })
+            assert.strictEqual(await miner.sendFundsToAddress('addr', 1.0), 'txidAfterReload');
+            assert.ok(connector.setTxFee.calledOnce, 'the reloaded wallet must be pinned again');
+            const pin = connector.setTxFee.firstCall;
+            assert.ok(pin.calledAfter(connector.setWalletName.firstCall), 'pin the wallet just loaded');
+            assert.ok(pin.calledBefore(connector.sendToAddress.secondCall), 'pin before the retry');
+            assert.ok(!connector.sendToAddress.secondCall.args[2], 'the LTC retry stays positional');
+        });
 
         it('keeps the per-call BTC ceiling on the retry without calling settxfee', async function () {
-            const miner = minerFor('bitcoin-regtest')
-            await miner.pinFundingFeeRate()
-            lostWalletOnce()
+            const miner = minerFor('bitcoin-regtest');
+            await miner.pinFundingFeeRate();
+            lostWalletOnce();
 
-            assert.strictEqual(await miner.sendFundsToAddress('addr', 1.0), 'txidAfterReload')
-            assert.ok(connector.setTxFee.notCalled, 'BTC must not call a deleted RPC')
-            assert.ok(connector.sendToAddress.secondCall.args[2] > 0)
-        })
-    })
-})
+            assert.strictEqual(await miner.sendFundsToAddress('addr', 1.0), 'txidAfterReload');
+            assert.ok(connector.setTxFee.notCalled, 'BTC must not call a deleted RPC');
+            assert.ok(connector.sendToAddress.secondCall.args[2] > 0);
+        });
+    });
+});
